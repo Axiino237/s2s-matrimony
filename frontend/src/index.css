@@ -1,0 +1,367 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   S2S Community Matrimony — Logo Crimson & Teal Color System
+   ============================================================ */
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: #F8FAFC;
+    color: #0F172A;
+    @apply font-sans selection:bg-primary/20 selection:text-primary-dark;
+    background-image: 
+      radial-gradient(ellipse at 15% 10%, rgba(230, 57, 86, 0.06) 0%, transparent 60%),
+      radial-gradient(ellipse at 85% 90%, rgba(15, 118, 110, 0.07) 0%, transparent 60%),
+      radial-gradient(circle at 50% 50%, rgba(217, 119, 6, 0.03) 0%, transparent 70%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', Georgia, serif;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    color: inherit;
+  }
+
+  input, textarea, select {
+    @apply outline-none;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #F1F5F9;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(230, 57, 86, 0.3);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(230, 57, 86, 0.6);
+  }
+}
+
+@layer components {
+  /* ---- Classic Elegant Buttons ---- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl font-medium 
+           transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 
+           focus:ring-offset-bg-dark disabled:opacity-50 disabled:cursor-not-allowed select-none text-sm tracking-wide;
+  }
+
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-primary to-primary-dark text-white 
+           hover:from-primary-dark hover:to-primary-700 
+           focus:ring-primary shadow-card hover:shadow-card-hover 
+           hover:-translate-y-0.5 active:translate-y-0 border border-primary/20;
+  }
+
+  .btn-secondary {
+    @apply btn border border-secondary/30 text-text-primary bg-secondary/5 
+           hover:bg-secondary/15 hover:border-secondary focus:ring-secondary 
+           shadow-card hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .btn-gold {
+    @apply btn bg-gradient-gold text-white font-semibold 
+           hover:brightness-105 focus:ring-gold shadow-card 
+           hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .btn-ghost {
+    @apply btn text-text-secondary hover:text-text-primary hover:bg-slate-100 
+           border border-transparent hover:border-slate-200;
+  }
+
+  .btn-sm {
+    @apply px-4 py-2 text-xs rounded-lg;
+  }
+
+  .btn-lg {
+    @apply px-8 py-4 text-base rounded-2xl font-semibold;
+  }
+
+  /* ---- Classic Cards ---- */
+  .card {
+    @apply bg-white border border-slate-200/80 rounded-2xl 
+           shadow-card transition-all duration-300 relative overflow-hidden;
+  }
+
+  .card-classic {
+    @apply card border-slate-200 hover:border-primary/30 hover:shadow-card-hover;
+    background: #FFFFFF;
+  }
+
+  .glass-card {
+    @apply bg-white/90 backdrop-blur-2xl border border-slate-200/80 rounded-3xl shadow-card;
+  }
+
+  .stat-card {
+    @apply card p-5 flex items-center gap-4 hover:border-primary/30 transition-all duration-300 cursor-pointer;
+  }
+
+  .stat-icon {
+    @apply w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105 shadow-sm;
+  }
+
+  /* ---- Form Inputs ---- */
+  .input {
+    @apply w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-text-primary 
+           placeholder-text-muted focus:border-primary focus:bg-white focus:ring-1 focus:ring-primary/50
+           transition-all duration-200 text-sm;
+  }
+
+  .input-label {
+    @apply block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5;
+  }
+
+  .input-error {
+    @apply border-error focus:border-error focus:ring-error/50;
+  }
+
+  .error-msg {
+    @apply text-error text-xs mt-1.5 flex items-center gap-1 font-medium;
+  }
+
+  .input-hint {
+    @apply text-text-muted text-xs mt-1;
+  }
+
+  /* ---- Classic Badges ---- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide border;
+  }
+
+  .badge-verified {
+    @apply bg-emerald-600 text-white border-emerald-500 font-bold shadow-sm;
+  }
+
+  .badge-premium {
+    @apply bg-gold text-white border-gold-dark font-bold shadow-sm;
+  }
+
+  .badge-active {
+    @apply bg-success/10 text-success border-success/30;
+  }
+
+  .badge-pending {
+    @apply bg-warning/10 text-warning border-warning/30;
+  }
+
+  .badge-rejected {
+    @apply bg-error/10 text-error border-error/30;
+  }
+
+  /* ---- Section Styling ---- */
+  .section {
+    @apply py-16 md:py-24 relative overflow-hidden;
+  }
+
+  .section-title {
+    @apply font-display text-3xl md:text-4xl lg:text-5xl font-bold text-text-primary tracking-tight;
+  }
+
+  .section-subtitle {
+    @apply text-text-secondary text-base md:text-lg max-w-2xl mx-auto mt-3 font-normal;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-primary bg-clip-text text-transparent;
+  }
+
+  .text-gradient-gold {
+    @apply bg-gradient-gold bg-clip-text text-transparent;
+  }
+
+  .text-gradient-teal {
+    @apply bg-gradient-to-r from-secondary-light to-secondary bg-clip-text text-transparent;
+  }
+
+  /* ---- Plan / Pricing Cards ---- */
+  .plan-card {
+    @apply card p-6 border-slate-200 hover:border-primary/40 transition-all duration-300 relative flex flex-col justify-between;
+  }
+
+  .plan-card-popular {
+    @apply border-primary/40 shadow-card-hover bg-gradient-to-b from-primary/5 to-white;
+  }
+
+  /* ---- Classic Tabs ---- */
+  .tab-bar {
+    @apply flex items-center p-1.5 bg-slate-100 border border-slate-200 rounded-2xl gap-1;
+  }
+
+  .tab {
+    @apply flex-1 py-2.5 px-4 rounded-xl text-xs md:text-sm font-medium text-text-secondary 
+           transition-all duration-200 text-center cursor-pointer hover:text-text-primary;
+  }
+
+  .tab-active {
+    @apply bg-gradient-to-r from-primary to-secondary text-white shadow-md font-bold;
+  }
+
+  .bg-theme-gradient {
+    @apply bg-gradient-to-r from-primary to-secondary text-white shadow-md;
+  }
+
+  /* ---- Step Progress Circles ---- */
+  .step-circle {
+    @apply w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300;
+  }
+
+  .step-active {
+    @apply bg-gradient-primary text-white shadow-lg border-2 border-primary-light;
+  }
+
+  .step-completed {
+    @apply bg-secondary text-white border-2 border-secondary-light;
+  }
+
+  .step-inactive {
+    @apply bg-slate-100 text-text-muted border border-slate-200;
+  }
+
+  /* ---- Chat Bubble ---- */
+  .chat-bubble-sent {
+    @apply bg-gradient-primary text-white rounded-2xl rounded-tr-none px-4 py-3 text-sm max-w-[80%] shadow-md;
+  }
+
+  .chat-bubble-received {
+    @apply bg-slate-100 text-text-primary border border-slate-200 rounded-2xl rounded-tl-none px-4 py-3 text-sm max-w-[80%];
+  }
+
+  /* ---- Classic Divider ---- */
+  .divider-text {
+    @apply flex items-center text-xs uppercase tracking-widest text-text-muted my-6;
+  }
+  .divider-text::before, .divider-text::after {
+    content: '';
+    @apply flex-1 border-t border-slate-200 mx-3;
+  }
+
+  /* ---- Light Mode Text Contrast Overrides ---- */
+  .card h1.text-white,
+  .card h2.text-white,
+  .card h3.text-white,
+  .card h4.text-white,
+  .card p.text-white,
+  .card span.text-white,
+  .glass-card h1.text-white,
+  .glass-card h2.text-white,
+  .glass-card h3.text-white,
+  .glass-card h4.text-white,
+  .glass-card p.text-white,
+  .glass-card span.text-white,
+  main h1.text-white,
+  main h2.text-white,
+  main h3.text-white,
+  main h4.text-white,
+  header h1.text-white {
+    color: #0F172A !important;
+  }
+
+  /* Force Crisp High-Contrast White Text on Primary, Gold & Badges */
+  .btn-primary, .btn-primary *,
+  .btn-gold, .btn-gold *,
+  .badge-verified, .badge-verified *,
+  .badge-premium, .badge-premium * {
+    color: #FFFFFF !important;
+  }
+
+  .badge-verified {
+    background-color: #059669 !important; /* Solid Emerald 600 */
+    border-color: #10B981 !important;
+  }
+
+  .badge-premium {
+    background-color: #D97706 !important; /* Solid Amber 600 */
+    border-color: #F59E0B !important;
+  }
+}
+
+/* ============================================================
+   UI Animations & Transitions
+   ============================================================ */
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(1deg); }
+}
+
+@keyframes floatReverse {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(12px) rotate(-1deg); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.08); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-float {
+  animation: floatSlow 5s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: floatReverse 6s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2.5s infinite;
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+.hover-glow {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-glow:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 35px -10px rgba(230, 57, 86, 0.25);
+}

@@ -1,0 +1,3 @@
+﻿import { Link } from 'react-router-dom';
+const PaymentSuccessPage = () => (<div className='min-h-[60vh] flex items-center justify-center'><div className='text-center'><div className='text-8xl mb-6'>🎉</div><h1 className='font-display text-3xl font-bold text-white mb-4'>Payment Successful!</h1><p className='text-text-secondary mb-8'>Your premium membership is now active. Enjoy unlimited access!</p><div className='flex gap-4 justify-center'><Link to='/dashboard' className='btn btn-primary'>Go to Dashboard</Link><Link to='/search' className='btn btn-secondary'>Browse Profiles</Link></div></div></div>);
+export default PaymentSuccessPage;

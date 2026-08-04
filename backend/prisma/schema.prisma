@@ -1,0 +1,1065 @@
+// This is the complete S2S Community Matrimony Database Schema
+// 40+ tables covering all features: Auth, RBAC, Profiles, Communities, 
+// Matchmaking, Communication, Payments, Admin, CMS
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum MaritalStatus {
+  NEVER_MARRIED
+  DIVORCED
+  WIDOWED
+  SEPARATED
+}
+
+enum MembershipTier {
+  FREE
+  SILVER
+  GOLD
+  ELITE
+  DIAMOND
+  PLATINUM
+}
+
+enum ProfileStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum PhotoStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InterestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  INTEREST
+  MATCH
+  CHAT
+  MESSAGE
+  PAYMENT
+  SYSTEM
+  VERIFICATION
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+  SUPPORT_AGENT
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+enum ReportReason {
+  FAKE_PROFILE
+  INAPPROPRIATE_PHOTO
+  HARASSMENT
+  SPAM
+  SCAM
+  OTHER
+}
+
+enum FamilyType {
+  NUCLEAR
+  JOINT
+}
+
+enum FamilyStatus {
+  RICH
+  UPPER_MIDDLE
+  MIDDLE
+  LOWER_MIDDLE
+}
+
+enum FamilyValues {
+  ORTHODOX
+  MODERATE
+  LIBERAL
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  AUDIO
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED
+}
+
+// ============================================================
+// AUTH & USER MANAGEMENT
+// ============================================================
+
+model User {
+  id              String    @id @default(uuid())
+  email           String    @unique
+  phone           String    @unique
+  passwordHash    String?
+  isEmailVerified Boolean   @default(false)
+  isPhoneVerified Boolean   @default(true)
+  isActive        Boolean   @default(true)
+  lastActive      DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  profile         Profile?
+  userRoles       UserRole[]
+  sessions        Session[]
+  otpTokens       OtpToken[]
+  sentInterests   Interest[]     @relation("SentInterests")
+  receivedInterests Interest[]   @relation("ReceivedInterests")
+  favorites       Favorite[]
+  blockedUsers    Block[]        @relation("BlockedBy")
+  blockedByUsers  Block[]        @relation("BlockedUser")
+  chatsAsUser1    Chat[]         @relation("ChatUser1")
+  chatsAsUser2    Chat[]         @relation("ChatUser2")
+  sentMessages    Message[]
+  notifications   Notification[]
+  memberships     Membership[]
+  payments        Payment[]
+  profileViews    ProfileView[]  @relation("ProfileViewer")
+  viewedProfiles  ProfileView[]  @relation("ProfileOwner")
+  sentReports     Report[]       @relation("ReportedBy")
+  contactUnlocks  ContactUnlock[] @relation("UnlockedBy")
+
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  refreshToken String   @unique
+  deviceInfo   String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model OtpToken {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  otp       String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [phone], references: [phone])
+
+  @@map("otp_tokens")
+}
+
+// ============================================================
+// RBAC & UAM — Roles, Modules, Actions, Permissions, User Roles
+// ============================================================
+
+model Module {
+  id          String   @id @default(uuid())
+  name        String   // e.g. "User Management"
+  slug        String   @unique // e.g. "users"
+  icon        String?  // e.g. "Users"
+  path        String?  // e.g. "/admin/users"
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions Permission[]
+
+  @@map("modules")
+}
+
+model Action {
+  id          String   @id @default(uuid())
+  name        String   // e.g. "Read"
+  slug        String   @unique // e.g. "read"
+  description String?
+  createdAt   DateTime @default(now())
+
+  permissions Permission[]
+
+  @@map("actions")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  displayName String
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique  // e.g. "users:read"
+  displayName String
+  group       String   // e.g. "Users", "Profiles"
+  description String?
+  moduleId    String?
+  actionId    String?
+  createdAt   DateTime @default(now())
+
+  module          Module?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  action          Action?          @relation(fields: [actionId], references: [id], onDelete: SetNull)
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  grantedBy String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  adminId    String?
+  action     String
+  entity     String
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// ============================================================
+// PROFILES
+// ============================================================
+
+model Profile {
+  id                      String        @id @default(uuid())
+  userId                  String        @unique
+  profileFor              String        @default("SELF") // SELF, SON, DAUGHTER, etc.
+  firstName               String
+  lastName                String
+  displayName             String
+  gender                  Gender
+  dateOfBirth             DateTime
+  age                     Int
+  maritalStatus           MaritalStatus @default(NEVER_MARRIED)
+  heightCm                Int?
+  weight                  Int?
+  complexion              String?
+  bodyType                String?
+  diet                    String?
+  smoking                 Boolean       @default(false)
+  drinking                Boolean       @default(false)
+  motherTongue            String?
+  about                   String?
+  status                  ProfileStatus @default(PENDING)
+  isVerified              Boolean       @default(false)
+  verificationStatus      VerificationStatus @default(UNVERIFIED)
+  profileCompletionPercent Int          @default(0)
+  mainPhotoId             String?
+  communityId             String?
+  religionId              String?
+  casteId                 String?
+  subCasteId              String?
+  gothram                 String?
+  countryId               String?
+  stateId                 String?
+  cityId                  String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  deletedAt               DateTime?
+
+  // Relations
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community        Community?        @relation(fields: [communityId], references: [id])
+  religion         Religion?         @relation(fields: [religionId], references: [id])
+  caste            Caste?            @relation(fields: [casteId], references: [id])
+  subCaste         SubCaste?         @relation(fields: [subCasteId], references: [id])
+  country          Country?          @relation(fields: [countryId], references: [id])
+  state            State?            @relation(fields: [stateId], references: [id])
+  city             City?             @relation(fields: [cityId], references: [id])
+  photos           ProfilePhoto[]
+  education        Education?
+  occupation       Occupation?
+  family           FamilyDetail?
+  horoscope        Horoscope?
+  partnerPreference PartnerPreference?
+  privacySetting   PrivacySetting?
+  membership       Membership?
+  matchScores      MatchScore[]      @relation("ProfileA")
+  matchedWith      MatchScore[]      @relation("ProfileB")
+  reportedProfiles Report[]          @relation("ReportedProfile")
+  contactUnlocks   ContactUnlock[]   @relation("UnlockedProfile")
+
+  @@index([status])
+  @@index([gender])
+  @@index([age])
+  @@index([casteId])
+  @@index([subCasteId])
+  @@map("profiles")
+}
+
+model ProfilePhoto {
+  id         String      @id @default(uuid())
+  profileId  String
+  url        String
+  thumbnail  String?
+  isMain     Boolean     @default(false)
+  order      Int         @default(0)
+  status     PhotoStatus @default(PENDING)
+  rejectionReason String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("profile_photos")
+}
+
+model Education {
+  id             String   @id @default(uuid())
+  profileId      String   @unique
+  educationId    String?
+  degree         String?
+  fieldOfStudy   String?
+  college        String?
+  university     String?
+  yearCompleted  Int?
+  additionalInfo String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  profile         Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  educationMaster EducationMaster? @relation(fields: [educationId], references: [id])
+
+  @@map("education")
+}
+
+model Occupation {
+  id             String   @id @default(uuid())
+  profileId      String   @unique
+  occupationId   String?
+  company        String?
+  designation    String?
+  salaryMin      Int?
+  salaryMax      Int?
+  workingLocation String?
+  employmentType String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  profile          Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  occupationMaster OccupationMaster? @relation(fields: [occupationId], references: [id])
+
+  @@map("occupation")
+}
+
+model FamilyDetail {
+  id                 String       @id @default(uuid())
+  profileId          String       @unique
+  fatherName         String?
+  fatherOccupation   String?
+  fatherAlive        Boolean      @default(true)
+  motherName         String?
+  motherOccupation   String?
+  motherAlive        Boolean      @default(true)
+  brothers           Int          @default(0)
+  brothersMarried    Int          @default(0)
+  sisters            Int          @default(0)
+  sistersMarried     Int          @default(0)
+  familyType         FamilyType?
+  familyStatus       FamilyStatus?
+  familyValues       FamilyValues?
+  nativePlace        String?
+  familyDescription  String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("family_details")
+}
+
+model Horoscope {
+  id            String   @id @default(uuid())
+  profileId     String   @unique
+  star          String?  // Nakshatra
+  rasi          String?  // Moon Sign
+  lagnam        String?  // Ascendant
+  gothram       String?
+  dosham        String?  // Chevvai, Raagu, etc.
+  birthTime     String?
+  birthPlace    String?
+  horoscopeFile String?
+  horoscopeData Json?    // Planet positions
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("horoscope")
+}
+
+model PartnerPreference {
+  id              String          @id @default(uuid())
+  profileId       String          @unique
+  gender          Gender?
+  ageMin          Int?
+  ageMax          Int?
+  heightMin       Int?
+  heightMax       Int?
+  maritalStatus   MaritalStatus[]
+  casteAny        Boolean         @default(true)
+  casteIds        String[]
+  motherTongue    String[]
+  educationIds    String[]
+  occupationIds   String[]
+  salaryMin       Int?
+  countryIds      String[]
+  stateIds        String[]
+  cityIds         String[]
+  complexion      String[]
+  dosha           Boolean?
+  smokingPref     Boolean?
+  drinkingPref    Boolean?
+  aboutPartner    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("partner_preferences")
+}
+
+model PrivacySetting {
+  id               String   @id @default(uuid())
+  profileId        String   @unique
+  showPhone        Boolean  @default(false)
+  showEmail        Boolean  @default(false)
+  showPhoto        Boolean  @default(true)
+  showHoroscope    Boolean  @default(true)
+  showLastActive   Boolean  @default(true)
+  whoCanViewProfile String  @default("ALL") // ALL, PREMIUM, ACCEPTED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("privacy_settings")
+}
+
+// ============================================================
+// COMMUNITY & MASTER DATA
+// ============================================================
+
+model Community {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  logo        String?
+  bannerImage String?
+  isActive    Boolean  @default(true)
+  memberCount Int      @default(0)
+  parentId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent   Community?   @relation("SubCommunities", fields: [parentId], references: [id])
+  children Community[]  @relation("SubCommunities")
+  profiles Profile[]
+  castes   Caste[]
+
+  @@map("communities")
+}
+
+model Religion {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  profiles Profile[]
+  castes   Caste[]
+
+  @@map("religions")
+}
+
+model Caste {
+  id          String   @id @default(uuid())
+  name        String
+  religionId  String?
+  communityId String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  religion    Religion?    @relation(fields: [religionId], references: [id])
+  community   Community?   @relation(fields: [communityId], references: [id])
+  subCastes   SubCaste[]
+  profiles    Profile[]
+
+  @@map("castes")
+}
+
+model SubCaste {
+  id        String   @id @default(uuid())
+  name      String
+  casteId   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  caste    Caste     @relation(fields: [casteId], references: [id])
+  profiles Profile[]
+
+  @@map("sub_castes")
+}
+
+model Country {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique
+  flag      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  states   State[]
+  profiles Profile[]
+
+  @@map("countries")
+}
+
+model State {
+  id        String   @id @default(uuid())
+  name      String
+  countryId String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  country  Country   @relation(fields: [countryId], references: [id])
+  cities   City[]
+  profiles Profile[]
+
+  @@map("states")
+}
+
+model City {
+  id        String   @id @default(uuid())
+  name      String
+  stateId   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  state    State     @relation(fields: [stateId], references: [id])
+  profiles Profile[]
+
+  @@map("cities")
+}
+
+model EducationMaster {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  level     String?  // UG, PG, Diploma, PhD
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  educations Education[]
+
+  @@map("education_master")
+}
+
+model OccupationMaster {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  category  String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  occupations Occupation[]
+
+  @@map("occupation_master")
+}
+
+model Language {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("languages")
+}
+
+// ============================================================
+// MATCHMAKING
+// ============================================================
+
+model Interest {
+  id         String         @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     InterestStatus @default(PENDING)
+  message    String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  sender   User @relation("SentInterests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedInterests", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@map("interests")
+}
+
+model Favorite {
+  id         String   @id @default(uuid())
+  userId     String
+  profileId  String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, profileId])
+  @@map("favorites")
+}
+
+model Block {
+  id          String   @id @default(uuid())
+  blockedById String
+  blockedId   String
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  blockedBy User @relation("BlockedBy", fields: [blockedById], references: [id], onDelete: Cascade)
+  blocked   User @relation("BlockedUser", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockedById, blockedId])
+  @@map("blocks")
+}
+
+model MatchScore {
+  id        String   @id @default(uuid())
+  profileAId String
+  profileBId String
+  score     Int
+  factors   Json?    // Detailed breakdown of score factors
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profileA Profile @relation("ProfileA", fields: [profileAId], references: [id], onDelete: Cascade)
+  profileB Profile @relation("ProfileB", fields: [profileBId], references: [id], onDelete: Cascade)
+
+  @@unique([profileAId, profileBId])
+  @@map("match_scores")
+}
+
+model ProfileView {
+  id         String   @id @default(uuid())
+  viewerId   String
+  ownerId    String
+  createdAt  DateTime @default(now())
+
+  viewer User @relation("ProfileViewer", fields: [viewerId], references: [id], onDelete: Cascade)
+  owner  User @relation("ProfileOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("profile_views")
+}
+
+model ContactUnlock {
+  id          String   @id @default(uuid())
+  unlockedById String
+  profileId   String
+  createdAt   DateTime @default(now())
+
+  unlockedBy User    @relation("UnlockedBy", fields: [unlockedById], references: [id], onDelete: Cascade)
+  profile    Profile @relation("UnlockedProfile", fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([unlockedById, profileId])
+  @@map("contact_unlocks")
+}
+
+// ============================================================
+// COMMUNICATION
+// ============================================================
+
+model Chat {
+  id        String   @id @default(uuid())
+  user1Id   String
+  user2Id   String
+  isBlocked Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user1    User      @relation("ChatUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2    User      @relation("ChatUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([user1Id, user2Id])
+  @@map("chats")
+}
+
+model Message {
+  id        String      @id @default(uuid())
+  chatId    String
+  senderId  String
+  content   String
+  type      MessageType @default(TEXT)
+  fileUrl   String?
+  isRead    Boolean     @default(false)
+  readAt    DateTime?
+  deletedAt DateTime?
+  createdAt DateTime    @default(now())
+
+  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ============================================================
+// PREMIUM & PAYMENTS
+// ============================================================
+
+model MembershipPlan {
+  id              String         @id @default(uuid())
+  name            String         @unique
+  tier            MembershipTier
+  price           Decimal        @db.Decimal(10, 2)
+  originalPrice   Decimal?       @db.Decimal(10, 2)
+  durationMonths  Int
+  features        Json
+  maxInterests    Int            @default(-1) // -1 = unlimited
+  maxContacts     Int            @default(-1)
+  hasChat         Boolean        @default(false)
+  hasAiMatch      Boolean        @default(false)
+  hasVideoProfile Boolean        @default(false)
+  isPopular       Boolean        @default(false)
+  isActive        Boolean        @default(true)
+  displayOrder    Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  memberships Membership[]
+  payments    Payment[]
+
+  @@map("membership_plans")
+}
+
+model Membership {
+  id        String         @id @default(uuid())
+  userId    String         @unique
+  profileId String         @unique
+  planId    String
+  tier      MembershipTier @default(FREE)
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean        @default(true)
+  autoRenew Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  plan    MembershipPlan @relation(fields: [planId], references: [id])
+
+  @@map("memberships")
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  userId            String
+  planId            String
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("INR")
+  status            PaymentStatus @default(PENDING)
+  razorpayOrderId   String?       @unique
+  razorpayPaymentId String?       @unique
+  razorpaySignature String?
+  couponId          String?
+  discountAmount    Decimal?      @db.Decimal(10, 2)
+  invoiceUrl        String?
+  failureReason     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan   MembershipPlan @relation(fields: [planId], references: [id])
+  coupon Coupon?        @relation(fields: [couponId], references: [id])
+
+  @@map("payments")
+}
+
+model Coupon {
+  id              String     @id @default(uuid())
+  code            String     @unique
+  type            CouponType
+  discountValue   Decimal    @db.Decimal(10, 2)
+  minOrderAmount  Decimal?   @db.Decimal(10, 2)
+  maxUsageCount   Int?
+  usageCount      Int        @default(0)
+  validFrom       DateTime
+  validUntil      DateTime
+  isActive        Boolean    @default(true)
+  applicableTiers MembershipTier[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  payments Payment[]
+
+  @@map("coupons")
+}
+
+// ============================================================
+// ADMIN & CMS
+// ============================================================
+
+model Admin {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         AdminRole @default(MODERATOR)
+  communityId  String?   // null = all communities
+  isActive     Boolean   @default(true)
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("admins")
+}
+
+model Report {
+  id               String       @id @default(uuid())
+  reportedById     String
+  reportedProfileId String
+  reason           ReportReason
+  description      String?
+  status           ReportStatus @default(PENDING)
+  reviewedBy       String?
+  reviewNote       String?
+  reviewedAt       DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  reportedBy      User    @relation("ReportedBy", fields: [reportedById], references: [id], onDelete: Cascade)
+  reportedProfile Profile @relation("ReportedProfile", fields: [reportedProfileId], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}
+
+model Banner {
+  id          String   @id @default(uuid())
+  title       String
+  imageUrl    String
+  linkUrl     String?
+  page        String   // home, search, dashboard, etc.
+  position    String?  // hero, sidebar, etc.
+  isActive    Boolean  @default(true)
+  displayOrder Int     @default(0)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("banners")
+}
+
+model CmsPage {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  content     String
+  metaTitle   String?
+  metaDesc    String?
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("cms_pages")
+}
+
+model SuccessStory {
+  id          String    @id @default(uuid())
+  groomName   String
+  brideName   String
+  communityId String?
+  marriageDate DateTime?
+  story       String
+  photo       String?
+  isApproved  Boolean   @default(false)
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("success_stories")
+}
+
+model BlogCategory {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  blogs Blog[]
+
+  @@map("blog_categories")
+}
+
+model Blog {
+  id          String    @id @default(uuid())
+  title       String
+  slug        String    @unique
+  content     String
+  excerpt     String?
+  coverImage  String?
+  categoryId  String?
+  authorId    String?   // Admin ID
+  isPublished Boolean   @default(false)
+  publishedAt DateTime?
+  metaTitle   String?
+  metaDesc    String?
+  viewCount   Int       @default(0)
+  tags        String[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  category BlogCategory? @relation(fields: [categoryId], references: [id])
+
+  @@map("blogs")
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  group     String?
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  subject   String
+  htmlBody  String
+  textBody  String?
+  variables Json?    // List of available variables
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("email_templates")
+}
+
+// ============================================================
+// AUTH TOKENS
+// ============================================================
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
