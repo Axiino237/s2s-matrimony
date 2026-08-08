@@ -133,17 +133,21 @@ export const useAuthStore = create<AuthStore>()(
 
         if (mainRole === 'SUPER_ADMIN') return true;
 
-        if (user.permissions && user.permissions.includes(perm)) return true;
-
         const savedMapStr = localStorage.getItem('s2s_role_permissions');
         if (savedMapStr) {
           try {
             const map = JSON.parse(savedMapStr);
-            const rolePerms = map[mainRole] || [];
-            if (rolePerms.includes(perm)) return true;
+            const rolePerms = map[mainRole];
+            if (Array.isArray(rolePerms)) {
+              return rolePerms.includes(perm);
+            }
           } catch {
             // fallback
           }
+        }
+
+        if (user.permissions && Array.isArray(user.permissions)) {
+          return user.permissions.includes(perm);
         }
 
         return false;

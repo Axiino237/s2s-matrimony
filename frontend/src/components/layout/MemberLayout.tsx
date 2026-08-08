@@ -17,6 +17,7 @@ interface NavItem {
   badge?: string;
   badgeColor?: string;
   locked?: boolean;
+  requiredPermission?: string;
 }
 
 interface NavGroup {
@@ -28,12 +29,19 @@ interface NavGroup {
 const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: number }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, isPremium, logout } = useAuthStore();
+  const { user, isPremium, logout, hasPermission, isSuperAdmin } = useAuthStore();
+  const [, setRefreshKey] = useState(0);
 
   const profileCompletion = (user as any)?.profileCompletionPercent ?? 0;
   const isProfileComplete = profileCompletion >= 100;
   const memberTier = user?.membershipStatus || 'FREE';
   const isPrem = isPremium();
+
+  useEffect(() => {
+    const handlePermUpdate = () => setRefreshKey((k) => k + 1);
+    window.addEventListener('s2s_permissions_updated', handlePermUpdate);
+    return () => window.removeEventListener('s2s_permissions_updated', handlePermUpdate);
+  }, []);
 
   const tierColors: Record<string, string> = {
     FREE: 'bg-slate-200 text-slate-600',
@@ -48,44 +56,44 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
     {
       title: 'Main',
       items: [
-        { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', locked: !isProfileComplete },
-        { icon: User, label: 'My Profile', href: '/profile', locked: !isProfileComplete },
-        { icon: FileText, label: 'Biodata Form', href: '/profile/biodata-form' },
+        { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', locked: !isProfileComplete, requiredPermission: 'member:dashboard' },
+        { icon: User, label: 'My Profile', href: '/profile', locked: !isProfileComplete, requiredPermission: 'member:profile' },
+        { icon: FileText, label: 'Biodata Form', href: '/profile/biodata-form', requiredPermission: 'member:profile' },
       ],
     },
     {
       title: 'Discover',
       items: [
-        { icon: Search, label: 'Search Profiles', href: '/search', locked: !isProfileComplete },
-        { icon: Star, label: 'Recommended Matches', href: '/matches', locked: !isProfileComplete },
+        { icon: Search, label: 'Search Profiles', href: '/search', locked: !isProfileComplete, requiredPermission: 'member:search' },
+        { icon: Star, label: 'Recommended Matches', href: '/matches', locked: !isProfileComplete, requiredPermission: 'member:search' },
       ],
     },
     {
       title: 'Connect',
       items: [
-        { icon: Heart, label: 'Interests', href: '/interests', locked: !isProfileComplete, badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeColor: 'bg-rose-500' },
-        { icon: MessageSquare, label: 'Messages', href: '/messages', locked: !isProfileComplete },
+        { icon: Heart, label: 'Interests', href: '/interests', locked: !isProfileComplete, badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeColor: 'bg-rose-500', requiredPermission: 'member:interests' },
+        { icon: MessageSquare, label: 'Messages', href: '/messages', locked: !isProfileComplete, requiredPermission: 'member:messages' },
       ],
     },
     {
       title: 'Membership',
       items: [
-        { icon: Crown, label: 'Upgrade Plan', href: '/premium', badge: !isPrem ? 'Upgrade' : undefined, badgeColor: 'bg-gradient-to-r from-amber-400 to-yellow-500' },
-        { icon: CreditCard, label: 'Payment History', href: '/payment-history', locked: !isProfileComplete },
-        { icon: Phone, label: 'Contact View History', href: '/contact-history', locked: !isProfileComplete },
+        { icon: Crown, label: 'Upgrade Plan', href: '/premium', badge: !isPrem ? 'Upgrade' : undefined, badgeColor: 'bg-gradient-to-r from-amber-400 to-yellow-500', requiredPermission: 'member:upgrade' },
+        { icon: CreditCard, label: 'Payment History', href: '/payment-history', locked: !isProfileComplete, requiredPermission: 'member:payments' },
+        { icon: Phone, label: 'Contact View History', href: '/contact-history', locked: !isProfileComplete, requiredPermission: 'member:contacts' },
       ],
     },
     {
       title: 'Discover More',
       items: [
-        { icon: BookOpen, label: 'Blogs', href: '/blog' },
-        { icon: Heart, label: 'Success Stories', href: '/success-stories' },
+        { icon: BookOpen, label: 'Blogs', href: '/blog', requiredPermission: 'blogs:read' },
+        { icon: Heart, label: 'Success Stories', href: '/success-stories', requiredPermission: 'stories:read' },
       ],
     },
     {
       title: 'Account',
       items: [
-        { icon: Settings, label: 'Edit Profile', href: '/profile/edit' },
+        { icon: Settings, label: 'Edit Profile', href: '/profile/edit', requiredPermission: 'member:profile' },
       ],
     },
   ];
@@ -95,23 +103,13 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
     navigate('/login');
   };
 
-  const isStaffAdmin = user?.roles?.some(r => ['SUPER_ADMIN', 'ADMIN'].includes(r)) || (user as any)?.role === 'SUPER_ADMIN' || (user as any)?.role === 'ADMIN';
-
   const visibleNavGroups = navGroups
     .map((group) => ({
       ...group,
       items: group.items.filter((item) => {
-        if (!isStaffAdmin) {
-          if (
-            item.href === '/payment-history' ||
-            item.href === '/contact-history' ||
-            item.href === '/blog' ||
-            item.href === '/success-stories'
-          ) {
-            return false;
-          }
-        }
-        return true;
+        if (isSuperAdmin()) return true;
+        if (!item.requiredPermission) return true;
+        return hasPermission(item.requiredPermission);
       }),
     }))
     .filter((group) => group.items.length > 0);

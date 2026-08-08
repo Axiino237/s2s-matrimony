@@ -203,12 +203,21 @@ export const MEMBER_PERM_KEYS = OFFICIAL_PERMISSIONS.filter(g => g.category.incl
 export const INITIAL_ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: ALL_PERM_KEYS,
   ADMIN: ADMIN_PERM_KEYS,
+  MODERATOR: [
+    'dashboard:view', 'users:read', 'profiles:read', 'profiles:write', 'profiles:verify', 'profiles:moderate',
+    'stories:read', 'stories:approve', 'reports:view', 'reports:handle', 'blogs:read',
+  ],
+  SUPPORT_AGENT: [
+    'dashboard:view', 'users:read', 'profiles:read', 'payments:view', 'reports:view', 'reports:handle',
+  ],
   MEMBER: MEMBER_PERM_KEYS,
 };
 
 const roleBadge: Record<string, string> = {
   SUPER_ADMIN: 'bg-rose-100 text-rose-800 border-rose-200',
   ADMIN: 'bg-blue-100 text-blue-800 border-blue-200',
+  MODERATOR: 'bg-amber-100 text-amber-800 border-amber-200',
+  SUPPORT_AGENT: 'bg-teal-100 text-teal-800 border-teal-200',
   MEMBER: 'bg-purple-100 text-purple-800 border-purple-200',
 };
 
@@ -245,7 +254,7 @@ const SuperAdminAdmins = () => {
     return INITIAL_ROLE_PERMISSIONS;
   });
 
-  const [selectedRole, setSelectedRole] = useState<'ADMIN' | 'SUPER_ADMIN' | 'MEMBER'>('ADMIN');
+  const [selectedRole, setSelectedRole] = useState<string>('ADMIN');
 
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -271,15 +280,13 @@ const SuperAdminAdmins = () => {
         setAdmins(
           data.map((u: any) => {
             const rawRole = (u.userRoles?.[0]?.role?.name || 'ADMIN').toUpperCase();
-            const mainRole = rawRole === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : rawRole === 'MEMBER' ? 'MEMBER' : 'ADMIN';
-            const isSuper = mainRole === 'SUPER_ADMIN';
-            const name = u.profile ? `${u.profile.firstName ?? ''} ${u.profile.lastName ?? ''}`.trim() : (isSuper ? 'Super Admin' : u.email.split('@')[0]);
+            const name = u.profile ? `${u.profile.firstName ?? ''} ${u.profile.lastName ?? ''}`.trim() : (rawRole === 'SUPER_ADMIN' ? 'Super Admin' : u.email.split('@')[0]);
 
             return {
               id: u.id,
               name: name || 'Admin User',
               email: u.email,
-              role: mainRole as any,
+              role: rawRole as any,
               community: u.profile?.community?.name ?? 'Global',
               status: u.isActive !== false ? 'ACTIVE' : 'INACTIVE',
             };
@@ -302,7 +309,10 @@ const SuperAdminAdmins = () => {
     fetchAdmins();
     superAdminService.getRolePermissions().then((data) => {
       if (data && Object.keys(data).length > 0) {
-        setRolePermissions(data);
+        const merged = { ...INITIAL_ROLE_PERMISSIONS, ...data };
+        merged.SUPER_ADMIN = ALL_PERM_KEYS;
+        setRolePermissions(merged);
+        localStorage.setItem('s2s_role_permissions', JSON.stringify(merged));
       }
     }).catch(() => null);
   }, [fetchAdmins]);
@@ -321,16 +331,48 @@ const SuperAdminAdmins = () => {
     setRolePermissions(newMap);
   };
 
+  const handleToggleCategory = (categoryPermKeys: string[]) => {
+    if (selectedRole === 'SUPER_ADMIN') {
+      toast.error('Super Admin retains full system permissions at all times.');
+      return;
+    }
+    const currentList = rolePermissions[selectedRole] || [];
+    const allIncluded = categoryPermKeys.every((k) => currentList.includes(k));
+    const updated = allIncluded
+      ? currentList.filter((k) => !categoryPermKeys.includes(k))
+      : Array.from(new Set([...currentList, ...categoryPermKeys]));
+
+    const newMap = { ...rolePermissions, [selectedRole]: updated };
+    setRolePermissions(newMap);
+  };
+
+  const handleSelectAllRolePerms = () => {
+    if (selectedRole === 'SUPER_ADMIN') return;
+    const newMap = { ...rolePermissions, [selectedRole]: ALL_PERM_KEYS };
+    setRolePermissions(newMap);
+  };
+
+  const handleClearAllRolePerms = () => {
+    if (selectedRole === 'SUPER_ADMIN') return;
+    const newMap = { ...rolePermissions, [selectedRole]: [] };
+    setRolePermissions(newMap);
+  };
+
   const handleSaveRolePermissions = async () => {
     try {
       const currentList = rolePermissions[selectedRole] || [];
       const updatedMap = await superAdminService.updateRolePermissions(selectedRole, currentList);
-      if (updatedMap && Object.keys(updatedMap).length > 0) {
-        setRolePermissions(updatedMap);
-      }
+      const finalMap = (updatedMap && Object.keys(updatedMap).length > 0)
+        ? updatedMap
+        : rolePermissions;
+      
+      setRolePermissions(finalMap);
+      localStorage.setItem('s2s_role_permissions', JSON.stringify(finalMap));
+      window.dispatchEvent(new Event('s2s_permissions_updated'));
       toast.success(`Role permissions updated & saved to Database for ${selectedRole.replace('_', ' ')}! 🎉`);
     } catch {
       localStorage.setItem('s2s_role_permissions', JSON.stringify(rolePermissions));
+      window.dispatchEvent(new Event('s2s_permissions_updated'));
       toast.success(`Role permissions saved for ${selectedRole.replace('_', ' ')}!`);
     }
   };
@@ -378,10 +420,10 @@ const SuperAdminAdmins = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 card bg-white border border-slate-200 shadow-sm">
         <div>
           <h1 className="font-display text-2xl font-bold text-text-primary flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-primary" /> Role-Based Access Control (RBAC & UAM)
+            <ShieldCheck className="w-6 h-6 text-primary" /> User Access Management (UAM & RBAC Matrix)
           </h1>
           <p className="text-text-secondary text-sm mt-1">
-            System Roles: <strong>SUPER ADMIN</strong>, <strong>ADMIN</strong>, and <strong>MEMBER</strong>.
+            Configure screen access per role. Ticked screens appear in the sidebar & route guards for users with that role.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -402,7 +444,7 @@ const SuperAdminAdmins = () => {
             activeTab === 'roles' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <Shield className="w-4 h-4" /> 1. Role Permission Matrix (SUPER ADMIN / ADMIN / MEMBER)
+          <Shield className="w-4 h-4" /> 1. Role Permission Matrix (ALL ROLES & SCREENS)
         </button>
         <button
           onClick={() => setActiveTab('staff')}
@@ -417,38 +459,38 @@ const SuperAdminAdmins = () => {
       {/* TAB 1: ROLE PERMISSION MATRIX */}
       {activeTab === 'roles' && (
         <div className="space-y-6">
-          {/* Role Cards Selector - Exactly 3 Roles */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Role Cards Selector — All 5 Roles */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {[
-              { role: 'SUPER_ADMIN', title: 'Super Admin', desc: 'Full root access, configuration & system management' },
-              { role: 'ADMIN', title: 'Admin', desc: 'Platform operations, moderation, users, payments & reports' },
-              { role: 'MEMBER', title: 'Member', desc: 'Registered candidate profile (Access controlled via membership plan)' },
+              { role: 'SUPER_ADMIN', title: 'Super Admin', desc: 'Root system owner' },
+              { role: 'ADMIN', title: 'Admin', desc: 'Full operations' },
+              { role: 'MODERATOR', title: 'Moderator', desc: 'Profiles & review' },
+              { role: 'SUPPORT_AGENT', title: 'Support Agent', desc: 'User assistance' },
+              { role: 'MEMBER', title: 'Member', desc: 'Candidate portal' },
             ].map(({ role, title, desc }) => {
               const isSelected = selectedRole === role;
-              const isMember = role === 'MEMBER';
               const isSuperAdminRole = role === 'SUPER_ADMIN';
-              const totalForRole = isSuperAdminRole ? ALL_PERM_KEYS.length : isMember ? MEMBER_PERM_KEYS.length : ADMIN_PERM_KEYS.length;
               const count = isSuperAdminRole ? ALL_PERM_KEYS.length : getRolePermCount(role);
               return (
                 <div
                   key={role}
-                  onClick={() => setSelectedRole(role as any)}
-                  className={`p-5 rounded-2xl cursor-pointer border transition-all flex flex-col justify-between ${
+                  onClick={() => setSelectedRole(role)}
+                  className={`p-4 rounded-2xl cursor-pointer border transition-all flex flex-col justify-between ${
                     isSelected
                       ? 'bg-primary/5 border-primary ring-2 ring-primary/20 shadow-md'
                       : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`badge text-xs font-bold ${roleBadge[role]}`}>{title}</span>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={`badge text-[11px] font-bold ${roleBadge[role] || 'bg-slate-100'}`}>{title}</span>
                       {isSelected && <Check className="w-4 h-4 text-primary" />}
                     </div>
-                    <p className="text-xs text-slate-500">{desc}</p>
+                    <p className="text-[11px] text-slate-500 line-clamp-2">{desc}</p>
                   </div>
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-400">PERMISSIONS</span>
-                    <span className="text-xs font-bold text-primary">{count} / {totalForRole}</span>
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-400">ENABLED</span>
+                    <span className="text-xs font-black text-primary">{count} / {ALL_PERM_KEYS.length}</span>
                   </div>
                 </div>
               );
@@ -457,53 +499,63 @@ const SuperAdminAdmins = () => {
 
           {/* Permissions Matrix for Selected Role */}
           <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-3">
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-bold text-slate-900">
-                    Permissions for Role: <span className="text-primary">{selectedRole.replace('_', ' ')}</span>
+                    Screen Access Matrix for Role: <span className="text-primary">{selectedRole.replace('_', ' ')}</span>
                   </h2>
-                  <span className={`badge text-xs font-bold ${roleBadge[selectedRole]}`}>{selectedRole}</span>
+                  <span className={`badge text-xs font-bold ${roleBadge[selectedRole] || 'bg-slate-100'}`}>{selectedRole}</span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  All accounts assigned to the <strong>{selectedRole}</strong> role will automatically inherit these permissions.
+                  Tick screens/permissions to grant access to users with the <strong>{selectedRole}</strong> role. Ticked screens will be visible in their sidebar menu.
                 </p>
               </div>
-              {selectedRole !== 'SUPER_ADMIN' && (
-                <button onClick={handleSaveRolePermissions} className="btn btn-primary btn-sm font-bold shadow-md">
-                  Save Role Permissions
-                </button>
+
+              {selectedRole !== 'SUPER_ADMIN' ? (
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <button type="button" onClick={handleSelectAllRolePerms} className="btn btn-ghost btn-xs text-xs text-primary border border-primary/20 hover:bg-primary/5">
+                    Select All ({ALL_PERM_KEYS.length})
+                  </button>
+                  <button type="button" onClick={handleClearAllRolePerms} className="btn btn-ghost btn-xs text-xs text-slate-500 border border-slate-200 hover:bg-slate-100">
+                    Clear All
+                  </button>
+                  <button onClick={handleSaveRolePermissions} className="btn btn-primary btn-sm font-bold shadow-md">
+                    Save Role Permissions
+                  </button>
+                </div>
+              ) : (
+                <div className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5" /> Full Root Access Granted
+                </div>
               )}
             </div>
 
-            {selectedRole === 'SUPER_ADMIN' && (
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium flex items-center gap-2">
-                <Lock className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                <span>Super Admin is the root system owner and automatically retains all system permissions.</span>
-              </div>
-            )}
-
-            {selectedRole === 'MEMBER' && (
-              <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs font-medium flex items-center gap-2">
-                <Users className="w-4 h-4 text-purple-600 flex-shrink-0" />
-                <span>Member permissions represent candidate portal screens (Dashboard, Profile Edit, Search, Interests, Messaging, Contact Unlocks). Specific contact limits are enforced by active Membership Plans.</span>
-              </div>
-            )}
-
-            <div className="space-y-6">
-              {OFFICIAL_PERMISSIONS.filter((group) => {
-                if (selectedRole === 'MEMBER') {
-                  return group.category.includes('Member Portal');
-                }
-                if (selectedRole === 'ADMIN') {
-                  return !group.category.includes('Member Portal');
-                }
-                return true;
-              }).map((group) => {
+            <div className="space-y-5">
+              {OFFICIAL_PERMISSIONS.map((group) => {
+                const categoryKeys = group.perms.map((p) => p.key);
                 const rolePerms = rolePermissions[selectedRole] || [];
+                const enabledInGroup = categoryKeys.filter((k) => rolePerms.includes(k)).length;
+                const allGroupEnabled = categoryKeys.length > 0 && enabledInGroup === categoryKeys.length;
+
                 return (
                   <div key={group.category} className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-3">
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">{group.category}</h3>
+                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">{group.category}</h3>
+                        <span className="text-[11px] font-bold text-slate-400">({enabledInGroup}/{categoryKeys.length})</span>
+                      </div>
+                      {selectedRole !== 'SUPER_ADMIN' && (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCategory(categoryKeys)}
+                          className="text-[11px] font-bold text-primary hover:underline"
+                        >
+                          {allGroupEnabled ? 'Deselect Category' : 'Select Category'}
+                        </button>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                       {group.perms.map((perm) => {
                         const isSuper = selectedRole === 'SUPER_ADMIN';

@@ -312,29 +312,7 @@ export class SuperAdminService {
   }
 
   async getRolePermissions() {
-    try {
-      const roles = await this.prisma.role.findMany({
-        include: {
-          rolePermissions: {
-            include: {
-              permission: true,
-            },
-          },
-        },
-      });
-
-      if (roles && roles.length > 0) {
-        const result: Record<string, string[]> = {};
-        for (const r of roles) {
-          result[r.name] = r.rolePermissions.map((rp) => rp.permission.name);
-        }
-        return result;
-      }
-    } catch {
-      // Fallback
-    }
-
-    return {
+    const defaultMap: Record<string, string[]> = {
       SUPER_ADMIN: [
         'dashboard:view', 'users:read', 'users:write', 'users:verify', 'users:ban', 'users:delete',
         'profiles:read', 'profiles:write', 'profiles:verify', 'profiles:moderate', 'profiles:delete',
@@ -344,6 +322,8 @@ export class SuperAdminService {
         'stories:read', 'stories:approve', 'stories:delete', 'ai_biodata:read', 'ai_biodata:parse',
         'reports:view', 'reports:handle', 'reports:delete', 'admins:manage', 'analytics:view',
         'audit:view', 'settings:read', 'settings:manage', 'notifications:send',
+        'member:dashboard', 'member:profile', 'member:search', 'member:interests', 'member:messages',
+        'member:upgrade', 'member:payments', 'member:contacts',
       ],
       ADMIN: [
         'dashboard:view', 'users:read', 'users:write', 'users:verify', 'users:ban',
@@ -352,6 +332,13 @@ export class SuperAdminService {
         'banners:read', 'banners:write', 'blogs:read', 'blogs:write', 'blogs:publish',
         'stories:read', 'stories:approve', 'reports:view', 'reports:handle',
         'analytics:view', 'audit:view', 'settings:read', 'settings:manage', 'notifications:send',
+      ],
+      MODERATOR: [
+        'dashboard:view', 'users:read', 'profiles:read', 'profiles:write', 'profiles:verify', 'profiles:moderate',
+        'stories:read', 'stories:approve', 'reports:view', 'reports:handle', 'blogs:read',
+      ],
+      SUPPORT_AGENT: [
+        'dashboard:view', 'users:read', 'profiles:read', 'payments:view', 'reports:view', 'reports:handle',
       ],
       MEMBER: [
         'member:dashboard',
@@ -364,6 +351,30 @@ export class SuperAdminService {
         'member:contacts',
       ],
     };
+
+    try {
+      const roles = await this.prisma.role.findMany({
+        include: {
+          rolePermissions: {
+            include: { permission: true },
+          },
+        },
+      });
+
+      if (roles && roles.length > 0) {
+        const result: Record<string, string[]> = { ...defaultMap };
+        for (const r of roles) {
+          if (r.rolePermissions && r.rolePermissions.length > 0) {
+            result[r.name] = r.rolePermissions.map((rp) => rp.permission.name);
+          }
+        }
+        return result;
+      }
+    } catch {
+      // Fallback
+    }
+
+    return defaultMap;
   }
 
   async updateRolePermissions(roleName: string, permissions: string[]) {
