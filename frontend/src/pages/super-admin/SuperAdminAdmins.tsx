@@ -251,9 +251,7 @@ interface DbRole {
 const DEFAULT_DB_ROLES: DbRole[] = [
   { id: 'r1', name: 'SUPER_ADMIN', displayName: 'Super Admin', description: 'Root System Owner', isSystem: true },
   { id: 'r2', name: 'ADMIN', displayName: 'Admin', description: 'Platform Administrator', isSystem: true },
-  { id: 'r3', name: 'MODERATOR', displayName: 'Moderator', description: 'Profile Moderation & Review', isSystem: false },
-  { id: 'r4', name: 'SUPPORT_AGENT', displayName: 'Support Agent', description: 'User Support Agent', isSystem: false },
-  { id: 'r5', name: 'MEMBER', displayName: 'Member', description: 'Candidate User Portal', isSystem: true },
+  { id: 'r3', name: 'MEMBER', displayName: 'Member', description: 'Candidate User Portal', isSystem: true },
 ];
 
 const SuperAdminAdmins = () => {
