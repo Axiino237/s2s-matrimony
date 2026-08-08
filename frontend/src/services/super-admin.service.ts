@@ -36,6 +36,11 @@ export const superAdminService = {
       .get('/super-admin/roles')
       .then((r) => r.data.data || r.data),
 
+  getModulesWithPermissions: () =>
+    api
+      .get('/super-admin/modules-permissions')
+      .then((r) => r.data.data || r.data),
+
   createRole: (data: { name: string; displayName?: string; description?: string }) =>
     api
       .post('/super-admin/roles', data)

@@ -32,6 +32,12 @@ export class SuperAdminController {
     return this.superAdminService.deleteRole(id);
   }
 
+  @Get('modules-permissions')
+  @ApiOperation({ summary: 'Get all database screen modules and linked permissions' })
+  async getModulesWithPermissions() {
+    return this.superAdminService.getModulesWithPermissions();
+  }
+
   @Get('stats')
   @ApiOperation({ summary: 'Get global platform statistics' })
   async getGlobalStats() {

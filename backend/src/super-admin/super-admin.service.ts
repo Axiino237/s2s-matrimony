@@ -72,6 +72,64 @@ export class SuperAdminService {
     return this.prisma.role.delete({ where: { id: role.id } });
   }
 
+  async syncModulesAndPermissions() {
+    try {
+      const modules = [
+        { slug: 'dashboard', name: 'Admin Dashboard Overview', path: '/admin/dashboard', icon: 'LayoutDashboard', sortOrder: 1 },
+        { slug: 'users', name: 'User Accounts Management', path: '/admin/users', icon: 'Users', sortOrder: 2 },
+        { slug: 'profiles', name: 'Profile Moderation & Review', path: '/admin/profiles', icon: 'UserCheck', sortOrder: 3 },
+        { slug: 'communities', name: 'Communities & Subcastes', path: '/admin/communities', icon: 'Globe', sortOrder: 4 },
+        { slug: 'plans', name: 'Membership Plans & Pricing', path: '/admin/plans', icon: 'Crown', sortOrder: 5 },
+        { slug: 'payments', name: 'Finance & Payments', path: '/admin/payments', icon: 'CreditCard', sortOrder: 6 },
+        { slug: 'banners', name: 'Banners & Marketing', path: '/admin/banners', icon: 'Image', sortOrder: 7 },
+        { slug: 'blogs', name: 'Blog & Articles CMS', path: '/admin/blogs', icon: 'BookOpen', sortOrder: 8 },
+        { slug: 'stories', name: 'Success Stories', path: '/admin/success-stories', icon: 'Heart', sortOrder: 9 },
+        { slug: 'ai_biodata', name: 'AI Biodata Engine', path: '/admin/ai-biodata', icon: 'Sparkles', sortOrder: 10 },
+        { slug: 'biodata_entry', name: 'Biodata Entry Form', path: '/admin/biodata-entry', icon: 'FileText', sortOrder: 11 },
+        { slug: 'biodata_list', name: 'Biodata Records List', path: '/admin/biodata-list', icon: 'ScrollText', sortOrder: 12 },
+        { slug: 'reports', name: 'Safety & User Abuse Reports', path: '/admin/reports', icon: 'AlertTriangle', sortOrder: 13 },
+        { slug: 'admins', name: 'Admins & Access Control (UAM)', path: '/super-admin/admins', icon: 'Shield', sortOrder: 14 },
+        { slug: 'audit', name: 'System Audit Security Logs', path: '/admin/logs', icon: 'FileText', sortOrder: 15 },
+        { slug: 'settings', name: 'Global Platform Settings', path: '/admin/settings', icon: 'Settings', sortOrder: 16 },
+        { slug: 'member_dashboard', name: 'Member Portal Dashboard', path: '/dashboard', icon: 'LayoutDashboard', sortOrder: 17 },
+        { slug: 'member_profile', name: 'Member Portal My Profile', path: '/profile', icon: 'User', sortOrder: 18 },
+        { slug: 'member_search', name: 'Member Portal Search & Matches', path: '/search', icon: 'Search', sortOrder: 19 },
+        { slug: 'member_interests', name: 'Member Portal Interests', path: '/interests', icon: 'Heart', sortOrder: 20 },
+        { slug: 'member_messages', name: 'Member Portal Messages & Chat', path: '/messages', icon: 'MessageSquare', sortOrder: 21 },
+        { slug: 'member_upgrade', name: 'Member Portal Upgrade Plan', path: '/premium', icon: 'Crown', sortOrder: 22 },
+        { slug: 'member_payments', name: 'Member Portal Payment Receipts', path: '/payment-history', icon: 'CreditCard', sortOrder: 23 },
+        { slug: 'member_contacts', name: 'Member Portal Contact History', path: '/contact-history', icon: 'Phone', sortOrder: 24 },
+      ];
+
+      for (const m of modules) {
+        await this.prisma.module.upsert({
+          where: { slug: m.slug },
+          update: m,
+          create: m,
+        }).catch(() => null);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  async getModulesWithPermissions() {
+    await this.syncModulesAndPermissions();
+    try {
+      const dbModules = await this.prisma.module.findMany({
+        orderBy: { sortOrder: 'asc' },
+        include: {
+          permissions: {
+            include: { action: true },
+          },
+        },
+      });
+      return dbModules;
+    } catch {
+      return [];
+    }
+  }
+
   async getGlobalStats() {
     try {
       const [

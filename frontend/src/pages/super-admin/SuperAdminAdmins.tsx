@@ -336,8 +336,22 @@ const SuperAdminAdmins = () => {
     }
   }, [page, search]);
 
+  const [dbModules, setDbModules] = useState<any[]>([]);
+
+  const fetchDbModules = useCallback(async () => {
+    try {
+      const mods = await superAdminService.getModulesWithPermissions();
+      if (Array.isArray(mods) && mods.length > 0) {
+        setDbModules(mods);
+      }
+    } catch {
+      // fallback
+    }
+  }, []);
+
   useEffect(() => {
     fetchDbRoles();
+    fetchDbModules();
     fetchAdmins();
     superAdminService.getRolePermissions().then((data) => {
       if (data && Object.keys(data).length > 0) {
@@ -347,7 +361,7 @@ const SuperAdminAdmins = () => {
         localStorage.setItem('s2s_role_permissions', JSON.stringify(merged));
       }
     }).catch(() => null);
-  }, [fetchAdmins, fetchDbRoles]);
+  }, [fetchAdmins, fetchDbRoles, fetchDbModules]);
 
   const handleCreateRole = async () => {
     if (!newRoleForm.name.trim() && !newRoleForm.displayName.trim()) {
