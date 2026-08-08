@@ -14,6 +14,7 @@ import {
   Lock,
   Check,
   Users,
+  Trash2,
 } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
 
@@ -572,18 +573,19 @@ const SuperAdminAdmins = () => {
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <span className={`badge text-[11px] font-bold ${roleBadge[role] || 'bg-indigo-100 text-indigo-800'}`}>{title}</span>
-                      {isSelected ? (
-                        <Check className="w-4 h-4 text-primary" />
-                      ) : canDelete ? (
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeleteRole(rObj, e)}
-                          className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-700 p-1 text-xs font-bold transition"
-                          title="Delete Custom Role"
-                        >
-                          ✕
-                        </button>
-                      ) : null}
+                      <div className="flex items-center gap-1">
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteRole(rObj, e)}
+                            className="p-1 rounded-md text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition"
+                            title="Delete Role"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {isSelected && <Check className="w-4 h-4 text-primary" />}
+                      </div>
                     </div>
                     <p className="text-[11px] text-slate-500 line-clamp-2">{desc}</p>
                   </div>
@@ -613,6 +615,18 @@ const SuperAdminAdmins = () => {
 
               {selectedRole !== 'SUPER_ADMIN' ? (
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  {dbRoles.find(r => r.name === selectedRole) && !['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(selectedRole) && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        const targetObj = dbRoles.find(r => r.name === selectedRole);
+                        if (targetObj) handleDeleteRole(targetObj, e);
+                      }}
+                      className="btn btn-xs bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 flex items-center gap-1 font-bold"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete Role
+                    </button>
+                  )}
                   <button type="button" onClick={handleSelectAllRolePerms} className="btn btn-ghost btn-xs text-xs text-primary border border-primary/20 hover:bg-primary/5">
                     Select All ({ALL_PERM_KEYS.length})
                   </button>
