@@ -9,7 +9,7 @@ import {
   Heart, Send, Lock, Phone, Mail, ShieldCheck, Crown, Sparkles, 
   Share2, MoreVertical, MapPin, Briefcase, GraduationCap, Star, 
   CheckCircle2, Image as ImageIcon, Calendar, BookOpen, Users, 
-  UserCheck, Award, ArrowUpRight, Edit, Loader2, User, Camera, Trash2 
+  UserCheck, Award, ArrowUpRight, Edit, Loader2, User, Camera, Trash2, FileText 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -382,9 +382,14 @@ const ProfileViewPage = () => {
                 )}
               </div>
               {isOwnProfile && (
-                <Link to="/profile/edit" className="absolute top-4 right-4 btn btn-ghost btn-sm bg-black/40 backdrop-blur-md text-white hover:bg-white/20">
-                  <Edit className="w-4 h-4" /> Edit Profile
-                </Link>
+                <div className="absolute top-4 right-4 flex items-center gap-2">
+                  <Link to="/profile/biodata-form" className="btn btn-ghost btn-sm bg-black/40 backdrop-blur-md text-amber-300 font-bold hover:bg-white/20">
+                    <FileText className="w-4 h-4" /> Biodata Form
+                  </Link>
+                  <Link to="/profile/edit" className="btn btn-ghost btn-sm bg-black/40 backdrop-blur-md text-white hover:bg-white/20">
+                    <Edit className="w-4 h-4" /> Edit Profile
+                  </Link>
+                </div>
               )}
             </div>
 
@@ -453,14 +458,25 @@ const ProfileViewPage = () => {
 
                     {!isOwnProfile && (
                       <div className="flex items-center gap-2 flex-wrap">
-                        <button
-                          onClick={handleSendInterest}
-                          disabled={interestSent}
-                          className={`btn ${interestSent ? 'btn-secondary' : 'btn-primary'} btn-md font-bold shadow-lg flex items-center gap-2`}
-                        >
-                          <Heart className={`w-4 h-4 ${interestSent ? 'fill-current' : ''}`} />
-                          {interestSent ? 'Interest Sent' : 'Send Interest'}
-                        </button>
+                        {isContactUnlocked ? (
+                          <button
+                            onClick={handleSendInterest}
+                            disabled={interestSent}
+                            className={`btn ${interestSent ? 'btn-secondary' : 'btn-primary'} btn-md font-bold shadow-lg flex items-center gap-2`}
+                          >
+                            <Heart className={`w-4 h-4 ${interestSent ? 'fill-current' : ''}`} />
+                            {interestSent ? 'Interest Sent' : 'Send Interest'}
+                          </button>
+                        ) : (
+                          <button
+                            disabled
+                            title="Unlock contact details first to send interest"
+                            className="btn btn-secondary btn-md font-bold flex items-center gap-2 opacity-50 cursor-not-allowed"
+                          >
+                            <Lock className="w-4 h-4" />
+                            Send Interest
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

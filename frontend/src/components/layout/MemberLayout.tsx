@@ -50,6 +50,7 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
       items: [
         { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', locked: !isProfileComplete },
         { icon: User, label: 'My Profile', href: '/profile', locked: !isProfileComplete },
+        { icon: FileText, label: 'Biodata Form', href: '/profile/biodata-form' },
       ],
     },
     {
@@ -290,6 +291,13 @@ const MemberLayout = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-mark notifications as read when opening Interests, Notifications, or Messages pages
+  useEffect(() => {
+    if (['/interests', '/notifications', '/messages', '/profile-viewers'].includes(location.pathname)) {
+      handleMarkAllRead();
+    }
+  }, [location.pathname]);
+
   const handleMarkAllRead = async () => {
     try {
       await api.patch('/notifications/mark-read');
@@ -395,7 +403,14 @@ const MemberLayout = () => {
                           className={`w-full text-left block p-3 rounded-xl transition-colors border
                             ${n.isRead ? 'bg-white border-slate-100' : 'bg-rose-50 border-rose-100'}`}
                         >
-                          <p className="text-xs font-bold text-slate-800">{n.title}</p>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-bold text-slate-800 truncate">{n.title}</p>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                              n.isRead ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-500 text-white'
+                            }`}>
+                              {n.isRead ? 'Read' : 'New'}
+                            </span>
+                          </div>
                           <p className="text-xs text-slate-500 mt-0.5">{n.message}</p>
                           <span className="text-[10px] text-slate-400 mt-1 block">
                             {new Date(n.createdAt).toLocaleDateString()}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { UserCheck, CheckCircle2, X, Eye, Loader2, RefreshCw, User, Briefcase, GraduationCap, Users, Moon, Heart, MapPin, Phone, Mail, Award, Sparkles } from 'lucide-react';
 import { adminApi } from '../../services/admin.service';
@@ -91,14 +92,43 @@ type ProfileRecord = {
   };
 };
 
-const getName = (p: ProfileRecord) => `${p.firstName} ${p.lastName}`;
-const getCity = (p: ProfileRecord) => p.city?.name ?? '—';
-const getCommunity = (p: ProfileRecord) => p.community?.name ?? '—';
+const getName = (p: ProfileRecord) => `${p.firstName || ''} ${p.lastName || ''}`.trim() || (p as any).displayName || 'Member';
+const getCity = (p: ProfileRecord) => p.city?.name ?? (p as any).cityName ?? '—';
+const getCommunity = (p: ProfileRecord) => p.community?.name ?? (p as any).communityName ?? (p as any).caste ?? '—';
 const getDate = (d: string) =>
-  new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+
+const getPhotoUrl = (p: any) => {
+  if (!p) return null;
+  if (p.photos && Array.isArray(p.photos) && p.photos.length > 0) {
+    const first = p.photos[0];
+    if (typeof first === 'string' && first.trim()) return first;
+    if (first && typeof first === 'object' && first.url) return first.url;
+  }
+  if (p.photoUrl && typeof p.photoUrl === 'string' && p.photoUrl.trim()) return p.photoUrl;
+  if (p.avatar && typeof p.avatar === 'string' && p.avatar.trim()) return p.avatar;
+  if (p.photosList && Array.isArray(p.photosList) && p.photosList.length > 0) return p.photosList[0];
+  return null;
+};
+
+const getFallbackAvatar = (gender?: string) =>
+  gender === 'FEMALE' ? '/images/bride.png' : '/images/groom.png';
 
 const AdminProfiles = () => {
-  const [tab, setTab] = useState<'PENDING' | 'VERIFIED' | 'REJECTED'>('PENDING');
+  const [searchParams] = useSearchParams();
+  const initialTabParam = searchParams.get('tab');
+  const [tab, setTab] = useState<'PENDING' | 'VERIFIED' | 'REJECTED'>(
+    initialTabParam === 'verification' || initialTabParam === 'PENDING' ? 'PENDING' :
+    initialTabParam === 'VERIFIED' ? 'VERIFIED' :
+    initialTabParam === 'REJECTED' ? 'REJECTED' : 'PENDING'
+  );
+
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'verification' || t === 'PENDING') setTab('PENDING');
+    else if (t === 'VERIFIED') setTab('VERIFIED');
+    else if (t === 'REJECTED') setTab('REJECTED');
+  }, [searchParams]);
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -224,13 +254,19 @@ const AdminProfiles = () => {
         <div className="card p-10 text-center text-text-muted">No profiles in this category</div>
       ) : (
         <div className="space-y-3">
-          {visible.map((p) => (
-            <div key={p.id} className="card p-4 flex gap-4 items-center hover:border-primary/20 transition-all">
-              <div className="w-14 h-14 bg-primary/10 text-primary rounded-xl flex items-center justify-center text-2xl flex-shrink-0 border border-primary/20 font-bold overflow-hidden">
-                {p.photos?.[0]?.url ? (
-                  <img src={p.photos[0].url} alt={getName(p)} className="w-full h-full object-cover" />
-                ) : (getName(p)[0] || '?')}
-              </div>
+          {visible.map((p) => {
+            const photo = getPhotoUrl(p);
+            const fallback = getFallbackAvatar(p.gender);
+            return (
+              <div key={p.id} className="card p-4 flex gap-4 items-center hover:border-primary/20 transition-all">
+                <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center flex-shrink-0 border border-slate-200 shadow-sm overflow-hidden">
+                  <img
+                    src={photo || fallback}
+                    alt={getName(p)}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = fallback; }}
+                  />
+                </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-text-primary font-semibold text-base">{getName(p)}</p>
@@ -271,7 +307,8 @@ const AdminProfiles = () => {
                 )}
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
 
@@ -282,10 +319,13 @@ const AdminProfiles = () => {
             {/* Modal Header */}
             <div className="p-6 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center font-bold text-2xl text-amber-300">
-                  {viewProfile.photos?.[0]?.url ? (
-                    <img src={viewProfile.photos[0].url} alt={getName(viewProfile)} className="w-full h-full object-cover" />
-                  ) : (getName(viewProfile)[0] || '?')}
+                <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center font-bold text-2xl flex-shrink-0">
+                  <img
+                    src={getPhotoUrl(viewProfile) || getFallbackAvatar(viewProfile.gender)}
+                    alt={getName(viewProfile)}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = getFallbackAvatar(viewProfile.gender); }}
+                  />
                 </div>
                 <div>
                   <div className="flex items-center gap-3">

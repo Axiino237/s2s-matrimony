@@ -62,6 +62,8 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
         { icon: Heart, label: 'Success Stories', href: '/super-admin/success-stories' },
         { icon: BookOpen, label: 'Blogs & CMS', href: '/super-admin/blogs' },
         { icon: Sparkles, label: 'AI Biodata Engine', href: '/super-admin/ai-biodata' },
+        { icon: FileText, label: 'Biodata Form Entry', href: '/super-admin/biodata-entry' },
+        { icon: ScrollText, label: 'Biodata Records List', href: '/super-admin/biodata-list' },
       ],
     },
     {
@@ -86,7 +88,23 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
     },
   ];
 
-  const isActive = (href: string) => location.pathname === href;
+  const isActive = (href: string) => {
+    const currentUrl = location.pathname + location.search;
+
+    if (href.includes('?')) {
+      return currentUrl === href || currentUrl.startsWith(href + '&');
+    }
+
+    if (location.pathname === href) {
+      const searchParams = new URLSearchParams(location.search);
+      if (searchParams.has('tab')) {
+        return false;
+      }
+      return true;
+    }
+
+    return location.pathname.startsWith(href + '/');
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -128,50 +146,33 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
       </div>
 
       {/* Navigation Groups */}
-      <nav className="flex-1 px-3 py-2 overflow-y-auto flex flex-col gap-0.5">
-        {navGroups.map((group) => {
-          const isGroupOpen = openGroups[group.key] !== false;
-          const GroupIcon = group.icon;
-          const hasActive = group.items.some(item => isActive(item.href));
-
-          return (
-            <div key={group.key} className="mb-1">
-              <button
-                onClick={() => toggleGroup(group.key)}
-                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all
-                  ${hasActive ? 'text-primary font-bold' : 'text-slate-400 hover:text-slate-700'}`}
-              >
-                <GroupIcon className="w-3.5 h-3.5" />
-                <span className="flex-1 text-left">{group.title}</span>
-                {isGroupOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              </button>
-
-              {isGroupOpen && (
-                <div className="mt-0.5 flex flex-col gap-0.5">
-                  {group.items.map((item) => {
-                    const active = isActive(item.href);
-                    const Icon = item.icon;
-                    return (
-                      <Link
-                        key={item.href}
-                        to={item.href}
-                        onClick={() => setIsOpen(false)}
-                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs transition-all
-                          ${active
-                            ? 'bg-gradient-to-r from-primary to-secondary text-white font-bold shadow-md shadow-primary/20'
-                            : 'text-slate-600 hover:text-primary hover:bg-slate-50 font-medium'
-                          }`}
-                      >
-                        <Icon className="w-4 h-4 flex-shrink-0" />
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
+      <nav className="flex-1 px-3 py-2 flex flex-col gap-3 overflow-y-auto">
+        {navGroups.map((group) => (
+          <div key={group.key}>
+            <p className="px-3 text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">{group.title}</p>
+            <div className="flex flex-col gap-0.5">
+              {group.items.map((item) => {
+                const active = isActive(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    onClick={() => setIsOpen(false)}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 group
+                      ${active
+                        ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md shadow-primary/20'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-slate-100'
+                      }`}
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="tracking-wide flex-1">{item.label}</span>
+                  </Link>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}

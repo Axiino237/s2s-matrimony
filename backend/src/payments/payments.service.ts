@@ -249,25 +249,59 @@ export class PaymentsService {
     }
 
     const unlockedIdsSet = new Set<string>();
+    const uniqueProfilesSet = new Set<string>();
 
     try {
       const dbUnlocks = await this.prisma.contactUnlock.findMany({
         where: { unlockedById: userId },
+        include: { profile: true },
       });
       for (const u of dbUnlocks) {
         unlockedIdsSet.add(u.profileId);
+        if (u.profile?.userId) unlockedIdsSet.add(u.profile.userId);
+        uniqueProfilesSet.add(u.profileId);
       }
     } catch {
       // Ignore DB error
     }
 
-    const devUnlockedSet = devUnlockedContactsStore.get(userId) || new Set<string>();
-    for (const id of devUnlockedSet) {
-      unlockedIdsSet.add(id);
+    const rawDevIds = Array.from(devUnlockedContactsStore.get(userId) || new Set<string>());
+    if (rawDevIds.length > 0) {
+      try {
+        const matchedProfiles = await this.prisma.profile.findMany({
+          where: {
+            OR: [
+              { id: { in: rawDevIds } },
+              { userId: { in: rawDevIds } },
+            ],
+          },
+        });
+
+        const matchedIdSet = new Set<string>();
+        for (const p of matchedProfiles) {
+          unlockedIdsSet.add(p.id);
+          if (p.userId) unlockedIdsSet.add(p.userId);
+          uniqueProfilesSet.add(p.id);
+          matchedIdSet.add(p.id);
+          if (p.userId) matchedIdSet.add(p.userId);
+        }
+
+        for (const id of rawDevIds) {
+          if (!matchedIdSet.has(id)) {
+            unlockedIdsSet.add(id);
+            uniqueProfilesSet.add(id);
+          }
+        }
+      } catch {
+        for (const id of rawDevIds) {
+          unlockedIdsSet.add(id);
+          uniqueProfilesSet.add(id);
+        }
+      }
     }
 
     const unlockedIds = Array.from(unlockedIdsSet);
-    const usedCount = unlockedIds.length;
+    const usedCount = uniqueProfilesSet.size;
     const remaining = contactLimit < 0 || contactLimit >= 999 ? 999999 : Math.max(0, contactLimit - usedCount);
 
     return {
@@ -282,7 +316,19 @@ export class PaymentsService {
   async unlockContact(userId: string, targetUserId: string) {
     const status = await this.getUnlockedContacts(userId);
 
-    if (status.unlockedIds.includes(targetUserId)) {
+    const existingProfile = await this.prisma.profile.findFirst({
+      where: { OR: [{ id: targetUserId }, { userId: targetUserId }] },
+    }).catch(() => null);
+
+    const canonicalProfileId = existingProfile?.id || targetUserId;
+    const canonicalUserId = existingProfile?.userId;
+
+    const isAlreadyUnlocked =
+      status.unlockedIds.includes(targetUserId) ||
+      status.unlockedIds.includes(canonicalProfileId) ||
+      Boolean(canonicalUserId && status.unlockedIds.includes(canonicalUserId));
+
+    if (isAlreadyUnlocked) {
       return {
         success: true,
         alreadyUnlocked: true,
@@ -296,36 +342,18 @@ export class PaymentsService {
       );
     }
 
-    try {
-      const profile = await this.prisma.profile.findFirst({
-        where: { OR: [{ id: targetUserId }, { userId: targetUserId }] },
-      });
-      if (profile) {
-        await this.prisma.contactUnlock.create({
-          data: { unlockedById: userId, profileId: profile.id },
-        }).catch(() => null);
-      }
-    } catch {
-      // Ignore DB error
+    if (existingProfile) {
+      await this.prisma.contactUnlock.create({
+        data: { unlockedById: userId, profileId: existingProfile.id },
+      }).catch(() => null);
     }
 
     const devUnlockedSet = devUnlockedContactsStore.get(userId) || new Set<string>();
-    devUnlockedSet.add(targetUserId);
+    devUnlockedSet.add(canonicalProfileId);
+    if (canonicalUserId) devUnlockedSet.add(canonicalUserId);
     devUnlockedContactsStore.set(userId, devUnlockedSet);
 
-    const updatedUnlockedIds = Array.from(new Set([...status.unlockedIds, targetUserId]));
-    const newUsed = updatedUnlockedIds.length;
-    const newRemaining = status.contactLimit < 0 || status.contactLimit >= 999 ? 999999 : Math.max(0, status.contactLimit - newUsed);
-
-    return {
-      success: true,
-      alreadyUnlocked: false,
-      tier: status.tier,
-      contactLimit: status.contactLimit,
-      usedCount: newUsed,
-      remaining: newRemaining,
-      unlockedIds: updatedUnlockedIds,
-    };
+    return this.getUnlockedContacts(userId);
   }
 
   async createRazorpayOrder(userId: string, planId: string) {

@@ -34,6 +34,7 @@ import DashboardPage from './pages/member/dashboard/DashboardPage';
 import ProfileViewPage from './pages/member/profile/ProfileViewPage';
 import ProfileEditPage from './pages/member/profile/ProfileEditPage';
 import ProfileCompletePage from './pages/member/profile/ProfileCompletePage';
+import BiodataEntryPage from './pages/member/profile/BiodataEntryPage';
 import SearchPage from './pages/member/search/SearchPage';
 import MatchesPage from './pages/member/search/MatchesPage';
 import MessagesPage from './pages/member/messages/MessagesPage';
@@ -60,6 +61,7 @@ import AdminAiBiodata from './pages/admin/AdminAiBiodata';
 import AdminFaq from './pages/admin/AdminFaq';
 import AdminTestimonials from './pages/admin/AdminTestimonials';
 import AdminStaticPages from './pages/admin/AdminStaticPages';
+import AdminBiodataListPage from './pages/admin/AdminBiodataListPage';
 
 // Super Admin Pages
 import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard';
@@ -106,6 +108,9 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
           </Route>
 
+          {/* ── Standalone Public Biodata Form (No Website Header/Navbar) ── */}
+          <Route path="/fill-biodata" element={<BiodataEntryPage />} />
+
           {/* ── Additional Auth Routes ── */}
           <Route path="/verify-otp" element={<OtpVerifyPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -136,6 +141,7 @@ function App() {
 
               {/* Edit profile — accessible even if not 100% complete */}
               <Route path="/profile/edit" element={<ProfileEditPage />} />
+              <Route path="/profile/biodata-form" element={<BiodataEntryPage />} />
               <Route path="/premium" element={<PremiumPage />} />
               <Route path="/payment/success" element={<PaymentSuccessPage />} />
             </Route>
@@ -156,6 +162,8 @@ function App() {
               <Route path="/admin/success-stories" element={<AdminSuccessStories />} />
               <Route path="/admin/reports" element={<AdminReports />} />
               <Route path="/admin/ai-biodata" element={<AdminAiBiodata />} />
+              <Route path="/admin/biodata-entry" element={<BiodataEntryPage />} />
+              <Route path="/admin/biodata-list" element={<AdminBiodataListPage />} />
               <Route path="/admin/logs" element={<AdminLogs />} />
               <Route path="/admin/settings" element={<AdminSettings />} />
               <Route path="/admin/faq" element={<AdminFaq />} />
@@ -178,6 +186,8 @@ function App() {
               <Route path="/super-admin/payments" element={<AdminPayments />} />
               <Route path="/super-admin/banners" element={<AdminBanners />} />
               <Route path="/super-admin/ai-biodata" element={<AdminAiBiodata />} />
+              <Route path="/super-admin/biodata-entry" element={<BiodataEntryPage />} />
+              <Route path="/super-admin/biodata-list" element={<AdminBiodataListPage />} />
               <Route path="/super-admin/blogs" element={<AdminBlogs />} />
               <Route path="/super-admin/success-stories" element={<AdminSuccessStories />} />
               <Route path="/super-admin/reports" element={<SuperAdminReports />} />

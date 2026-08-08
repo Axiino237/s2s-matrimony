@@ -59,6 +59,8 @@ export interface RegisterDto {
 export interface Profile {
   id: string;
   userId: string;
+  memberId?: string;
+  branch?: string;
   firstName: string;
   lastName: string;
   displayName: string;
@@ -66,10 +68,13 @@ export interface Profile {
   gender: Gender;
   dateOfBirth: string;
   maritalStatus: MaritalStatus;
+  birthOrder?: number;
   heightCm: number;
   heightDisplay: string;
   weight?: number;
   complexion?: string;
+  residentStatus?: string;
+  propertyDetails?: string;
   motherTongue?: string;
   about?: string;
   status: ProfileStatus;
@@ -132,20 +137,34 @@ export interface FamilyDetail {
   motherName?: string;
   motherOccupation?: string;
   siblings?: number;
+  brothers?: number;
   brothersMarried?: number;
+  elderBrothers?: number;
+  elderBrothersMarried?: number;
+  youngerBrothers?: number;
+  youngerBrothersMarried?: number;
+  sisters?: number;
   sistersMarried?: number;
+  elderSisters?: number;
+  elderSistersMarried?: number;
+  youngerSisters?: number;
+  youngerSistersMarried?: number;
   familyType?: 'JOINT' | 'NUCLEAR';
   familyStatus?: 'RICH' | 'UPPER_MIDDLE' | 'MIDDLE' | 'LOWER_MIDDLE';
   familyValues?: 'ORTHODOX' | 'MODERATE' | 'LIBERAL';
+  nativePlace?: string;
 }
 
 export interface Horoscope {
   id: string;
   star?: string;
+  starPadam?: number;
   rasi?: string;
   lagnam?: string;
   gothram?: string;
+  kuladeivam?: string;
   dosham?: string;
+  dasaBalance?: string;
   birthTime?: string;
   birthPlace?: string;
   horoscopeFile?: string;

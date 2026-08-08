@@ -329,6 +329,11 @@ model Profile {
   drinking                Boolean       @default(false)
   motherTongue            String?
   about                   String?
+  birthOrder              Int?
+  memberId                String?       @unique
+  branch                  String?
+  residentStatus          String?
+  propertyDetails         String?
   status                  ProfileStatus @default(PENDING)
   isVerified              Boolean       @default(false)
   verificationStatus      VerificationStatus @default(UNVERIFIED)
@@ -442,8 +447,16 @@ model FamilyDetail {
   motherAlive        Boolean      @default(true)
   brothers           Int          @default(0)
   brothersMarried    Int          @default(0)
+  elderBrothers      Int          @default(0)
+  elderBrothersMarried Int        @default(0)
+  youngerBrothers    Int          @default(0)
+  youngerBrothersMarried Int      @default(0)
   sisters            Int          @default(0)
   sistersMarried     Int          @default(0)
+  elderSisters       Int          @default(0)
+  elderSistersMarried Int         @default(0)
+  youngerSisters     Int          @default(0)
+  youngerSistersMarried Int       @default(0)
   familyType         FamilyType?
   familyStatus       FamilyStatus?
   familyValues       FamilyValues?
@@ -461,10 +474,13 @@ model Horoscope {
   id            String   @id @default(uuid())
   profileId     String   @unique
   star          String?  // Nakshatra
+  starPadam     Int?     // Natchathiram Padham (1, 2, 3, 4)
   rasi          String?  // Moon Sign
   lagnam        String?  // Ascendant
   gothram       String?
+  kuladeivam    String?  // Kula Deivam / குலதெய்வம்
   dosham        String?  // Chevvai, Raagu, etc.
+  dasaBalance   String?  // Dasa Irupu (e.g. Guru, 10 Y 3 M 14 D)
   birthTime     String?
   birthPlace    String?
   horoscopeFile String?

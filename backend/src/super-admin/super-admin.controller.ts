@@ -20,6 +20,24 @@ export class SuperAdminController {
     return this.superAdminService.getGlobalStats();
   }
 
+  @Get('reports')
+  @ApiOperation({ summary: 'Get live platform reports & analytics metrics' })
+  async getReportsAnalytics() {
+    return this.superAdminService.getReportsAnalytics();
+  }
+
+  @Get('settings')
+  @ApiOperation({ summary: 'Get global system settings' })
+  async getSystemSettings() {
+    return this.superAdminService.getSystemSettings();
+  }
+
+  @Put('settings')
+  @ApiOperation({ summary: 'Update global system settings' })
+  async updateSystemSettings(@Body() body: any) {
+    return this.superAdminService.updateSystemSettings(body);
+  }
+
   @Get('admins')
   @ApiOperation({ summary: 'Get list of all admin users' })
   async getAdmins(

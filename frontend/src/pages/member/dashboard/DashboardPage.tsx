@@ -7,7 +7,7 @@ import { dashboardService } from '../../../services/dashboard.service';
 import { profilesApi } from '../../../services/profiles.service';
 import { 
   Eye, Heart, Sparkles, MessageSquare, ArrowUpRight, ShieldCheck, 
-  CheckCircle2, Crown, Edit3, Activity, Star 
+  CheckCircle2, Crown, Edit3, Activity, Star, FileText
 } from 'lucide-react';
 
 const DashboardPage = () => {
@@ -86,7 +86,10 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link to="/profile/biodata-form" className="btn bg-rose-900 hover:bg-rose-950 text-white btn-sm flex items-center gap-1.5 font-bold shadow-md">
+            <FileText className="w-4 h-4 text-amber-300" /> 📄 Biodata Form
+          </Link>
           <Link to="/profile/edit" className="btn btn-secondary btn-sm flex items-center gap-1.5 border-slate-200 bg-white">
             <Edit3 className="w-4 h-4" /> Edit Profile
           </Link>

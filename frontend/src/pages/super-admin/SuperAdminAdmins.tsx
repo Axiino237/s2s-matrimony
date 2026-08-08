@@ -196,11 +196,12 @@ export const OFFICIAL_PERMISSIONS: PermissionGroup[] = [
   },
 ];
 
-const ADMIN_PERM_KEYS = OFFICIAL_PERMISSIONS.filter(g => !g.category.includes('Member Portal')).flatMap((g) => g.perms.map((p) => p.key));
-const MEMBER_PERM_KEYS = OFFICIAL_PERMISSIONS.filter(g => g.category.includes('Member Portal')).flatMap((g) => g.perms.map((p) => p.key));
+export const ALL_PERM_KEYS = OFFICIAL_PERMISSIONS.flatMap((g) => g.perms.map((p) => p.key));
+export const ADMIN_PERM_KEYS = OFFICIAL_PERMISSIONS.filter(g => !g.category.includes('Member Portal')).flatMap((g) => g.perms.map((p) => p.key));
+export const MEMBER_PERM_KEYS = OFFICIAL_PERMISSIONS.filter(g => g.category.includes('Member Portal')).flatMap((g) => g.perms.map((p) => p.key));
 
 export const INITIAL_ROLE_PERMISSIONS: Record<string, string[]> = {
-  SUPER_ADMIN: ADMIN_PERM_KEYS,
+  SUPER_ADMIN: ALL_PERM_KEYS,
   ADMIN: ADMIN_PERM_KEYS,
   MEMBER: MEMBER_PERM_KEYS,
 };
@@ -235,7 +236,11 @@ const SuperAdminAdmins = () => {
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>(() => {
     const saved = localStorage.getItem('s2s_role_permissions');
     if (saved) {
-      try { return JSON.parse(saved); } catch { return INITIAL_ROLE_PERMISSIONS; }
+      try {
+        const parsed = JSON.parse(saved);
+        parsed.SUPER_ADMIN = ALL_PERM_KEYS;
+        return parsed;
+      } catch { return INITIAL_ROLE_PERMISSIONS; }
     }
     return INITIAL_ROLE_PERMISSIONS;
   });
@@ -421,8 +426,9 @@ const SuperAdminAdmins = () => {
             ].map(({ role, title, desc }) => {
               const isSelected = selectedRole === role;
               const isMember = role === 'MEMBER';
-              const totalForRole = isMember ? MEMBER_PERM_KEYS.length : ADMIN_PERM_KEYS.length;
-              const count = getRolePermCount(role);
+              const isSuperAdminRole = role === 'SUPER_ADMIN';
+              const totalForRole = isSuperAdminRole ? ALL_PERM_KEYS.length : isMember ? MEMBER_PERM_KEYS.length : ADMIN_PERM_KEYS.length;
+              const count = isSuperAdminRole ? ALL_PERM_KEYS.length : getRolePermCount(role);
               return (
                 <div
                   key={role}
@@ -489,7 +495,10 @@ const SuperAdminAdmins = () => {
                 if (selectedRole === 'MEMBER') {
                   return group.category.includes('Member Portal');
                 }
-                return !group.category.includes('Member Portal');
+                if (selectedRole === 'ADMIN') {
+                  return !group.category.includes('Member Portal');
+                }
+                return true;
               }).map((group) => {
                 const rolePerms = rolePermissions[selectedRole] || [];
                 return (
@@ -497,8 +506,8 @@ const SuperAdminAdmins = () => {
                     <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">{group.category}</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                       {group.perms.map((perm) => {
-                        const active = rolePerms.includes(perm.key);
                         const isSuper = selectedRole === 'SUPER_ADMIN';
+                        const active = isSuper || rolePerms.includes(perm.key);
                         return (
                           <button
                             key={perm.key}

@@ -230,7 +230,17 @@ export class AdminService {
             profile: {
               include: {
                 community: true,
-                photos: { where: { isMain: true } },
+                religion: true,
+                caste: true,
+                subCaste: true,
+                city: true,
+                state: true,
+                country: true,
+                photos: true,
+                horoscope: true,
+                family: true,
+                education: { include: { educationMaster: true } },
+                occupation: { include: { occupationMaster: true } },
               },
             },
             userRoles: { include: { role: true } },
@@ -445,37 +455,10 @@ export class AdminService {
         return p;
       });
 
-      if (mappedPayments && mappedPayments.length > 0) {
-        return { payments: mappedPayments, total, page: +page, totalPages: Math.max(1, Math.ceil(total / +limit)) };
-      }
+      return { payments: mappedPayments, total, page: +page, totalPages: Math.max(1, Math.ceil(total / +limit)) };
     } catch {
-      // Fallback
+      return { payments: [], total: 0, page: +page, totalPages: 1 };
     }
-
-    const fallbackPayments = [
-      {
-        id: 'pay-001',
-        transactionId: 'TXN-9988112233',
-        amount: 999,
-        status: 'SUCCESS',
-        paymentGateway: 'Razorpay',
-        createdAt: new Date().toISOString(),
-        user: { email: 'kavitha.r@gmail.com', profile: { firstName: 'Kavitha', lastName: 'Ramasamy' } },
-        plan: { name: 'Gold Plan', tier: 'GOLD' },
-      },
-      {
-        id: 'pay-002',
-        transactionId: 'TXN-9988112234',
-        amount: 1799,
-        status: 'SUCCESS',
-        paymentGateway: 'PhonePe',
-        createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-        user: { email: 'ananya.v@outlook.com', profile: { firstName: 'Ananya', lastName: 'Venkatesh' } },
-        plan: { name: 'Elite Plan', tier: 'ELITE' },
-      },
-    ];
-
-    return { payments: fallbackPayments, total: fallbackPayments.length, page: +page, totalPages: 1 };
   }
 
   async getReports(search?: string, page = 1, limit = 10) {

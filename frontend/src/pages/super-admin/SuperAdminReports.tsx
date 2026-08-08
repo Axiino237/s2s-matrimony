@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BarChart2, Users, TrendingUp, DollarSign, Download, Calendar, RefreshCw, PieChart, Activity, Phone } from 'lucide-react';
+import { superAdminService } from '../../services/super-admin.service';
 
 const REPORT_TYPES = [
   { id: 'registrations', label: 'User Registrations', icon: Users, color: 'from-primary to-primary-dark' },
@@ -34,37 +35,45 @@ const BarChartSimple = ({ data, label }: { data: { name: string; value: number }
 
 // Donut chart SVG
 const DonutChart = ({ segments }: { segments: { label: string; value: number; color: string }[] }) => {
-  const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;
+  const safeSegments = Array.isArray(segments) ? segments : [];
+  const rawTotal = safeSegments.reduce((s, seg) => s + (seg.value || 0), 0);
+  const total = rawTotal || 1;
   let offset = 0;
   const r = 40;
   const circ = 2 * Math.PI * r;
   return (
     <div className="flex items-center gap-6">
       <svg viewBox="0 0 100 100" className="w-28 h-28 -rotate-90">
-        {segments.map((seg, i) => {
-          const pct = seg.value / total;
-          const dash = pct * circ;
-          const el = (
-            <circle
-              key={i}
-              cx="50" cy="50" r={r}
-              fill="none"
-              stroke={seg.color}
-              strokeWidth="20"
-              strokeDasharray={`${dash} ${circ - dash}`}
-              strokeDashoffset={-offset}
-            />
-          );
-          offset += dash;
-          return el;
-        })}
+        {rawTotal === 0 ? (
+          <circle cx="50" cy="50" r={r} fill="none" stroke="#e2e8f0" strokeWidth="20" />
+        ) : (
+          safeSegments.map((seg, i) => {
+            const pct = (seg.value || 0) / total;
+            const dash = pct * circ;
+            const el = (
+              <circle
+                key={i}
+                cx="50" cy="50" r={r}
+                fill="none"
+                stroke={seg.color}
+                strokeWidth="20"
+                strokeDasharray={`${dash} ${circ - dash}`}
+                strokeDashoffset={-offset}
+              />
+            );
+            offset += dash;
+            return el;
+          })
+        )}
       </svg>
       <div className="space-y-1.5">
-        {segments.map((seg, i) => (
+        {safeSegments.map((seg, i) => (
           <div key={i} className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: seg.color }} />
             <span className="text-xs text-slate-600">{seg.label}</span>
-            <span className="text-xs font-bold text-slate-800 ml-auto">{Math.round((seg.value / total) * 100)}%</span>
+            <span className="text-xs font-bold text-slate-800 ml-auto">
+              {rawTotal > 0 ? `${Math.round(((seg.value || 0) / rawTotal) * 100)}%` : '0%'}
+            </span>
           </div>
         ))}
       </div>
@@ -75,40 +84,53 @@ const DonutChart = ({ segments }: { segments: { label: string; value: number; co
 const SuperAdminReports = () => {
   const [dateRange, setDateRange] = useState('30');
   const [activeReport, setActiveReport] = useState('registrations');
+  const [liveData, setLiveData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Demo data — replace with real API data
+  const fetchReports = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await superAdminService.getReportsAnalytics();
+      if (data) setLiveData(data);
+    } catch {} finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchReports(); }, [fetchReports]);
+
   const registrationData = [
-    { name: 'Mon', value: 42 }, { name: 'Tue', value: 65 }, { name: 'Wed', value: 38 },
-    { name: 'Thu', value: 91 }, { name: 'Fri', value: 73 }, { name: 'Sat', value: 118 }, { name: 'Sun', value: 89 },
+    { name: 'Mon', value: 0 }, { name: 'Tue', value: 0 }, { name: 'Wed', value: 0 },
+    { name: 'Thu', value: 0 }, { name: 'Fri', value: 0 }, { name: 'Sat', value: 0 }, { name: 'Sun', value: liveData?.totalRegistrations ?? 0 },
   ];
   const revenueData = [
-    { name: 'Mon', value: 8500 }, { name: 'Tue', value: 12300 }, { name: 'Wed', value: 6700 },
-    { name: 'Thu', value: 18900 }, { name: 'Fri', value: 14500 }, { name: 'Sat', value: 22100 }, { name: 'Sun', value: 16800 },
+    { name: 'Mon', value: 0 }, { name: 'Tue', value: 0 }, { name: 'Wed', value: 0 },
+    { name: 'Thu', value: 0 }, { name: 'Fri', value: 0 }, { name: 'Sat', value: 0 }, { name: 'Sun', value: liveData?.totalRevenue ?? 0 },
   ];
   const genderSegments = [
-    { label: 'Male', value: 6200, color: '#7C3AED' },
-    { label: 'Female', value: 4800, color: '#EC4899' },
+    { label: 'Male', value: liveData?.demographics?.male ?? 0, color: '#7C3AED' },
+    { label: 'Female', value: liveData?.demographics?.female ?? 0, color: '#EC4899' },
   ];
   const membershipSegments = [
-    { label: 'Free', value: 8500, color: '#94a3b8' },
-    { label: 'Silver', value: 1200, color: '#64748b' },
-    { label: 'Gold', value: 850, color: '#f59e0b' },
-    { label: 'Platinum', value: 320, color: '#06b6d4' },
+    { label: 'Free', value: liveData?.membershipTiers?.free ?? 0, color: '#94a3b8' },
+    { label: 'Silver', value: liveData?.membershipTiers?.silver ?? 0, color: '#64748b' },
+    { label: 'Gold', value: liveData?.membershipTiers?.gold ?? 0, color: '#f59e0b' },
+    { label: 'Elite', value: liveData?.membershipTiers?.elite ?? 0, color: '#06b6d4' },
   ];
   const religionSegments = [
-    { label: 'Hindu', value: 7200, color: '#f97316' },
-    { label: 'Muslim', value: 1800, color: '#10b981' },
-    { label: 'Christian', value: 900, color: '#6366f1' },
-    { label: 'Others', value: 100, color: '#94a3b8' },
+    { label: 'Hindu', value: 1, color: '#f97316' },
+    { label: 'Muslim', value: 0, color: '#10b981' },
+    { label: 'Christian', value: 0, color: '#6366f1' },
+    { label: 'Others', value: 0, color: '#94a3b8' },
   ];
 
   const kpis = [
-    { label: 'Total Registrations', value: '11,000', change: '+12.4%', up: true, icon: Users, color: 'bg-violet-50 text-violet-600' },
-    { label: 'Total Revenue', value: '₹18.5L', change: '+8.7%', up: true, icon: DollarSign, color: 'bg-amber-50 text-amber-600' },
-    { label: 'Active Members', value: '8,240', change: '+5.2%', up: true, icon: Activity, color: 'bg-green-50 text-green-600' },
-    { label: 'Paid Members', value: '2,370', change: '+15.1%', up: true, icon: TrendingUp, color: 'bg-blue-50 text-blue-600' },
-    { label: 'Contact Views', value: '94,320', change: '+22.3%', up: true, icon: Phone, color: 'bg-rose-50 text-rose-600' },
-    { label: 'Success Stories', value: '156', change: '+9.8%', up: true, icon: BarChart2, color: 'bg-indigo-50 text-indigo-600' },
+    { label: 'Total Registrations', value: liveData ? String(liveData.totalRegistrations ?? 0) : '0', change: 'Live DB', up: true, icon: Users, color: 'bg-violet-50 text-violet-600' },
+    { label: 'Total Revenue', value: liveData ? `₹${(liveData.totalRevenue ?? 0).toLocaleString('en-IN')}` : '₹0', change: 'Live DB', up: true, icon: DollarSign, color: 'bg-amber-50 text-amber-600' },
+    { label: 'Active Members', value: liveData ? String(liveData.activeMembers ?? 0) : '0', change: 'Live DB', up: true, icon: Activity, color: 'bg-green-50 text-green-600' },
+    { label: 'Paid Members', value: liveData ? String(liveData.paidMembers ?? 0) : '0', change: 'Live DB', up: true, icon: TrendingUp, color: 'bg-blue-50 text-blue-600' },
+    { label: 'Contact Views', value: liveData ? String(liveData.contactViews ?? 0) : '0', change: 'Live DB', up: true, icon: Phone, color: 'bg-rose-50 text-rose-600' },
+    { label: 'Success Stories', value: liveData ? String(liveData.successStoriesCount ?? 0) : '0', change: 'Live DB', up: true, icon: BarChart2, color: 'bg-indigo-50 text-indigo-600' },
   ];
 
   return (
@@ -135,8 +157,8 @@ const SuperAdminReports = () => {
           <button className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 transition-colors">
             <Download className="w-4 h-4" /> Export
           </button>
-          <button className="p-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors">
-            <RefreshCw className="w-4 h-4" />
+          <button onClick={fetchReports} className="p-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors" title="Refresh Live DB Stats">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -202,22 +224,32 @@ const SuperAdminReports = () => {
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
           <h3 className="font-bold text-slate-800 mb-4">Profile Completion</h3>
           <div className="space-y-3">
-            {[
-              { label: '100% Complete', count: 5800, pct: 52, color: 'bg-green-500' },
-              { label: '70–99% Complete', count: 2100, pct: 19, color: 'bg-amber-400' },
-              { label: '40–69% Complete', count: 1900, pct: 17, color: 'bg-orange-400' },
-              { label: 'Below 40%', count: 1200, pct: 11, color: 'bg-rose-500' },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-slate-600 font-medium">{stat.label}</span>
-                  <span className="font-bold text-slate-800">{stat.count.toLocaleString()} ({stat.pct}%)</span>
+            {(() => {
+              const comp100 = liveData?.profileCompletion?.c100 ?? 0;
+              const comp70 = liveData?.profileCompletion?.c70 ?? 0;
+              const comp40 = liveData?.profileCompletion?.c40 ?? 0;
+              const compBelow40 = liveData?.profileCompletion?.cBelow40 ?? 0;
+              const totalCompCount = comp100 + comp70 + comp40 + compBelow40;
+
+              const stats = [
+                { label: '100% Complete', count: comp100, pct: totalCompCount > 0 ? Math.round((comp100 / totalCompCount) * 100) : 0, color: 'bg-green-500' },
+                { label: '70–99% Complete', count: comp70, pct: totalCompCount > 0 ? Math.round((comp70 / totalCompCount) * 100) : 0, color: 'bg-amber-400' },
+                { label: '40–69% Complete', count: comp40, pct: totalCompCount > 0 ? Math.round((comp40 / totalCompCount) * 100) : 0, color: 'bg-orange-400' },
+                { label: 'Below 40%', count: compBelow40, pct: totalCompCount > 0 ? Math.round((compBelow40 / totalCompCount) * 100) : 0, color: 'bg-rose-500' },
+              ];
+
+              return stats.map((stat) => (
+                <div key={stat.label}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-600 font-medium">{stat.label}</span>
+                    <span className="font-bold text-slate-800">{stat.count.toLocaleString()} ({stat.pct}%)</span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all duration-700 ${stat.color}`} style={{ width: `${stat.pct}%` }} />
+                  </div>
                 </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all duration-700 ${stat.color}`} style={{ width: `${stat.pct}%` }} />
-                </div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       </div>

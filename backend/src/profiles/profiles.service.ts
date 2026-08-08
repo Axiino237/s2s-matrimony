@@ -138,6 +138,9 @@ export class ProfilesService {
           lagnam,
           gothram,
           dosham,
+          kuladeivam: profile.horoscope?.kuladeivam || devUser.kuladeivam || '',
+          dasaBalance: profile.horoscope?.dasaBalance || devUser.dasaBalance || '',
+          starPadam: profile.horoscope?.starPadam || devUser.starPadam || null,
           birthTime: profile.horoscope?.birthTime || devUser.birthTime || devUser.timeOfBirth || '',
           birthPlace: profile.horoscope?.birthPlace || devUser.birthPlace || devUser.placeOfBirth || '',
         },
@@ -157,8 +160,17 @@ export class ProfilesService {
           fatherOccupation,
           motherName,
           motherOccupation,
+          nativePlace: profile.family?.nativePlace || devUser.nativePlace || '',
           brothers: profile.family?.brothers ?? devUser.brothers ?? 0,
           sisters: profile.family?.sisters ?? devUser.sisters ?? 0,
+          elderBrothers: profile.family?.elderBrothers ?? devUser.elderBrothers ?? 0,
+          elderBrothersMarried: profile.family?.elderBrothersMarried ?? devUser.elderBrothersMarried ?? 0,
+          youngerBrothers: profile.family?.youngerBrothers ?? devUser.youngerBrothers ?? 0,
+          youngerBrothersMarried: profile.family?.youngerBrothersMarried ?? devUser.youngerBrothersMarried ?? 0,
+          elderSisters: profile.family?.elderSisters ?? devUser.elderSisters ?? 0,
+          elderSistersMarried: profile.family?.elderSistersMarried ?? devUser.elderSistersMarried ?? 0,
+          youngerSisters: profile.family?.youngerSisters ?? devUser.youngerSisters ?? 0,
+          youngerSistersMarried: profile.family?.youngerSistersMarried ?? devUser.youngerSistersMarried ?? 0,
           familyType: profile.family?.familyType || devUser.familyType || 'NUCLEAR',
           familyStatus: profile.family?.familyStatus || devUser.familyStatus || 'MIDDLE',
           familyValues: profile.family?.familyValues || devUser.familyValues || 'MODERATE',
@@ -348,6 +360,14 @@ export class ProfilesService {
         if (sc) updateData.subCasteId = sc.id;
       }
 
+      if (data.birthOrder !== undefined && data.birthOrder !== null && data.birthOrder !== '') {
+        updateData.birthOrder = Number(data.birthOrder);
+      }
+      if (data.residentStatus !== undefined) updateData.residentStatus = data.residentStatus;
+      if (data.propertyDetails !== undefined) updateData.propertyDetails = data.propertyDetails;
+      if (data.branch !== undefined) updateData.branch = data.branch;
+      if (data.memberId !== undefined) updateData.memberId = data.memberId;
+
       let profileId = existing?.id;
 
       if (existing) {
@@ -375,15 +395,18 @@ export class ProfilesService {
 
       if (profileId) {
         // Upsert Horoscope relation (storing both individual columns and full JSON snapshot)
-        if (data.star || data.rasi || data.lagnam || data.gothram || data.dosham || data.timeOfBirth || data.placeOfBirth || data.horoscopeData) {
+        if (data.star || data.starPadam || data.rasi || data.lagnam || data.gothram || data.kuladeivam || data.dosham || data.dasaBalance || data.timeOfBirth || data.placeOfBirth || data.horoscopeData) {
           const horoscopeJson = typeof data.horoscopeData === 'object'
             ? data.horoscopeData
             : {
                 star: data.star || null,
+                starPadam: data.starPadam ? Number(data.starPadam) : null,
                 rasi: data.rasi || null,
                 lagnam: data.lagnam || null,
                 gothram: data.gothram || null,
+                kuladeivam: data.kuladeivam || null,
                 dosham: data.dosham || null,
+                dasaBalance: data.dasaBalance || null,
                 birthTime: data.timeOfBirth || data.birthTime || null,
                 birthPlace: data.placeOfBirth || data.birthPlace || null,
                 updatedAt: new Date().toISOString(),
@@ -394,20 +417,26 @@ export class ProfilesService {
             create: {
               profileId,
               star: data.star || null,
+              starPadam: data.starPadam ? Number(data.starPadam) : null,
               rasi: data.rasi || null,
               lagnam: data.lagnam || null,
               gothram: data.gothram || null,
+              kuladeivam: data.kuladeivam || null,
               dosham: data.dosham || null,
+              dasaBalance: data.dasaBalance || null,
               birthTime: data.timeOfBirth || data.birthTime || null,
               birthPlace: data.placeOfBirth || data.birthPlace || null,
               horoscopeData: horoscopeJson,
             },
             update: {
               star: data.star !== undefined ? data.star : undefined,
+              starPadam: data.starPadam !== undefined ? (data.starPadam ? Number(data.starPadam) : null) : undefined,
               rasi: data.rasi !== undefined ? data.rasi : undefined,
               lagnam: data.lagnam !== undefined ? data.lagnam : undefined,
               gothram: data.gothram !== undefined ? data.gothram : undefined,
+              kuladeivam: data.kuladeivam !== undefined ? data.kuladeivam : undefined,
               dosham: data.dosham !== undefined ? data.dosham : undefined,
+              dasaBalance: data.dasaBalance !== undefined ? data.dasaBalance : undefined,
               birthTime: (data.timeOfBirth || data.birthTime) !== undefined ? (data.timeOfBirth || data.birthTime) : undefined,
               birthPlace: (data.placeOfBirth || data.birthPlace) !== undefined ? (data.placeOfBirth || data.birthPlace) : undefined,
               horoscopeData: horoscopeJson,
@@ -456,7 +485,29 @@ export class ProfilesService {
         }
 
         // Upsert FamilyDetail relation
-        if (data.fatherName || data.fatherOccupation || data.motherName || data.motherOccupation || data.brothers !== undefined || data.sisters !== undefined || data.familyType || data.familyStatus || data.familyValues) {
+        if (
+          data.fatherName || data.fatherOccupation || data.motherName || data.motherOccupation ||
+          data.brothers !== undefined || data.sisters !== undefined ||
+          data.elderBrothers !== undefined || data.elderBrothersMarried !== undefined ||
+          data.youngerBrothers !== undefined || data.youngerBrothersMarried !== undefined ||
+          data.elderSisters !== undefined || data.elderSistersMarried !== undefined ||
+          data.youngerSisters !== undefined || data.youngerSistersMarried !== undefined ||
+          data.familyType || data.familyStatus || data.familyValues || data.nativePlace
+        ) {
+          const eb = data.elderBrothers !== undefined ? Number(data.elderBrothers) : 0;
+          const ebm = data.elderBrothersMarried !== undefined ? Number(data.elderBrothersMarried) : 0;
+          const yb = data.youngerBrothers !== undefined ? Number(data.youngerBrothers) : 0;
+          const ybm = data.youngerBrothersMarried !== undefined ? Number(data.youngerBrothersMarried) : 0;
+          const es = data.elderSisters !== undefined ? Number(data.elderSisters) : 0;
+          const esm = data.elderSistersMarried !== undefined ? Number(data.elderSistersMarried) : 0;
+          const ys = data.youngerSisters !== undefined ? Number(data.youngerSisters) : 0;
+          const ysm = data.youngerSistersMarried !== undefined ? Number(data.youngerSistersMarried) : 0;
+
+          const totalBrothers = data.brothers !== undefined ? Number(data.brothers) : (eb + yb);
+          const totalBrothersMarried = data.brothersMarried !== undefined ? Number(data.brothersMarried) : (ebm + ybm);
+          const totalSisters = data.sisters !== undefined ? Number(data.sisters) : (es + ys);
+          const totalSistersMarried = data.sistersMarried !== undefined ? Number(data.sistersMarried) : (esm + ysm);
+
           await this.prisma.familyDetail.upsert({
             where: { profileId },
             create: {
@@ -465,31 +516,53 @@ export class ProfilesService {
               fatherOccupation: data.fatherOccupation || null,
               motherName: data.motherName || null,
               motherOccupation: data.motherOccupation || null,
-              brothers: data.brothers !== undefined ? Number(data.brothers) : 0,
-              sisters: data.sisters !== undefined ? Number(data.sisters) : 0,
+              brothers: totalBrothers,
+              brothersMarried: totalBrothersMarried,
+              elderBrothers: eb,
+              elderBrothersMarried: ebm,
+              youngerBrothers: yb,
+              youngerBrothersMarried: ybm,
+              sisters: totalSisters,
+              sistersMarried: totalSistersMarried,
+              elderSisters: es,
+              elderSistersMarried: esm,
+              youngerSisters: ys,
+              youngerSistersMarried: ysm,
               familyType: data.familyType || null,
               familyStatus: data.familyStatus || null,
               familyValues: data.familyValues || null,
+              nativePlace: data.nativePlace || null,
             },
             update: {
               fatherName: data.fatherName !== undefined ? data.fatherName : undefined,
               fatherOccupation: data.fatherOccupation !== undefined ? data.fatherOccupation : undefined,
               motherName: data.motherName !== undefined ? data.motherName : undefined,
               motherOccupation: data.motherOccupation !== undefined ? data.motherOccupation : undefined,
-              brothers: data.brothers !== undefined ? Number(data.brothers) : undefined,
-              sisters: data.sisters !== undefined ? Number(data.sisters) : undefined,
+              brothers: totalBrothers,
+              brothersMarried: totalBrothersMarried,
+              elderBrothers: eb,
+              elderBrothersMarried: ebm,
+              youngerBrothers: yb,
+              youngerBrothersMarried: ybm,
+              sisters: totalSisters,
+              sistersMarried: totalSistersMarried,
+              elderSisters: es,
+              elderSistersMarried: esm,
+              youngerSisters: ys,
+              youngerSistersMarried: ysm,
               familyType: data.familyType !== undefined ? data.familyType : undefined,
               familyStatus: data.familyStatus !== undefined ? data.familyStatus : undefined,
               familyValues: data.familyValues !== undefined ? data.familyValues : undefined,
+              nativePlace: data.nativePlace !== undefined ? data.nativePlace : undefined,
             },
           }).catch(() => null);
         }
 
         // Upsert PartnerPreference relation
-        if (data.prefGender || data.prefAgeMin || data.prefAgeMax || data.prefHeightMin || data.prefHeightMax || data.prefMaritalStatus || data.aboutPartner || data.prefReligion || data.prefCaste || data.prefLocation || data.prefEducation) {
+        if (data.prefGender || data.prefAgeMin || data.prefAgeMax || data.prefHeightMin || data.prefHeightMax || data.prefMaritalStatus || data.aboutPartner || data.prefReligion || data.prefCaste || data.prefCommunity || data.prefLocation || data.prefEducation) {
           const aboutObj = JSON.stringify({
             religion: data.prefReligion || '',
-            caste: data.prefCaste || data.prefCommunity || '',
+            community: data.prefCommunity || data.prefCaste || '',
             education: data.prefEducation || '',
             location: data.prefLocation || '',
             about: data.aboutPartner || '',

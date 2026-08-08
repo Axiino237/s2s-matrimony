@@ -69,6 +69,111 @@ export class SuperAdminService {
     };
   }
 
+  async getReportsAnalytics() {
+    try {
+      const [
+        totalUsers,
+        totalProfiles,
+        activeMembers,
+        paidMembers,
+        totalRevenueAgg,
+        contactViews,
+        successStoriesCount,
+        femaleCount,
+        maleCount,
+        silverTiersCount,
+        goldTiersCount,
+        eliteTiersCount,
+        allProfiles,
+      ] = await Promise.all([
+        this.prisma.user.count().catch(() => 0),
+        this.prisma.profile.count().catch(() => 0),
+        this.prisma.profile.count({ where: { status: 'ACTIVE' } }).catch(() => 0),
+        this.prisma.membership.count({ where: { isActive: true, tier: { not: 'FREE' } } }).catch(() => 0),
+        this.prisma.payment.aggregate({ _sum: { amount: true }, where: { status: 'SUCCESS' } }).catch(() => ({ _sum: { amount: null } })),
+        this.prisma.contactUnlock.count().catch(() => 0),
+        this.prisma.successStory.count().catch(() => 0),
+        this.prisma.profile.count({ where: { gender: 'FEMALE' } }).catch(() => 0),
+        this.prisma.profile.count({ where: { gender: 'MALE' } }).catch(() => 0),
+        this.prisma.membership.count({ where: { tier: 'SILVER' } }).catch(() => 0),
+        this.prisma.membership.count({ where: { tier: 'GOLD' } }).catch(() => 0),
+        this.prisma.membership.count({ where: { tier: { in: ['ELITE', 'PLATINUM', 'DIAMOND'] } } }).catch(() => 0),
+        this.prisma.profile.findMany({ select: { profileCompletionPercent: true } }).catch(() => [] as { profileCompletionPercent: number | null }[]),
+      ]);
+
+      const c100 = allProfiles.filter(p => (p.profileCompletionPercent ?? 0) >= 100).length;
+      const c70 = allProfiles.filter(p => (p.profileCompletionPercent ?? 0) >= 70 && (p.profileCompletionPercent ?? 0) < 100).length;
+      const c40 = allProfiles.filter(p => (p.profileCompletionPercent ?? 0) >= 40 && (p.profileCompletionPercent ?? 0) < 70).length;
+      const cBelow40 = allProfiles.filter(p => (p.profileCompletionPercent ?? 0) < 40).length;
+
+      const freeTiersCount = Math.max(0, totalProfiles - (silverTiersCount + goldTiersCount + eliteTiersCount));
+      const totalRevenue = totalRevenueAgg?._sum?.amount ? Number(totalRevenueAgg._sum.amount) : 0;
+
+      return {
+        totalRegistrations: totalProfiles || totalUsers,
+        activeMembers: activeMembers || totalProfiles,
+        paidMembers,
+        totalRevenue,
+        contactViews,
+        successStoriesCount,
+        demographics: {
+          male: maleCount,
+          female: femaleCount,
+        },
+        membershipTiers: {
+          free: freeTiersCount,
+          silver: silverTiersCount,
+          gold: goldTiersCount,
+          elite: eliteTiersCount,
+        },
+        profileCompletion: {
+          c100,
+          c70,
+          c40,
+          cBelow40,
+        },
+      };
+    } catch {
+      return {
+        totalRegistrations: 0,
+        activeMembers: 0,
+        paidMembers: 0,
+        totalRevenue: 0,
+        contactViews: 0,
+        successStoriesCount: 0,
+        demographics: { male: 0, female: 0 },
+        membershipTiers: { free: 0, silver: 0, gold: 0, elite: 0 },
+        profileCompletion: { c100: 0, c70: 0, c40: 0, cBelow40: 0 },
+      };
+    }
+  }
+
+  async getSystemSettings() {
+    try {
+      const record = await this.prisma.setting.findUnique({ where: { key: 'system_settings' } });
+      if (record && record.value) {
+        try { return JSON.parse(record.value); } catch { return {}; }
+      }
+    } catch {}
+    return (devStore as any).systemSettings || {};
+  }
+
+  async updateSystemSettings(data: any) {
+    try {
+      const jsonStr = JSON.stringify(data || {});
+      await this.prisma.setting.upsert({
+        where: { key: 'system_settings' },
+        update: { value: jsonStr },
+        create: { key: 'system_settings', value: jsonStr, group: 'GLOBAL', isPublic: true },
+      });
+      (devStore as any).systemSettings = data;
+      return { success: true, settings: data };
+    } catch {
+      (devStore as any).systemSettings = data;
+      return { success: true, settings: data };
+    }
+  }
+
   async getAdmins(search?: string, page = 1, limit = 10) {
     try {
       const skip = (+page - 1) * +limit;

@@ -348,6 +348,26 @@ export class BiodataParserService {
     const state = text.match(/(?:state|மாநிலம்)\s*[:=\-]\s*([A-Za-z\s]+)/i)?.[1]?.trim() || (text.match(/tamil nadu|kerala|karnataka|andhra|telangana|maharashtra/i)?.[0] || null);
     const country = text.match(/(?:country|நாடு)\s*[:=\-]\s*([A-Za-z\s]+)/i)?.[1]?.trim() || (text.match(/india|usa|uk|uae|canada|singapore|australia/i)?.[0] || null);
 
+    const birthOrderMatch = text.match(/(?:birth order|பிறப்பு வரிசை)\s*[:=\-]\s*([0-9]+)/i);
+    const birthOrderVal = birthOrderMatch ? Number(birthOrderMatch[1]) : null;
+
+    const starPadamMatch = text.match(/(?:padam|பாதம்)\s*[:=\-]?\s*([1-4])/i);
+    const starPadamVal = starPadamMatch ? Number(starPadamMatch[1]) : null;
+
+    const dasaBalanceMatch = text.match(/(?:dasa irupu|dasa balance|தசா இருப்பு)\s*[:=\-]\s*([A-Za-z0-9\u0B80-\u0BFF\s.,\-]+)/i);
+    const dasaBalanceVal = dasaBalanceMatch ? dasaBalanceMatch[1].trim() : null;
+
+    const residentMatch = text.match(/(?:resident|resident status|வீட்டு வகை)\s*[:=\-]\s*([A-Za-z0-9\u0B80-\u0BFF\s]+)/i);
+    const residentStatusVal = residentMatch ? residentMatch[1].trim() : (text.match(/rent house|own house|lease|quarters|சொந்த வீடு|வாடகை வீடு/i)?.[0] || null);
+
+    const propertyMatch = text.match(/(?:property|property details|சொத்து விவரம்|சொத்துக்கள்)\s*[:=\-]\s*([A-Za-z0-9\u0B80-\u0BFF\s.,\-]+)/i);
+    const propertyDetailsVal = propertyMatch ? propertyMatch[1].trim() : null;
+
+    const ebMatch = text.match(/(?:elder brother|elder brothers|மூத்த சகோதரன்)\s*[:=\-]\s*([0-9]+)/i);
+    const ybMatch = text.match(/(?:younger brother|younger brothers|தம்பி)\s*[:=\-]\s*([0-9]+)/i);
+    const esMatch = text.match(/(?:elder sister|elder sisters|அக்கா)\s*[:=\-]\s*([0-9]+)/i);
+    const ysMatch = text.match(/(?:younger sister|younger sisters|தங்கை)\s*[:=\-]\s*([0-9]+)/i);
+
     const rawOutput = {
       profile: {
         profile_type: gender === 'FEMALE' ? 'BRIDAL' : (gender === 'MALE' ? 'GROOM' : null),
@@ -358,6 +378,7 @@ export class BiodataParserService {
         last_name: lastName,
         age,
         dob,
+        birth_order: birthOrderVal,
         birth_day: birthDay,
         birth_month: birthMonth,
         birth_year: birthYear,
@@ -379,8 +400,12 @@ export class BiodataParserService {
         sevvai_dosham: chevvai,
         chevvai,
         star: nakshatra,
+        star_padam: starPadamVal,
+        dasa_balance: dasaBalanceVal,
         citizenship,
         nationality,
+        resident_status: residentStatusVal,
+        property_details: propertyDetailsVal,
       },
       education: {
         highest_qualification: highestQualification,
@@ -404,7 +429,12 @@ export class BiodataParserService {
         father_status: fatherName ? 'Alive' : null,
         mother_name: motherName,
         mother_occupation: motherOccupation,
+        native_place: text.match(/(?:native|native place|சொந்த ஊர்)\s*[:=\-]\s*([A-Za-z\u0B80-\u0BFF\s]+)/i)?.[1]?.trim() || null,
         siblings: [],
+        elder_brothers: ebMatch ? Number(ebMatch[1]) : 0,
+        younger_brothers: ybMatch ? Number(ybMatch[1]) : 0,
+        elder_sisters: esMatch ? Number(esMatch[1]) : 0,
+        younger_sisters: ysMatch ? Number(ysMatch[1]) : 0,
         family_type: familyType,
         family_status: familyStatus,
       },

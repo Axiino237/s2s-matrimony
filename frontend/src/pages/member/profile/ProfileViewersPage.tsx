@@ -130,9 +130,14 @@ const ProfileViewersPage = () => {
 
                 {/* Footer */}
                 <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
-                  <div className="flex items-center gap-1 text-[10px] text-text-muted">
-                    <Calendar className="w-3 h-3" />
-                    <span>{formatTimeAgo(v.viewedAt)}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 text-[10px] text-text-muted">
+                      <Calendar className="w-3 h-3" />
+                      <span>{formatTimeAgo(v.viewedAt)}</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      ✓ Read
+                    </span>
                   </div>
                   {v.profileId ? (
                     <Link

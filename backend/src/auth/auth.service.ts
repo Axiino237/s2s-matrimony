@@ -206,13 +206,14 @@ export class AuthService {
           profile: { include: { membership: true } },
         },
       });
-    } catch {
+    } catch (err: any) {
+      console.error('CRITICAL PRISMA DB ERROR:', err?.message || err);
       // If DB is offline in development, fallback for demo credentials
       const demoResponse = await this.getDemoAuthResponse(dto);
       if (demoResponse) {
         return demoResponse;
       }
-      throw new UnauthorizedException('Database unavailable. Please start PostgreSQL server.');
+      throw new UnauthorizedException(`Database unavailable: ${err?.message || err}`);
     }
 
     if (!user || !user.passwordHash) {

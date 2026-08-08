@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, Heart, ShieldCheck, Star, X, Check, ArrowRight, Loader2 } from 'lucide-react';
+import { Search, SlidersHorizontal, Heart, ShieldCheck, Star, X, Check, ArrowRight, Loader2, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../services/api';
+import { paymentsApi } from '../../../services/payments.service';
 import { useAuthStore } from '../../../store/auth.store';
 
 interface Profile {
@@ -50,7 +51,7 @@ const getProfileDisplay = (p: any) => ({
 });
 
 
-const ProfileCard = ({ profile: rawProfile, showMatchScore = false }: { profile: any; showMatchScore?: boolean }) => {
+const ProfileCard = ({ profile: rawProfile, showMatchScore = false, isContactUnlocked = false }: { profile: any; showMatchScore?: boolean; isContactUnlocked?: boolean }) => {
   const profile = getProfileDisplay(rawProfile);
   const [liked, setLiked] = useState(false);
   const [interestSent, setInterestSent] = useState(false);
@@ -143,15 +144,30 @@ const ProfileCard = ({ profile: rawProfile, showMatchScore = false }: { profile:
 
         {/* Actions Button */}
         <div className="flex gap-2 mt-4 pt-3 border-t border-slate-100">
-          <button 
-            onClick={handleInterest} 
-            className={`btn btn-sm flex-1 text-xs py-2 font-semibold ${interestSent ? 'bg-slate-100 text-slate-500 border-slate-200' : 'btn-primary'}`}
-          >
-            {interestSent ? '💌 Sent' : '💌 Interest'}
-          </button>
-          <button 
-            onClick={handleLike} 
-            className={`btn btn-secondary btn-sm p-2 flex items-center justify-center border-slate-200 ${liked ? 'bg-rose-50 text-rose-500 border-rose-200' : 'text-text-secondary hover:bg-slate-50'}`}
+          {isContactUnlocked ? (
+            <button
+              onClick={handleInterest}
+              className={`btn btn-sm flex-1 text-xs py-2 font-semibold ${
+                interestSent ? 'bg-slate-100 text-slate-500 border-slate-200' : 'btn-primary'
+              }`}
+            >
+              {interestSent ? '💌 Sent' : '💌 Interest'}
+            </button>
+          ) : (
+            <button
+              disabled
+              title="Unlock contact first to send interest"
+              className="btn btn-sm flex-1 text-xs py-2 font-semibold bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed flex items-center justify-center gap-1.5"
+            >
+              <Lock className="w-3 h-3" />
+              Interest
+            </button>
+          )}
+          <button
+            onClick={handleLike}
+            className={`btn btn-secondary btn-sm p-2 flex items-center justify-center border-slate-200 ${
+              liked ? 'bg-rose-50 text-rose-500 border-rose-200' : 'text-text-secondary hover:bg-slate-50'
+            }`}
           >
             {liked ? '❤️' : '♡'}
           </button>
@@ -165,6 +181,14 @@ const SearchPage = () => {
   const { user } = useAuthStore();
   const [searchParams] = useSearchParams();
   const [showFilters, setShowFilters] = useState(true);
+  const [unlockedIds, setUnlockedIds] = useState<string[]>([]);
+
+  // Fetch unlocked contact IDs on mount
+  useEffect(() => {
+    paymentsApi.getUnlockedContacts().then((data) => {
+      if (data?.unlockedIds) setUnlockedIds(data.unlockedIds);
+    }).catch(() => null);
+  }, []);
   
   // Tab and Sort State
   const [activeTab, setActiveTab] = useState<'All' | 'Recommended' | 'Recently Joined' | 'Verified' | 'Premium'>('All');
@@ -597,9 +621,18 @@ const SearchPage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {paginatedProfiles.map((profile) => (
-                <ProfileCard key={profile.id} profile={profile} showMatchScore={activeTab === 'Recommended'} />
-              ))}
+              {paginatedProfiles.map((profile) => {
+                const targetUserId = profile.userId || profile.id;
+                const isUnlocked = unlockedIds.includes(profile.id) || unlockedIds.includes(targetUserId);
+                return (
+                  <ProfileCard
+                    key={profile.id}
+                    profile={profile}
+                    showMatchScore={activeTab === 'Recommended'}
+                    isContactUnlocked={isUnlocked}
+                  />
+                );
+              })}
             </div>
           )}
 

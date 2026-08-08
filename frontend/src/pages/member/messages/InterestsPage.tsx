@@ -96,7 +96,10 @@ const InterestsPage = () => {
     }
   }, []);
 
-  useEffect(() => { fetchInterests(); }, [fetchInterests]);
+  useEffect(() => {
+    fetchInterests();
+    api.patch('/notifications/mark-read').catch(() => null);
+  }, [fetchInterests]);
 
   const handleRespond = async (id: string, status: 'ACCEPTED' | 'REJECTED', name: string) => {
     try {
@@ -206,6 +209,9 @@ const InterestsPage = () => {
                       'bg-amber-50 text-amber-700'
                     }`}>
                       {item.status}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                      ✓ Read
                     </span>
                     <span className="text-text-muted text-[10px]">{timeAgo(item.createdAt)}</span>
                   </div>

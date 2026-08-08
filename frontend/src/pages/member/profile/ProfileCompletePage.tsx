@@ -40,6 +40,24 @@ const STARS = ['Ashwini','Bharani','Krittika','Rohini','Mrigashirsha','Ardra','P
 const RASIS = ['Mesha','Rishabha','Mithuna','Kataka','Simha','Kanya','Tula','Vrischika','Dhanu','Makara','Kumbha','Meena'];
 const DOSHAMS = ['No Dosham','Chevvai Dosham','Raagu Dosham','Kethu Dosham','Sarpa Dosham','Kalathra Dosham'];
 
+// Planet choices for 12-box chart grids
+const PLANETS = ['சூரி', 'சந்', 'செவ்', 'புத', 'குரு', 'சுக்', 'சனி', 'ராகு', 'கேது', 'லக்'];
+
+const HOUSES = [
+  { id: 'Mesham', tamil: 'மேஷம்', row: 0, col: 1 },
+  { id: 'Rishabam', tamil: 'ரிஷபம்', row: 0, col: 2 },
+  { id: 'Mithunam', tamil: 'மிதுனம்', row: 0, col: 3 },
+  { id: 'Kadagam', tamil: 'கடகம்', row: 1, col: 3 },
+  { id: 'Simmam', tamil: 'சிம்மம்', row: 2, col: 3 },
+  { id: 'Kanni', tamil: 'கன்னி', row: 3, col: 3 },
+  { id: 'Thulaam', tamil: 'துலாம்', row: 3, col: 2 },
+  { id: 'Viruchigam', tamil: 'விருச்சிகம்', row: 3, col: 1 },
+  { id: 'Dhanusu', tamil: 'தனுசு', row: 3, col: 0 },
+  { id: 'Magaram', tamil: 'மகரம்', row: 2, col: 0 },
+  { id: 'Kumbam', tamil: 'கும்பம்', row: 1, col: 0 },
+  { id: 'Meenam', tamil: 'மீனம்', row: 0, col: 0 },
+];
+
 // ─── Input Component ───────────────────────────────────────────────────
 const Input = ({ label, required, error, ...props }: any) => (
   <div className="flex flex-col gap-1">
@@ -102,6 +120,7 @@ const ProfileCompletePage = () => {
     lastName: user?.lastName || '',
     gender: user?.gender || 'MALE',
     dateOfBirth: user?.dateOfBirth ? String(user.dateOfBirth).split('T')[0] : '',
+    birthOrder: '',
     maritalStatus: 'NEVER_MARRIED',
     motherTongue: 'Tamil',
     heightCm: '',
@@ -115,9 +134,12 @@ const ProfileCompletePage = () => {
     caste: '',
     subcaste: '',
     gothram: '',
+    kuladeivam: '',
     star: '',
+    starPadam: '',
     rasi: '',
     dosham: 'No Dosham',
+    dasaBalance: '',
     timeOfBirth: '',
     placeOfBirth: '',
 
@@ -141,13 +163,24 @@ const ProfileCompletePage = () => {
     fatherOccupation: '',
     motherName: '',
     motherOccupation: '',
+    nativePlace: '',
     brothers: 0,
     sisters: 0,
+    elderBrothers: 0,
+    elderBrothersMarried: 0,
+    youngerBrothers: 0,
+    youngerBrothersMarried: 0,
+    elderSisters: 0,
+    elderSistersMarried: 0,
+    youngerSisters: 0,
+    youngerSistersMarried: 0,
     familyType: 'NUCLEAR',
     familyStatus: 'MIDDLE',
     familyValues: 'MODERATE',
 
-    // Step 5: Lifestyle
+    // Step 5: Lifestyle & Property
+    residentStatus: '',
+    propertyDetails: '',
     diet: 'VEG',
     smoking: 'false',
     drinking: 'false',
@@ -165,6 +198,9 @@ const ProfileCompletePage = () => {
 
     // Step 7: Files
     photoFile: null as File | null,
+    // Charts
+    rasiChart: {} as Record<string, string>,
+    amsamChart: {} as Record<string, string>,
   });
 
   // Load real profile from DB or AuthStore when component mounts
@@ -184,6 +220,7 @@ const ProfileCompletePage = () => {
             lastName: p.lastName || user?.lastName || prev.lastName,
             gender: p.gender || user?.gender || prev.gender || 'MALE',
             dateOfBirth: p.dateOfBirth ? String(p.dateOfBirth).split('T')[0] : (user?.dateOfBirth ? String(user.dateOfBirth).split('T')[0] : prev.dateOfBirth),
+            birthOrder: p.birthOrder ? String(p.birthOrder) : prev.birthOrder,
             maritalStatus: p.maritalStatus || prev.maritalStatus || 'NEVER_MARRIED',
             motherTongue: p.motherTongue || prev.motherTongue || 'Tamil',
             heightCm: p.heightCm ? String(p.heightCm) : prev.heightCm,
@@ -195,9 +232,12 @@ const ProfileCompletePage = () => {
             caste: communityVal || prev.caste,
             subcaste: subCasteVal || prev.subcaste,
             gothram: p.horoscope?.gothram || p.gothram || prev.gothram,
+            kuladeivam: p.horoscope?.kuladeivam || prev.kuladeivam,
             star: p.horoscope?.star || p.star || prev.star,
+            starPadam: p.horoscope?.starPadam ? String(p.horoscope.starPadam) : prev.starPadam,
             rasi: p.horoscope?.rasi || p.rasi || prev.rasi,
             dosham: p.horoscope?.dosham || p.dosham || prev.dosham || 'No Dosham',
+            dasaBalance: p.horoscope?.dasaBalance || prev.dasaBalance,
             timeOfBirth: p.horoscope?.timeOfBirth || p.timeOfBirth || prev.timeOfBirth,
             placeOfBirth: p.horoscope?.placeOfBirth || p.placeOfBirth || prev.placeOfBirth,
             education: p.education?.degree || p.education?.qualification || (typeof p.education === 'string' ? p.education : prev.education),
@@ -211,12 +251,23 @@ const ProfileCompletePage = () => {
             city: p.city || prev.city,
             citizenship: p.citizenship || prev.citizenship || 'India',
             residenceStatus: p.residenceStatus || prev.residenceStatus || 'Citizen',
+            residentStatus: p.residentStatus || prev.residentStatus,
+            propertyDetails: p.propertyDetails || prev.propertyDetails,
             fatherName: p.family?.fatherName || p.fatherName || prev.fatherName,
             fatherOccupation: p.family?.fatherOccupation || p.fatherOccupation || prev.fatherOccupation,
             motherName: p.family?.motherName || p.motherName || prev.motherName,
             motherOccupation: p.family?.motherOccupation || p.motherOccupation || prev.motherOccupation,
+            nativePlace: p.family?.nativePlace || p.nativePlace || prev.nativePlace,
             brothers: p.family?.brothers !== undefined ? p.family.brothers : prev.brothers,
             sisters: p.family?.sisters !== undefined ? p.family.sisters : prev.sisters,
+            elderBrothers: p.family?.elderBrothers !== undefined ? p.family.elderBrothers : prev.elderBrothers,
+            elderBrothersMarried: p.family?.elderBrothersMarried !== undefined ? p.family.elderBrothersMarried : prev.elderBrothersMarried,
+            youngerBrothers: p.family?.youngerBrothers !== undefined ? p.family.youngerBrothers : prev.youngerBrothers,
+            youngerBrothersMarried: p.family?.youngerBrothersMarried !== undefined ? p.family.youngerBrothersMarried : prev.youngerBrothersMarried,
+            elderSisters: p.family?.elderSisters !== undefined ? p.family.elderSisters : prev.elderSisters,
+            elderSistersMarried: p.family?.elderSistersMarried !== undefined ? p.family.elderSistersMarried : prev.elderSistersMarried,
+            youngerSisters: p.family?.youngerSisters !== undefined ? p.family.youngerSisters : prev.youngerSisters,
+            youngerSistersMarried: p.family?.youngerSistersMarried !== undefined ? p.family.youngerSistersMarried : prev.youngerSistersMarried,
             familyType: p.family?.familyType || prev.familyType || 'NUCLEAR',
             familyStatus: p.family?.familyStatus || prev.familyStatus || 'MIDDLE',
             familyValues: p.family?.familyValues || prev.familyValues || 'MODERATE',
@@ -254,6 +305,16 @@ const ProfileCompletePage = () => {
   const set = (field: string, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  const togglePlanetChart = (chartKey: 'rasiChart' | 'amsamChart', houseId: string, planet: string) => {
+    setForm(prev => {
+      const current = (prev[chartKey] as Record<string, string>)[houseId] || '';
+      const planets = current ? current.split(' ') : [];
+      const idx = planets.indexOf(planet);
+      const updated = idx >= 0 ? planets.filter(p => p !== planet) : [...planets, planet];
+      return { ...prev, [chartKey]: { ...(prev[chartKey] as Record<string, string>), [houseId]: updated.join(' ') } };
+    });
   };
 
   const calculateProgress = () => {
@@ -297,6 +358,7 @@ const ProfileCompletePage = () => {
       lastName: form.lastName,
       gender: form.gender,
       dateOfBirth: form.dateOfBirth ? new Date(form.dateOfBirth).toISOString() : undefined,
+      birthOrder: form.birthOrder ? Number(form.birthOrder) : undefined,
       maritalStatus: form.maritalStatus,
       motherTongue: form.motherTongue,
       heightCm: form.heightCm ? Number(form.heightCm) : undefined,
@@ -308,9 +370,12 @@ const ProfileCompletePage = () => {
       caste: form.caste,
       subcaste: form.subcaste,
       gothram: form.gothram,
+      kuladeivam: form.kuladeivam,
       star: form.star,
+      starPadam: form.starPadam ? Number(form.starPadam) : undefined,
       rasi: form.rasi,
       dosham: form.dosham,
+      dasaBalance: form.dasaBalance,
       timeOfBirth: form.timeOfBirth,
       placeOfBirth: form.placeOfBirth,
       education: form.education,
@@ -324,12 +389,23 @@ const ProfileCompletePage = () => {
       city: form.city,
       citizenship: form.citizenship,
       residenceStatus: form.residenceStatus,
+      residentStatus: form.residentStatus,
+      propertyDetails: form.propertyDetails,
       fatherName: form.fatherName,
       fatherOccupation: form.fatherOccupation,
       motherName: form.motherName,
       motherOccupation: form.motherOccupation,
+      nativePlace: form.nativePlace,
       brothers: Number(form.brothers),
       sisters: Number(form.sisters),
+      elderBrothers: Number(form.elderBrothers || 0),
+      elderBrothersMarried: Number(form.elderBrothersMarried || 0),
+      youngerBrothers: Number(form.youngerBrothers || 0),
+      youngerBrothersMarried: Number(form.youngerBrothersMarried || 0),
+      elderSisters: Number(form.elderSisters || 0),
+      elderSistersMarried: Number(form.elderSistersMarried || 0),
+      youngerSisters: Number(form.youngerSisters || 0),
+      youngerSistersMarried: Number(form.youngerSistersMarried || 0),
       familyType: form.familyType,
       familyStatus: form.familyStatus,
       familyValues: form.familyValues,
@@ -532,6 +608,14 @@ const ProfileCompletePage = () => {
         <option value="FEMALE">Female</option>
       </Select>
       <Input label="Date of Birth" required type="date" value={form.dateOfBirth} onChange={(e: any) => set('dateOfBirth', e.target.value)} error={errors.dateOfBirth} />
+      <Select label="Birth Order (குழந்தை எண்)" value={form.birthOrder} onChange={(e: any) => set('birthOrder', e.target.value)}>
+        <option value="">Select Birth Order</option>
+        <option value="1">1st Child (முதல் குழந்தை)</option>
+        <option value="2">2nd Child (இரண்டாம் குழந்தை)</option>
+        <option value="3">3rd Child (மூன்றாம் குழந்தை)</option>
+        <option value="4">4th Child</option>
+        <option value="5">5th Child or Later</option>
+      </Select>
       <Select label="Marital Status" required value={form.maritalStatus} onChange={(e: any) => set('maritalStatus', e.target.value)}>
         <option value="NEVER_MARRIED">Never Married</option>
         <option value="DIVORCED">Divorced</option>
@@ -620,10 +704,19 @@ const ProfileCompletePage = () => {
         </Select>
 
         <Input label="Gothram" value={form.gothram} onChange={(e: any) => set('gothram', e.target.value)} placeholder="e.g. Shiva, Bharadwaj" />
+        <Input label="Kuladeivam (குலதெய்வம்)" value={form.kuladeivam} onChange={(e: any) => set('kuladeivam', e.target.value)} placeholder="e.g. Angalamman, Perumal" />
 
         <Select label="Star (Nakshatram)" value={form.star} onChange={(e: any) => set('star', e.target.value)}>
           <option value="">Select Star</option>
           {STARS.map(s => <option key={s} value={s}>{s}</option>)}
+        </Select>
+
+        <Select label="Star Padham (பாதம்)" value={form.starPadam} onChange={(e: any) => set('starPadam', e.target.value)}>
+          <option value="">Select Padham</option>
+          <option value="1">1st Padham (1-ஆம் பாதம்)</option>
+          <option value="2">2nd Padham (2-ஆம் பாதம்)</option>
+          <option value="3">3rd Padham (3-ஆம் பாதம்)</option>
+          <option value="4">4th Padham (4-ஆம் பாதம்)</option>
         </Select>
 
         <Select label="Rasi (Zodiac)" value={form.rasi} onChange={(e: any) => set('rasi', e.target.value)}>
@@ -635,8 +728,72 @@ const ProfileCompletePage = () => {
           {DOSHAMS.map(d => <option key={d} value={d}>{d}</option>)}
         </Select>
 
+        <Input label="Dasa Balance / Dasa Irupu (தசா இருப்பு)" value={form.dasaBalance} onChange={(e: any) => set('dasaBalance', e.target.value)} placeholder="e.g. Guru, Year-10, Month-3, Day-14" />
         <Input label="Time of Birth" type="time" value={form.timeOfBirth} onChange={(e: any) => set('timeOfBirth', e.target.value)} />
         <Input label="Place of Birth" value={form.placeOfBirth} onChange={(e: any) => set('placeOfBirth', e.target.value)} placeholder="e.g. Chennai, Madurai" />
+
+        {/* Interactive Rasi & Navamsam Chart Grids */}
+        <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+          {/* RASI CHART */}
+          <div className="border-2 border-rose-900 rounded-lg overflow-hidden">
+            <div className="bg-rose-900 text-white font-bold text-xs uppercase px-3 py-1.5 flex items-center justify-between">
+              <span>RASI CHART (ராசி கட்டம்)</span>
+              <span className="text-[10px] text-amber-200">Click box to add/remove planets</span>
+            </div>
+            <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 aspect-square text-[10px]">
+              {HOUSES.map((h) => {
+                const planetsStr = (form.rasiChart as Record<string, string>)[h.id] || '';
+                return (
+                  <div key={h.id} style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
+                    className="bg-rose-50/90 hover:bg-amber-100 p-1 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[55px] transition">
+                    <div className="font-bold text-rose-950 text-[8px]">{h.tamil}</div>
+                    <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[9px]">
+                      {planetsStr || <span className="text-slate-300 text-[7px] font-normal">+ add</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-0.5 justify-center mt-0.5">
+                      {PLANETS.map((p) => (
+                        <button key={p} type="button"
+                          onClick={(e) => { e.stopPropagation(); togglePlanetChart('rasiChart', h.id, p); }}
+                          className={`px-0.5 rounded text-[6px] font-bold ${planetsStr.includes(p) ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>{p}</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex items-center justify-center font-extrabold text-rose-900 text-sm border-2 border-rose-900">RASI</div>
+            </div>
+          </div>
+
+          {/* NAVAMSAM CHART */}
+          <div className="border-2 border-rose-900 rounded-lg overflow-hidden">
+            <div className="bg-rose-900 text-white font-bold text-xs uppercase px-3 py-1.5 flex items-center justify-between">
+              <span>NAVAMSAM CHART (அம்ச கட்டம்)</span>
+              <span className="text-[10px] text-amber-200">Click box to add/remove planets</span>
+            </div>
+            <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 aspect-square text-[10px]">
+              {HOUSES.map((h) => {
+                const planetsStr = (form.amsamChart as Record<string, string>)[h.id] || '';
+                return (
+                  <div key={h.id} style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
+                    className="bg-rose-50/90 hover:bg-amber-100 p-1 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[55px] transition">
+                    <div className="font-bold text-rose-950 text-[8px]">{h.tamil}</div>
+                    <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[9px]">
+                      {planetsStr || <span className="text-slate-300 text-[7px] font-normal">+ add</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-0.5 justify-center mt-0.5">
+                      {PLANETS.map((p) => (
+                        <button key={p} type="button"
+                          onClick={(e) => { e.stopPropagation(); togglePlanetChart('amsamChart', h.id, p); }}
+                          className={`px-0.5 rounded text-[6px] font-bold ${planetsStr.includes(p) ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>{p}</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex items-center justify-center font-extrabold text-rose-900 text-sm border-2 border-rose-900">NAVAMSAM</div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -704,14 +861,7 @@ const ProfileCompletePage = () => {
       <Input label="Father's Occupation" value={form.fatherOccupation} onChange={(e: any) => set('fatherOccupation', e.target.value)} placeholder="e.g. Retired Govt Employee, Businessman" />
       <Input label="Mother's Name" value={form.motherName} onChange={(e: any) => set('motherName', e.target.value)} />
       <Input label="Mother's Occupation" value={form.motherOccupation} onChange={(e: any) => set('motherOccupation', e.target.value)} placeholder="e.g. Homemaker, Teacher" />
-      <div className="grid grid-cols-2 gap-3">
-        <Select label="Brothers" value={form.brothers} onChange={(e: any) => set('brothers', e.target.value)}>
-          {['0','1','2','3','4','5+'].map(n => <option key={n} value={n}>{n}</option>)}
-        </Select>
-        <Select label="Sisters" value={form.sisters} onChange={(e: any) => set('sisters', e.target.value)}>
-          {['0','1','2','3','4','5+'].map(n => <option key={n} value={n}>{n}</option>)}
-        </Select>
-      </div>
+      <Input label="Native Place (சொந்த ஊர்)" value={form.nativePlace} onChange={(e: any) => set('nativePlace', e.target.value)} placeholder="e.g. Chennai, Madurai" />
       <Select label="Family Type" value={form.familyType} onChange={(e: any) => set('familyType', e.target.value)}>
         <option value="NUCLEAR">Nuclear Family</option>
         <option value="JOINT">Joint Family</option>
@@ -722,16 +872,72 @@ const ProfileCompletePage = () => {
         <option value="RICH">Rich / Affluent</option>
         <option value="LOWER_MIDDLE">Lower Middle Class</option>
       </Select>
-      <Select label="Family Values" value={form.familyValues} onChange={(e: any) => set('familyValues', e.target.value)}>
-        <option value="MODERATE">Moderate</option>
-        <option value="ORTHODOX">Orthodox / Traditional</option>
-        <option value="LIBERAL">Liberal</option>
-      </Select>
+
+      <div className="sm:col-span-2 pt-3 border-t border-slate-100">
+        <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">Siblings Detail (சகோதர / சகோதரி விவரம்)</p>
+
+        {/* Brothers */}
+        <div className="mb-3">
+          <p className="text-[11px] font-bold text-rose-900 uppercase tracking-widest mb-2">Brothers (சகோதரன்)</p>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { label: 'மூத்த சகோதரன் (Elder Brother)', field: 'elderBrothers' as const },
+              { label: 'மணமான மூத்த சகோதரன் (Married Elder)', field: 'elderBrothersMarried' as const },
+              { label: 'தம்பி (Younger Brother)', field: 'youngerBrothers' as const },
+              { label: 'மணமான தம்பி (Married Younger)', field: 'youngerBrothersMarried' as const },
+            ]).map(({ label, field }) => (
+              <div key={field} className="bg-rose-50 rounded-xl border border-rose-100 p-3 flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-600 leading-tight">{label}</span>
+                <div className="flex items-center gap-2 mt-auto">
+                  <button type="button" onClick={() => set(field, Math.max(0, Number(form[field]) - 1))}
+                    className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">−</button>
+                  <span className="flex-1 text-center text-lg font-black text-rose-900">{form[field] ?? 0}</span>
+                  <button type="button" onClick={() => set(field, Number(form[field]) + 1)}
+                    className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">+</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Sisters */}
+        <div>
+          <p className="text-[11px] font-bold text-rose-900 uppercase tracking-widest mb-2">Sisters (சகோதரி)</p>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              { label: 'அக்கா (Elder Sister)', field: 'elderSisters' as const },
+              { label: 'மணமான அக்கா (Married Elder)', field: 'elderSistersMarried' as const },
+              { label: 'தங்கை (Younger Sister)', field: 'youngerSisters' as const },
+              { label: 'மணமான தங்கை (Married Younger)', field: 'youngerSistersMarried' as const },
+            ]).map(({ label, field }) => (
+              <div key={field} className="bg-pink-50 rounded-xl border border-pink-100 p-3 flex flex-col gap-1.5">
+                <span className="text-[10px] font-semibold text-slate-600 leading-tight">{label}</span>
+                <div className="flex items-center gap-2 mt-auto">
+                  <button type="button" onClick={() => set(field, Math.max(0, Number(form[field]) - 1))}
+                    className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">−</button>
+                  <span className="flex-1 text-center text-lg font-black text-rose-900">{form[field] ?? 0}</span>
+                  <button type="button" onClick={() => set(field, Number(form[field]) + 1)}
+                    className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">+</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 
+
   const renderStep5 = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <Select label="Resident Status (வீட்டு வகை)" value={form.residentStatus} onChange={(e: any) => set('residentStatus', e.target.value)}>
+        <option value="">Select Resident Type</option>
+        <option value="Own House">Own House (சொந்த வீடு)</option>
+        <option value="Rent House">Rent House (வாடகை வீடு)</option>
+        <option value="Lease">Lease (ஒத்தி / லீஸ்)</option>
+        <option value="Quarters">Quarters (குவாட்டர்ஸ்)</option>
+      </Select>
+      <Input label="Property Details (சொத்து விவரங்கள்)" value={form.propertyDetails} onChange={(e: any) => set('propertyDetails', e.target.value)} placeholder="e.g. 2 PLOTS, CHENNAI" />
       <Select label="Food Preference" value={form.diet} onChange={(e: any) => set('diet', e.target.value)}>
         <option value="VEG">Vegetarian</option>
         <option value="NON_VEG">Non-Vegetarian</option>
@@ -772,8 +978,24 @@ const ProfileCompletePage = () => {
         <option value="DIVORCED">Divorced</option>
         <option value="WIDOWED">Widowed</option>
       </Select>
-      <Input label="Preferred Religion" value={form.prefReligion} onChange={(e: any) => set('prefReligion', e.target.value)} placeholder="Any / Specify" />
-      <Input label="Preferred Caste" value={form.prefCaste} onChange={(e: any) => set('prefCaste', e.target.value)} placeholder="Any caste / Specify" />
+      <Select label="Preferred Religion" value={form.prefReligion} onChange={(e: any) => set('prefReligion', e.target.value)}>
+        <option value="">Any Religion</option>
+        {['Hindu', 'Muslim', 'Christian', 'Sikh', 'Jain', 'Buddhist', 'Other'].map(r => (
+          <option key={r} value={r}>{r}</option>
+        ))}
+      </Select>
+      <Select label="Preferred Community / Caste" value={form.prefCaste} onChange={(e: any) => set('prefCaste', e.target.value)}>
+        <option value="">Any Community / Caste</option>
+        {[
+          'Nadar','Mudaliar','Gounder','Pillai','Chettiar','Vanniyar','Thevar',
+          'Naidu','Iyer','Iyengar','Vellalar','Reddiyar','Yadav / Konar',
+          'Viswakarma','Sourashtra','Nair','Christian','Muslim',
+          'Devendra Kula Vellalar','Adidravidar','Muthuraja','Naicker',
+          'Sengunthar','Kamma','Kapu','Ezhava','Brahmin','Maratha','Jain','Sikh','Other'
+        ].map(c => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </Select>
       <Input label="Preferred Location" value={form.prefLocation} onChange={(e: any) => set('prefLocation', e.target.value)} placeholder="e.g. Tamil Nadu, Chennai" />
       <div className="sm:col-span-2">
         <Textarea label="About My Partner" value={form.aboutPartner} onChange={(e: any) => set('aboutPartner', e.target.value)} placeholder="Describe the partner you are looking for..." />

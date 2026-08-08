@@ -40,4 +40,9 @@ export const superAdminService = {
     api
       .put(`/super-admin/admins/${userId}/role`, { role })
       .then((r) => r.data.data || r.data),
+
+  getReportsAnalytics: () =>
+    api
+      .get('/super-admin/reports')
+      .then((r) => r.data.data || r.data),
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { adminApi } from '../../services/admin.service';
 import { paymentsApi } from '../../services/payments.service';
@@ -206,6 +206,9 @@ export const MembershipPage = () => {
 
 export const BlogListPage = () => {
   const [dbBlogs, setDbBlogs] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'title'>('latest');
 
   useEffect(() => {
     api.get('/admin/public/blogs').then((res) => {
@@ -279,21 +282,46 @@ export const BlogListPage = () => {
     },
   ];
 
-  const postsToRender = dbBlogs.length > 0 ? dbBlogs.map((b) => ({
-    id: b.id,
-    title: b.title,
-    category: b.category?.name || 'Matrimony Advice',
-    readTime: '5 min read',
-    date: b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently Published',
-    author: 'S2S Editorial Team',
-    image: b.coverImage || '/images/ceremony.png',
-    excerpt: b.content ? b.content.slice(0, 140) + '...' : b.title,
-  })) : defaultPosts;
+  const postsToRender = useMemo(() => {
+    return dbBlogs.length > 0 ? dbBlogs.map((b) => ({
+      id: b.id,
+      title: b.title,
+      category: b.category?.name || 'Matrimony Advice',
+      readTime: '5 min read',
+      date: b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently Published',
+      author: 'S2S Editorial Team',
+      image: b.coverImage || '/images/ceremony.png',
+      excerpt: b.content ? b.content.slice(0, 140) + '...' : b.title,
+    })) : defaultPosts;
+  }, [dbBlogs]);
+
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    postsToRender.forEach(p => { if (p.category) cats.add(p.category); });
+    return ['All', ...Array.from(cats)];
+  }, [postsToRender]);
+
+  const filteredPosts = useMemo(() => {
+    return postsToRender.filter((post) => {
+      const matchesCat = selectedCategory === 'All' || post.category.toLowerCase() === selectedCategory.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
+      const matchesQuery = !q ||
+        post.title.toLowerCase().includes(q) ||
+        post.excerpt.toLowerCase().includes(q) ||
+        post.category.toLowerCase().includes(q) ||
+        post.author.toLowerCase().includes(q);
+      return matchesCat && matchesQuery;
+    }).sort((a, b) => {
+      if (sortBy === 'title') return a.title.localeCompare(b.title);
+      if (sortBy === 'oldest') return new Date(a.date).getTime() - new Date(b.date).getTime();
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  }, [postsToRender, selectedCategory, searchQuery, sortBy]);
 
   return (
     <div className="pt-24 pb-16 min-h-screen bg-slate-50">
       <div className="container mx-auto px-4 md:px-8">
-        <div className="text-center mb-12">
+        <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-primary-dark text-xs font-bold uppercase tracking-wider mb-3">
             📚 Matrimony Insights & Advice
           </div>
@@ -305,43 +333,132 @@ export const BlogListPage = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {postsToRender.map((post, idx) => (
-            <Link
-              key={idx}
-              to={`/blog/${post.id || 'post-1'}`}
-              className="card bg-white rounded-3xl overflow-hidden border border-slate-200 hover:border-primary/40 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
-            >
-              <div className="aspect-video relative overflow-hidden bg-slate-100">
-                <img
-                  src={post.image}
-                  alt={post.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md text-slate-900 text-[11px] font-bold px-3 py-1 rounded-full shadow-md border border-slate-200">
-                  {post.category}
-                </span>
-              </div>
-              <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
-                <div>
-                  <div className="flex items-center gap-2 text-text-muted text-xs font-semibold mb-2">
-                    <span>{post.author}</span> • <span>{post.date}</span>
-                  </div>
-                  <h3 className="font-sans text-lg font-extrabold text-slate-900 group-hover:text-primary transition-colors leading-snug">
-                    {post.title}
-                  </h3>
-                  <p className="text-text-muted text-xs leading-relaxed mt-2 line-clamp-3">
-                    {post.excerpt}
-                  </p>
-                </div>
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-primary">
-                  <span>Read Full Article →</span>
-                  <span className="text-text-muted font-normal">{post.readTime}</span>
-                </div>
-              </div>
-            </Link>
-          ))}
+        {/* Filter & Search Bar Section */}
+        <div className="max-w-6xl mx-auto mb-10 space-y-4">
+          <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
+            {/* Search Input */}
+            <div className="relative flex-1 w-full">
+              <input
+                type="text"
+                placeholder="Search articles by title, category, or keyword..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+              />
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold w-5 h-5 bg-slate-200 rounded-full flex items-center justify-center cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Sort Selector */}
+            <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto justify-end">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Sort By:</span>
+              <select
+                value={sortBy}
+                onChange={(e: any) => setSortBy(e.target.value)}
+                className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:border-primary cursor-pointer"
+              >
+                <option value="latest">Latest Published</option>
+                <option value="oldest">Oldest First</option>
+                <option value="title">Title (A-Z)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {categories.map((cat) => {
+              const isSelected = selectedCategory === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer border ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-rose-600 to-teal-600 text-white border-transparent shadow-md shadow-rose-500/20'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  {cat === 'All' ? '✨ All Articles' : cat}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Filter Count & Reset */}
+          {(selectedCategory !== 'All' || searchQuery) && (
+            <div className="flex items-center justify-between text-xs text-slate-500 px-1 pt-1">
+              <span>Showing <strong>{filteredPosts.length}</strong> matching articles</span>
+              <button
+                onClick={() => { setSelectedCategory('All'); setSearchQuery(''); }}
+                className="text-rose-600 hover:text-rose-700 font-bold underline cursor-pointer"
+              >
+                Clear all filters
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Blog Cards Grid or No Results */}
+        {filteredPosts.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm max-w-xl mx-auto space-y-4">
+            <div className="text-5xl">🔍</div>
+            <h3 className="font-sans text-xl font-bold text-slate-900">No Articles Found</h3>
+            <p className="text-slate-500 text-xs max-w-sm mx-auto">
+              No blog posts matched your search "{searchQuery}" under category "{selectedCategory}". Try clearing your filters.
+            </p>
+            <button
+              onClick={() => { setSelectedCategory('All'); setSearchQuery(''); }}
+              className="btn btn-primary btn-sm font-bold mt-2 cursor-pointer"
+            >
+              Reset Filters
+            </button>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {filteredPosts.map((post, idx) => (
+              <Link
+                key={idx}
+                to={`/blog/${post.id || 'post-1'}`}
+                className="card bg-white rounded-3xl overflow-hidden border border-slate-200 hover:border-primary/40 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
+              >
+                <div className="aspect-video relative overflow-hidden bg-slate-100">
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md text-slate-900 text-[11px] font-bold px-3 py-1 rounded-full shadow-md border border-slate-200">
+                    {post.category}
+                  </span>
+                </div>
+                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2 text-text-muted text-xs font-semibold mb-2">
+                      <span>{post.author}</span> • <span>{post.date}</span>
+                    </div>
+                    <h3 className="font-sans text-lg font-extrabold text-slate-900 group-hover:text-primary transition-colors leading-snug">
+                      {post.title}
+                    </h3>
+                    <p className="text-text-muted text-xs leading-relaxed mt-2 line-clamp-3">
+                      {post.excerpt}
+                    </p>
+                  </div>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-primary">
+                    <span>Read Full Article →</span>
+                    <span className="text-text-muted font-normal">{post.readTime}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
