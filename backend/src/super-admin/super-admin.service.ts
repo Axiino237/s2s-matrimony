@@ -1,10 +1,76 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { devStore } from '../common/dev-store';
 
 @Injectable()
 export class SuperAdminService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getAllRoles() {
+    try {
+      let roles = await this.prisma.role.findMany({
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (!roles || roles.length === 0) {
+        const defaultRoles = [
+          { name: 'SUPER_ADMIN', displayName: 'Super Admin', description: 'Root System Owner', isSystem: true },
+          { name: 'ADMIN', displayName: 'Admin', description: 'Platform Administrator', isSystem: true },
+          { name: 'MODERATOR', displayName: 'Moderator', description: 'Profile Moderation & Review', isSystem: false },
+          { name: 'SUPPORT_AGENT', displayName: 'Support Agent', description: 'User Support Agent', isSystem: false },
+          { name: 'MEMBER', displayName: 'Member', description: 'Candidate User Portal', isSystem: true },
+        ];
+
+        for (const dr of defaultRoles) {
+          await this.prisma.role.create({ data: dr }).catch(() => null);
+        }
+
+        roles = await this.prisma.role.findMany({ orderBy: { createdAt: 'asc' } });
+      }
+
+      return roles;
+    } catch {
+      return [
+        { id: 'r1', name: 'SUPER_ADMIN', displayName: 'Super Admin', description: 'Root System Owner', isSystem: true },
+        { id: 'r2', name: 'ADMIN', displayName: 'Admin', description: 'Platform Administrator', isSystem: true },
+        { id: 'r3', name: 'MODERATOR', displayName: 'Moderator', description: 'Profile Moderation & Review', isSystem: false },
+        { id: 'r4', name: 'SUPPORT_AGENT', displayName: 'Support Agent', description: 'User Support Agent', isSystem: false },
+        { id: 'r5', name: 'MEMBER', displayName: 'Member', description: 'Candidate User Portal', isSystem: true },
+      ];
+    }
+  }
+
+  async createRole(data: { name: string; displayName?: string; description?: string }) {
+    const roleName = data.name.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    const displayName = data.displayName || data.name.trim();
+
+    let existing = await this.prisma.role.findUnique({ where: { name: roleName } }).catch(() => null);
+    if (existing) return existing;
+
+    return this.prisma.role.create({
+      data: {
+        name: roleName,
+        displayName,
+        description: data.description || `${displayName} Role`,
+        isSystem: false,
+      },
+    });
+  }
+
+  async deleteRole(idOrName: string) {
+    const role = await this.prisma.role.findFirst({
+      where: { OR: [{ id: idOrName }, { name: idOrName }] },
+    });
+
+    if (!role) throw new NotFoundException('Role not found');
+    if (role.isSystem || ['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(role.name)) {
+      throw new BadRequestException('System default roles cannot be deleted');
+    }
+
+    await this.prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
+    await this.prisma.userRole.deleteMany({ where: { roleId: role.id } });
+    return this.prisma.role.delete({ where: { id: role.id } });
+  }
 
   async getGlobalStats() {
     try {

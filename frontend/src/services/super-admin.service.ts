@@ -31,6 +31,21 @@ export const superAdminService = {
       .get('/super-admin/role-permissions')
       .then((r) => r.data.data || r.data),
 
+  getAllRoles: () =>
+    api
+      .get('/super-admin/roles')
+      .then((r) => r.data.data || r.data),
+
+  createRole: (data: { name: string; displayName?: string; description?: string }) =>
+    api
+      .post('/super-admin/roles', data)
+      .then((r) => r.data.data || r.data),
+
+  deleteRole: (id: string) =>
+    api
+      .delete(`/super-admin/roles/${id}`)
+      .then((r) => r.data.data || r.data),
+
   updateRolePermissions: (roleName: string, permissions: string[]) =>
     api
       .put(`/super-admin/role-permissions/${roleName}`, { permissions })

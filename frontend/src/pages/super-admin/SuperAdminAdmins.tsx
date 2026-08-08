@@ -240,8 +240,28 @@ const DEFAULT_ADMIN_STAFF: AdminUser[] = [
   },
 ];
 
+interface DbRole {
+  id: string;
+  name: string;
+  displayName: string;
+  description?: string;
+  isSystem?: boolean;
+}
+
+const DEFAULT_DB_ROLES: DbRole[] = [
+  { id: 'r1', name: 'SUPER_ADMIN', displayName: 'Super Admin', description: 'Root System Owner', isSystem: true },
+  { id: 'r2', name: 'ADMIN', displayName: 'Admin', description: 'Platform Administrator', isSystem: true },
+  { id: 'r3', name: 'MODERATOR', displayName: 'Moderator', description: 'Profile Moderation & Review', isSystem: false },
+  { id: 'r4', name: 'SUPPORT_AGENT', displayName: 'Support Agent', description: 'User Support Agent', isSystem: false },
+  { id: 'r5', name: 'MEMBER', displayName: 'Member', description: 'Candidate User Portal', isSystem: true },
+];
+
 const SuperAdminAdmins = () => {
   const [activeTab, setActiveTab] = useState<'roles' | 'staff'>('roles');
+  const [dbRoles, setDbRoles] = useState<DbRole[]>(DEFAULT_DB_ROLES);
+  const [showCreateRoleModal, setShowCreateRoleModal] = useState(false);
+  const [newRoleForm, setNewRoleForm] = useState({ name: '', displayName: '', description: '' });
+
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>(() => {
     const saved = localStorage.getItem('s2s_role_permissions');
     if (saved) {
@@ -265,6 +285,17 @@ const SuperAdminAdmins = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  const fetchDbRoles = useCallback(async () => {
+    try {
+      const res = await superAdminService.getAllRoles();
+      if (Array.isArray(res) && res.length > 0) {
+        setDbRoles(res);
+      }
+    } catch {
+      setDbRoles(DEFAULT_DB_ROLES);
+    }
+  }, []);
 
   const fetchAdmins = useCallback(async () => {
     setLoading(true);
@@ -306,6 +337,7 @@ const SuperAdminAdmins = () => {
   }, [page, search]);
 
   useEffect(() => {
+    fetchDbRoles();
     fetchAdmins();
     superAdminService.getRolePermissions().then((data) => {
       if (data && Object.keys(data).length > 0) {
@@ -315,7 +347,50 @@ const SuperAdminAdmins = () => {
         localStorage.setItem('s2s_role_permissions', JSON.stringify(merged));
       }
     }).catch(() => null);
-  }, [fetchAdmins]);
+  }, [fetchAdmins, fetchDbRoles]);
+
+  const handleCreateRole = async () => {
+    if (!newRoleForm.name.trim() && !newRoleForm.displayName.trim()) {
+      toast.error('Role name is required');
+      return;
+    }
+    const nameToUse = newRoleForm.name.trim() || newRoleForm.displayName.trim();
+    try {
+      const created = await superAdminService.createRole({
+        name: nameToUse,
+        displayName: newRoleForm.displayName || nameToUse,
+        description: newRoleForm.description,
+      });
+
+      toast.success(`New Role "${created.displayName || created.name}" created in Database! 🎉`);
+      await fetchDbRoles();
+      setSelectedRole(created.name);
+      setShowCreateRoleModal(false);
+      setNewRoleForm({ name: '', displayName: '', description: '' });
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to create role');
+    }
+  };
+
+  const handleDeleteRole = async (roleObj: DbRole, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (roleObj.isSystem || ['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(roleObj.name)) {
+      toast.error('System roles cannot be deleted.');
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete role "${roleObj.displayName}"?`)) return;
+
+    try {
+      await superAdminService.deleteRole(roleObj.id);
+      toast.success(`Role "${roleObj.displayName}" deleted from Database.`);
+      await fetchDbRoles();
+      if (selectedRole === roleObj.name) {
+        setSelectedRole('ADMIN');
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to delete role');
+    }
+  };
 
   const handleToggleRolePermission = (permKey: string) => {
     if (selectedRole === 'SUPER_ADMIN') {
@@ -423,10 +498,13 @@ const SuperAdminAdmins = () => {
             <ShieldCheck className="w-6 h-6 text-primary" /> User Access Management (UAM & RBAC Matrix)
           </h1>
           <p className="text-text-secondary text-sm mt-1">
-            Configure screen access per role. Ticked screens appear in the sidebar & route guards for users with that role.
+            Roles are fetched from the PostgreSQL <code>roles</code> table. Super Admin can create custom roles & configure screen access.
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowCreateRoleModal(true)} className="btn btn-outline btn-sm flex items-center gap-2 border-primary text-primary hover:bg-primary/5">
+            <Shield className="w-4 h-4" /> + Create New Role
+          </button>
           <button onClick={fetchAdmins} className="btn btn-ghost btn-sm text-text-muted hover:text-primary" title="Refresh">
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -444,7 +522,7 @@ const SuperAdminAdmins = () => {
             activeTab === 'roles' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <Shield className="w-4 h-4" /> 1. Role Permission Matrix (ALL ROLES & SCREENS)
+          <Shield className="w-4 h-4" /> 1. Database Role Permission Matrix ({dbRoles.length} Roles)
         </button>
         <button
           onClick={() => setActiveTab('staff')}
@@ -459,23 +537,29 @@ const SuperAdminAdmins = () => {
       {/* TAB 1: ROLE PERMISSION MATRIX */}
       {activeTab === 'roles' && (
         <div className="space-y-6">
-          {/* Role Cards Selector — All 5 Roles */}
+          {/* Role Cards Selector — Dynamic Roles from DB */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Database Roles ({dbRoles.length})</h2>
+            <button onClick={() => setShowCreateRoleModal(true)} className="text-xs font-bold text-primary hover:underline">
+              + Add Custom Role
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {[
-              { role: 'SUPER_ADMIN', title: 'Super Admin', desc: 'Root system owner' },
-              { role: 'ADMIN', title: 'Admin', desc: 'Full operations' },
-              { role: 'MODERATOR', title: 'Moderator', desc: 'Profiles & review' },
-              { role: 'SUPPORT_AGENT', title: 'Support Agent', desc: 'User assistance' },
-              { role: 'MEMBER', title: 'Member', desc: 'Candidate portal' },
-            ].map(({ role, title, desc }) => {
+            {dbRoles.map((rObj) => {
+              const role = rObj.name;
+              const title = rObj.displayName || role;
+              const desc = rObj.description || `${title} Role`;
               const isSelected = selectedRole === role;
               const isSuperAdminRole = role === 'SUPER_ADMIN';
               const count = isSuperAdminRole ? ALL_PERM_KEYS.length : getRolePermCount(role);
+              const canDelete = !rObj.isSystem && !['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(role);
+
               return (
                 <div
-                  key={role}
+                  key={rObj.id || role}
                   onClick={() => setSelectedRole(role)}
-                  className={`p-4 rounded-2xl cursor-pointer border transition-all flex flex-col justify-between ${
+                  className={`p-4 rounded-2xl cursor-pointer border transition-all flex flex-col justify-between relative group ${
                     isSelected
                       ? 'bg-primary/5 border-primary ring-2 ring-primary/20 shadow-md'
                       : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
@@ -483,8 +567,19 @@ const SuperAdminAdmins = () => {
                 >
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className={`badge text-[11px] font-bold ${roleBadge[role] || 'bg-slate-100'}`}>{title}</span>
-                      {isSelected && <Check className="w-4 h-4 text-primary" />}
+                      <span className={`badge text-[11px] font-bold ${roleBadge[role] || 'bg-indigo-100 text-indigo-800'}`}>{title}</span>
+                      {isSelected ? (
+                        <Check className="w-4 h-4 text-primary" />
+                      ) : canDelete ? (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteRole(rObj, e)}
+                          className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-700 p-1 text-xs font-bold transition"
+                          title="Delete Custom Role"
+                        >
+                          ✕
+                        </button>
+                      ) : null}
                     </div>
                     <p className="text-[11px] text-slate-500 line-clamp-2">{desc}</p>
                   </div>
@@ -692,9 +787,11 @@ const SuperAdminAdmins = () => {
                 onChange={(e) => handleUpdateStaffRole(e.target.value as any)}
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
-                <option value="SUPER_ADMIN">SUPER ADMIN (Full Root Access)</option>
-                <option value="ADMIN">ADMIN (Platform Administrator)</option>
-                <option value="MEMBER">MEMBER (Community Member)</option>
+                {dbRoles.map((r) => (
+                  <option key={r.id || r.name} value={r.name}>
+                    {r.displayName || r.name} ({r.description || r.name})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -716,7 +813,55 @@ const SuperAdminAdmins = () => {
         </div>
       )}
 
-      {/* Add Admin Modal */}
+      {/* Create New Role Modal */}
+      {showCreateRoleModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4 animate-scale-in">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-text-primary font-display text-lg font-bold">Create New Database Role</h2>
+              <button onClick={() => setShowCreateRoleModal(false)} className="text-text-muted hover:text-text-primary w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1">Role Identifier / Code</label>
+                <input
+                  type="text"
+                  className="input border-slate-200 text-text-primary w-full uppercase font-mono"
+                  value={newRoleForm.name}
+                  onChange={(e) => setNewRoleForm({ ...newRoleForm, name: e.target.value })}
+                  placeholder="e.g. REGIONAL_MANAGER"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1">Display Title</label>
+                <input
+                  type="text"
+                  className="input border-slate-200 text-text-primary w-full"
+                  value={newRoleForm.displayName}
+                  onChange={(e) => setNewRoleForm({ ...newRoleForm, displayName: e.target.value })}
+                  placeholder="e.g. Regional Manager"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1">Role Scope / Description</label>
+                <textarea
+                  rows={2}
+                  className="input border-slate-200 text-text-primary w-full py-2"
+                  value={newRoleForm.description}
+                  onChange={(e) => setNewRoleForm({ ...newRoleForm, description: e.target.value })}
+                  placeholder="e.g. Manages regional branch profiles, candidate approvals & verification"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
+              <button onClick={() => setShowCreateRoleModal(false)} className="btn btn-ghost btn-sm flex-1 border border-slate-200">Cancel</button>
+              <button onClick={handleCreateRole} className="btn btn-primary btn-sm flex-1 font-bold shadow-md">Create Role</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Admin Staff Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4 animate-scale-in">
@@ -734,11 +879,13 @@ const SuperAdminAdmins = () => {
                 <input type="email" className="input border-slate-200 text-text-primary w-full" value={newAdmin.email} onChange={e => setNewAdmin({ ...newAdmin, email: e.target.value })} placeholder="e.g. ramesh@s2smatrimony.com" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1">Role Tier</label>
-                <select className="input border-slate-200 text-text-primary w-full" value={newAdmin.role} onChange={e => setNewAdmin({ ...newAdmin, role: e.target.value })}>
-                  <option value="SUPER_ADMIN">SUPER ADMIN</option>
-                  <option value="ADMIN">ADMIN</option>
-                  <option value="MEMBER">MEMBER</option>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1">Assigned Role</label>
+                <select className="input border-slate-200 text-text-primary w-full font-bold text-slate-800" value={newAdmin.role} onChange={e => setNewAdmin({ ...newAdmin, role: e.target.value })}>
+                  {dbRoles.map((r) => (
+                    <option key={r.id || r.name} value={r.name}>
+                      {r.displayName || r.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

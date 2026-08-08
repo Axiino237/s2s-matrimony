@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SuperAdminService } from './super-admin.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -13,6 +13,24 @@ import { Role } from '../common/enums/rbac.enum';
 @ApiBearerAuth()
 export class SuperAdminController {
   constructor(private readonly superAdminService: SuperAdminService) {}
+
+  @Get('roles')
+  @ApiOperation({ summary: 'Get all database roles' })
+  async getAllRoles() {
+    return this.superAdminService.getAllRoles();
+  }
+
+  @Post('roles')
+  @ApiOperation({ summary: 'Create a new custom role in database' })
+  async createRole(@Body() body: { name: string; displayName?: string; description?: string }) {
+    return this.superAdminService.createRole(body);
+  }
+
+  @Delete('roles/:id')
+  @ApiOperation({ summary: 'Delete a custom role from database' })
+  async deleteRole(@Param('id') id: string) {
+    return this.superAdminService.deleteRole(id);
+  }
 
   @Get('stats')
   @ApiOperation({ summary: 'Get global platform statistics' })
