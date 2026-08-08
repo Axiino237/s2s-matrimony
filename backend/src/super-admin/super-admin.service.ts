@@ -59,8 +59,8 @@ export class SuperAdminService {
     });
 
     if (!role) throw new NotFoundException('Role not found');
-    if (role.isSystem || ['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(role.name)) {
-      throw new BadRequestException('System default roles cannot be deleted');
+    if (['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(role.name)) {
+      throw new BadRequestException('Core system roles (SUPER_ADMIN, ADMIN, MEMBER) cannot be deleted');
     }
 
     await this.prisma.rolePermission.deleteMany({ where: { roleId: role.id } });

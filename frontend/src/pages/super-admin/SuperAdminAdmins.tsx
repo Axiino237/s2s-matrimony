@@ -379,8 +379,8 @@ const SuperAdminAdmins = () => {
 
   const handleDeleteRole = async (roleObj: DbRole, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (roleObj.isSystem || ['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(roleObj.name)) {
-      toast.error('System roles cannot be deleted.');
+    if (['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(roleObj.name)) {
+      toast.error('Core system roles (SUPER_ADMIN, ADMIN, MEMBER) cannot be deleted.');
       return;
     }
     if (!confirm(`Are you sure you want to delete role "${roleObj.displayName}"?`)) return;
@@ -558,7 +558,7 @@ const SuperAdminAdmins = () => {
               const isSelected = selectedRole === role;
               const isSuperAdminRole = role === 'SUPER_ADMIN';
               const count = isSuperAdminRole ? ALL_PERM_KEYS.length : getRolePermCount(role);
-              const canDelete = !rObj.isSystem && !['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(role);
+              const canDelete = !['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(role);
 
               return (
                 <div
