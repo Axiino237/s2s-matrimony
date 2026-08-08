@@ -203,13 +203,6 @@ export const MEMBER_PERM_KEYS = OFFICIAL_PERMISSIONS.filter(g => g.category.incl
 export const INITIAL_ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: ALL_PERM_KEYS,
   ADMIN: ADMIN_PERM_KEYS,
-  MODERATOR: [
-    'dashboard:view', 'users:read', 'profiles:read', 'profiles:write', 'profiles:verify', 'profiles:moderate',
-    'stories:read', 'stories:approve', 'reports:view', 'reports:handle', 'blogs:read',
-  ],
-  SUPPORT_AGENT: [
-    'dashboard:view', 'users:read', 'profiles:read', 'payments:view', 'reports:view', 'reports:handle',
-  ],
   MEMBER: MEMBER_PERM_KEYS,
 };
 
@@ -353,10 +346,9 @@ const SuperAdminAdmins = () => {
     fetchAdmins();
     superAdminService.getRolePermissions().then((data) => {
       if (data && Object.keys(data).length > 0) {
-        const merged = { ...INITIAL_ROLE_PERMISSIONS, ...data };
-        merged.SUPER_ADMIN = ALL_PERM_KEYS;
-        setRolePermissions(merged);
-        localStorage.setItem('s2s_role_permissions', JSON.stringify(merged));
+        data.SUPER_ADMIN = ALL_PERM_KEYS;
+        setRolePermissions(data);
+        localStorage.setItem('s2s_role_permissions', JSON.stringify(data));
       }
     }).catch(() => null);
   }, [fetchAdmins, fetchDbRoles, fetchDbModules]);

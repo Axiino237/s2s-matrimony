@@ -453,13 +453,6 @@ export class SuperAdminService {
         'stories:read', 'stories:approve', 'reports:view', 'reports:handle',
         'analytics:view', 'audit:view', 'settings:read', 'settings:manage', 'notifications:send',
       ],
-      MODERATOR: [
-        'dashboard:view', 'users:read', 'profiles:read', 'profiles:write', 'profiles:verify', 'profiles:moderate',
-        'stories:read', 'stories:approve', 'reports:view', 'reports:handle', 'blogs:read',
-      ],
-      SUPPORT_AGENT: [
-        'dashboard:view', 'users:read', 'profiles:read', 'payments:view', 'reports:view', 'reports:handle',
-      ],
       MEMBER: [
         'member:dashboard',
         'member:profile',
@@ -482,10 +475,14 @@ export class SuperAdminService {
       });
 
       if (roles && roles.length > 0) {
-        const result: Record<string, string[]> = { ...defaultMap };
+        const result: Record<string, string[]> = {};
         for (const r of roles) {
           if (r.rolePermissions && r.rolePermissions.length > 0) {
             result[r.name] = r.rolePermissions.map((rp) => rp.permission.name);
+          } else if (defaultMap[r.name]) {
+            result[r.name] = defaultMap[r.name];
+          } else {
+            result[r.name] = [];
           }
         }
         return result;
