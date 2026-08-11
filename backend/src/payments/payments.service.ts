@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Razorpay from 'razorpay';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Razorpay = require('razorpay');
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { devPlansStore, devUnlockedContactsStore, devStore, DevPlan } from '../common/dev-store';
+import { devPlansStore, devUnlockedContactsStore, devStore, DevPlan, devPaymentsStore } from '../common/dev-store';
 
 @Injectable()
 export class PaymentsService {
@@ -20,21 +21,42 @@ export class PaymentsService {
     return !this.isProduction && this.configService.get<string>('ALLOW_MOCK_PAYMENTS', 'true') === 'true';
   }
 
-  private get razorpayKeys() {
-    const keyId = this.configService.get<string>('RAZORPAY_KEY_ID');
-    const keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
-    const hasRealKeys = !!keyId && !!keySecret && !keyId.includes('XXXXXXXX') && !keySecret.includes('your-');
-    return hasRealKeys ? { keyId, keySecret } : null;
+  private async getRazorpayKeys() {
+    let keyId = this.configService.get<string>('RAZORPAY_KEY_ID');
+    let keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
+
+    if (!keyId || keyId.includes('XXXXXXXX') || !keySecret || keySecret.includes('your-')) {
+      const sysSettings = (devStore as any).systemSettings || {};
+      if (sysSettings.razorpayKeyId && sysSettings.razorpayKeySecret) {
+        keyId = sysSettings.razorpayKeyId;
+        keySecret = sysSettings.razorpayKeySecret;
+      } else {
+        try {
+          const rec = await this.prisma.setting.findUnique({ where: { key: 'system_settings' } });
+          if (rec?.value) {
+            const parsed = JSON.parse(rec.value);
+            if (parsed.razorpayKeyId && parsed.razorpayKeySecret) {
+              keyId = parsed.razorpayKeyId;
+              keySecret = parsed.razorpayKeySecret;
+            }
+          }
+        } catch {}
+      }
+    }
+
+    const hasRealKeys = !!keyId && !keyId.includes('XXXXXXXX') && keyId.startsWith('rzp_');
+    return hasRealKeys ? { keyId: keyId!, keySecret: keySecret || '' } : null;
   }
 
   async getPlans() {
+    let resultPlans: any[] = [];
+
     try {
       const plans = await this.prisma.membershipPlan.findMany({
         where: { isActive: true },
-        orderBy: { displayOrder: 'asc' },
       });
       if (plans && plans.length > 0) {
-        return plans.map((p) => {
+        resultPlans = plans.map((p) => {
           let tier = p.tier as string;
           if (tier === 'DIAMOND' || p.name === 'Diamond Plan' || p.name === 'Diamond') {
             tier = 'ELITE';
@@ -42,7 +64,7 @@ export class PaymentsService {
           return {
             ...p,
             tier,
-            contactLimit: p.maxContacts ?? (tier === 'FREE' ? 5 : tier === 'SILVER' ? 50 : tier === 'ELITE' ? 100 : 999),
+            contactLimit: p.maxContacts ?? (tier === 'FREE' ? 5 : tier === 'SILVER' ? 50 : tier === 'GOLD' ? 100 : 999),
           };
         });
       }
@@ -50,7 +72,31 @@ export class PaymentsService {
       // Fallback
     }
 
-    return devPlansStore;
+    if (resultPlans.length === 0) {
+      resultPlans = [...devPlansStore];
+    }
+
+    const getPlanRank = (plan: any): number => {
+      const tier = (plan.tier || '').toUpperCase();
+      const name = (plan.name || '').toLowerCase();
+
+      if (tier === 'FREE' || name.includes('free')) return 1;
+      if (tier === 'SILVER' || name.includes('silver')) return 2;
+      if (tier === 'GOLD' || name.includes('gold')) return 3;
+      if (tier === 'ELITE' || name.includes('elite')) return 4;
+      if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
+      if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
+      return 100; // Custom / newly added plans go at the end
+    };
+
+    return resultPlans.sort((a, b) => {
+      const rankA = getPlanRank(a);
+      const rankB = getPlanRank(b);
+      if (rankA !== rankB) return rankA - rankB;
+      const pA = parseFloat(String(a.price).replace(/[^\d.]/g, '') || '0');
+      const pB = parseFloat(String(b.price).replace(/[^\d.]/g, '') || '0');
+      return pA - pB;
+    });
   }
 
   async createPlan(data: any) {
@@ -349,9 +395,11 @@ export class PaymentsService {
     }
 
     const devUnlockedSet = devUnlockedContactsStore.get(userId) || new Set<string>();
-    devUnlockedSet.add(canonicalProfileId);
+    devUnlockedSet.add(targetUserId);
     if (canonicalUserId) devUnlockedSet.add(canonicalUserId);
     devUnlockedContactsStore.set(userId, devUnlockedSet);
+
+    return this.getUnlockedContacts(userId);
 
     return this.getUnlockedContacts(userId);
   }
@@ -359,21 +407,44 @@ export class PaymentsService {
   async createRazorpayOrder(userId: string, planId: string) {
     const plan = await this.prisma.membershipPlan.findUnique({ where: { id: planId } }).catch(() => null);
     const devPlan = devPlansStore.find((p) => p.id === planId) || devPlansStore[1];
-    const price = plan ? Number(plan.price) : Number(devPlan.price);
+    const price = plan ? Number(plan.price) : Number(String(devPlan.price).replace(/[^\d.]/g, '') || '599');
 
     const amountInPaise = Math.round(price * 100);
-    const keys = this.razorpayKeys;
+    const keys = await this.getRazorpayKeys();
 
-    const razorpayOrderId = keys
-      ? (await new Razorpay({
+    let razorpayOrderId = `order_mock_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    if (keys) {
+      try {
+        const RazorpayClass = typeof Razorpay === 'function' ? Razorpay : (Razorpay as any).default || Razorpay;
+        const rzp = new RazorpayClass({
           key_id: keys.keyId,
           key_secret: keys.keySecret,
-        }).orders.create({
+        });
+        const order = await rzp.orders.create({
           amount: amountInPaise,
           currency: 'INR',
           receipt: `s2s_${Date.now()}`,
-        })).id
-      : `order_mock_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        });
+        razorpayOrderId = order.id;
+      } catch (err: any) {
+        console.error('Razorpay Order Creation Notice:', err?.message || err);
+      }
+    }
+
+    // Record in dev store for instant UI updates
+    const devRecord = {
+      id: `pay_${Date.now()}`,
+      userId,
+      planName: plan?.name || devPlan.name || 'Membership Upgrade',
+      tier: plan?.tier || devPlan.tier || 'ELITE',
+      amount: price,
+      currency: 'INR',
+      status: 'PENDING',
+      razorpayOrderId,
+      razorpayPaymentId: 'Pending Verification',
+      createdAt: new Date().toISOString(),
+    };
+    devPaymentsStore.unshift(devRecord);
 
     try {
       const payment = await this.prisma.payment.create({
@@ -405,13 +476,22 @@ export class PaymentsService {
       amount: amountInPaise,
       currency: 'INR',
       key: keys?.keyId || 'rzp_test_XXXXXXXXXXXX',
-      mock: true,
+      mock: !keys,
     };
   }
 
   async verifyPayment(userId: string, data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) {
+    const keys = await this.getRazorpayKeys();
+
+    if (keys && keys.keySecret && data.razorpaySignature && !data.razorpayOrderId.startsWith('order_mock_')) {
+      const isValid = this.isValidRazorpaySignature(data, keys.keySecret);
+      if (!isValid) {
+        throw new BadRequestException('Invalid Razorpay payment signature verification failed');
+      }
+    }
+
     try {
-      const payment = await this.prisma.payment.findUnique({
+      const payment = await this.prisma.payment.findFirst({
         where: { razorpayOrderId: data.razorpayOrderId },
         include: { plan: true },
       });
@@ -425,18 +505,65 @@ export class PaymentsService {
             razorpaySignature: data.razorpaySignature,
           },
         });
+
+        if (payment.plan) {
+          await (this.prisma.user as any).update({
+            where: { id: userId },
+            data: { membershipStatus: payment.plan.tier || 'ELITE' },
+          }).catch(() => null);
+        }
       }
     } catch {
       // Fallback
     }
 
-    // Upgrade user tier in devStore
+    const devItem = devPaymentsStore.find((p) => p.razorpayOrderId === data.razorpayOrderId || (p.userId === userId && p.status === 'PENDING'));
+    if (devItem) {
+      devItem.status = 'SUCCESS';
+      devItem.razorpayPaymentId = data.razorpayPaymentId;
+    }
+
     const userDev = devStore.get(userId);
     if (userDev) {
       devStore.update(userId, { membershipTier: 'ELITE' });
     }
 
-    return { success: true, message: 'Payment verified and plan activated successfully' };
+    return { success: true, message: 'Payment verified and plan activated successfully 🎉' };
+  }
+
+  async getUserPaymentHistory(userId: string) {
+    let dbPayments: any[] = [];
+    try {
+      const records = await this.prisma.payment.findMany({
+        where: { userId },
+        include: { plan: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (records && records.length > 0) {
+        dbPayments = records.map((p) => ({
+          id: p.id,
+          planName: p.plan?.name || 'Membership Upgrade',
+          tier: p.plan?.tier || 'PREMIUM',
+          amount: Number(p.amount),
+          currency: p.currency || 'INR',
+          status: p.status,
+          razorpayOrderId: p.razorpayOrderId,
+          razorpayPaymentId: p.razorpayPaymentId || 'N/A',
+          createdAt: p.createdAt,
+        }));
+      }
+    } catch {}
+
+    const devUserPayments = devPaymentsStore.filter((p) => p.userId === userId);
+
+    const merged = [...dbPayments];
+    for (const dp of devUserPayments) {
+      if (!merged.some((m) => m.razorpayOrderId === dp.razorpayOrderId)) {
+        merged.push(dp);
+      }
+    }
+
+    return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   private isValidRazorpaySignature(

@@ -11,7 +11,7 @@ import { Role, Permission } from '../common/enums/rbac.enum';
 @ApiTags('Admin')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-@Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.MODERATOR, Role.SUPPORT_AGENT)
+@Roles(Role.ADMIN, Role.SUPER_ADMIN)
 @ApiBearerAuth()
 export class AdminController {
   constructor(

@@ -583,7 +583,31 @@ const PricingPlansSection = () => {
     },
   ];
 
-  const plansToRender = dbPlans.length > 0 ? dbPlans.map((p) => {
+  const rawPlans = dbPlans.length > 0 ? dbPlans : defaultPlans;
+
+  const getPlanRank = (plan: any): number => {
+    const tier = (plan.tier || '').toUpperCase();
+    const name = (plan.name || '').toLowerCase();
+
+    if (tier === 'FREE' || name.includes('free')) return 1;
+    if (tier === 'SILVER' || name.includes('silver')) return 2;
+    if (tier === 'GOLD' || name.includes('gold')) return 3;
+    if (tier === 'ELITE' || name.includes('elite')) return 4;
+    if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
+    if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
+    return 100;
+  };
+
+  const sortedPlans = [...rawPlans].sort((a, b) => {
+    const rankA = getPlanRank(a);
+    const rankB = getPlanRank(b);
+    if (rankA !== rankB) return rankA - rankB;
+    const priceA = parseFloat(String(a.price).replace(/[^\d.]/g, '') || '0');
+    const priceB = parseFloat(String(b.price).replace(/[^\d.]/g, '') || '0');
+    return priceA - priceB;
+  });
+
+  const plansToRender = sortedPlans.map((p) => {
     let name = p.name || 'Membership Plan';
     if (name === 'Diamond Plan' || name === 'Diamond') name = 'Elite Plan';
     const isPopular = p.isPopular || p.tier === 'ELITE' || p.tier === 'ELITE_PLAN';
@@ -595,19 +619,19 @@ const PricingPlansSection = () => {
     return {
       id: p.id,
       name,
-      price: `₹${p.price ?? 0}`,
-      period: p.duration || (p.durationMonths ? `for ${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : 'Lifetime'),
+      price: typeof p.price === 'string' && p.price.startsWith('₹') ? p.price : `₹${p.price ?? 0}`,
+      period: p.period || p.duration || (p.durationMonths ? `for ${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : 'Lifetime'),
       popular: isPopular,
-      badge: isPopular ? 'Most Popular ⭐' : (p.tier || 'MEMBER'),
-      badgeBg: isPopular ? 'bg-primary/10 text-primary-dark border-primary/30 font-extrabold' : 'bg-slate-100 text-slate-700 border-slate-300 font-semibold',
-      checkColor: isPopular ? 'text-primary' : 'text-slate-500',
-      description: 'Unlock contact details & start connecting with matches',
+      badge: isPopular ? 'Most Popular ⭐' : (p.badge || p.tier || 'MEMBER'),
+      badgeBg: isPopular ? 'bg-primary/10 text-primary-dark border-primary/30 font-extrabold' : (p.badgeBg || 'bg-slate-100 text-slate-700 border-slate-300 font-semibold'),
+      checkColor: isPopular ? 'text-primary' : (p.checkColor || 'text-slate-500'),
+      description: p.description || 'Unlock contact details & start connecting with matches',
       features: featuresList,
-      ctaText: `Choose ${name}`,
-      ctaLink: '/register',
-      ctaStyle: isPopular ? 'btn bg-gradient-primary text-white font-extrabold shadow-lg hover:opacity-95 border-0' : 'btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300',
+      ctaText: p.ctaText || `Choose ${name}`,
+      ctaLink: p.ctaLink || '/register',
+      ctaStyle: p.ctaStyle || (isPopular ? 'btn bg-gradient-primary text-white font-extrabold shadow-lg hover:opacity-95 border-0' : 'btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300'),
     };
-  }) : defaultPlans;
+  });
 
   return (
     <section className="section bg-slate-100/60 relative overflow-hidden" id="membership-plans">

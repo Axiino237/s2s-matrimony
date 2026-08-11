@@ -63,7 +63,7 @@ export interface DevUser {
 export interface DevPlan {
   id: string;
   name: string;
-  tier: 'FREE' | 'SILVER' | 'ELITE' | 'PLATINUM';
+  tier: 'FREE' | 'SILVER' | 'GOLD' | 'ELITE';
   price: string;
   duration: string;
   contactLimit: number;
@@ -169,6 +169,7 @@ export const devStore = new DevStore();
 export const devInterestsStore: any[] = [];
 export const devMessagesStore = new Map<string, any[]>();
 export const devUnlockedContactsStore = new Map<string, Set<string>>();
+export const devPaymentsStore: any[] = [];
 
 export const devPlansStore: DevPlan[] = [
   {
@@ -179,7 +180,7 @@ export const devPlansStore: DevPlan[] = [
     duration: 'Lifetime',
     contactLimit: 5,
     members: '0',
-    features: ['5 Interests/day', 'Basic Search', '5 Contact Views'],
+    features: ['5 Daily Interests', 'Basic Search Filters', '5 Profile Views'],
     isActive: true,
     isPopular: false,
   },
@@ -188,34 +189,34 @@ export const devPlansStore: DevPlan[] = [
     name: 'Silver',
     tier: 'SILVER',
     price: '599',
-    duration: '1 month',
+    duration: '1 Month',
     contactLimit: 50,
     members: '0',
-    features: ['50 Interests/day', 'Advanced Search', '50 Contacts', 'Chat Access'],
+    features: ['50 Daily Interests', 'Advanced Search Filters', '50 Contact Views', 'Direct Chat Messaging'],
     isActive: true,
     isPopular: false,
+  },
+  {
+    id: 'plan-gold',
+    name: 'Gold',
+    tier: 'GOLD',
+    price: '999',
+    duration: '3 Months',
+    contactLimit: 100,
+    members: '0',
+    features: ['Unlimited Interests', 'Advanced Search & Dosha Filters', '100 Contact Unlocks', 'Direct Chat Messaging', 'Priority Profile Ranking', 'AI Match Score'],
+    isActive: true,
+    isPopular: true,
   },
   {
     id: 'plan-elite',
     name: 'Elite',
     tier: 'ELITE',
-    price: '999',
-    duration: '3 months',
-    contactLimit: 100,
-    members: '0',
-    features: ['Unlimited Interests', 'All Features', '100 Contacts', 'Priority Listing', 'AI Match'],
-    isActive: true,
-    isPopular: true,
-  },
-  {
-    id: 'plan-platinum',
-    name: 'Platinum',
-    tier: 'PLATINUM',
     price: '1799',
-    duration: '6 months',
+    duration: '6 Months',
     contactLimit: 999,
     members: '0',
-    features: ['Everything+', 'Unlimited Contacts', 'Video Profile', 'Dedicated Manager'],
+    features: ['Everything in Gold +', 'Unlimited Contact Unlocks', 'Highlighted Profile Badge', 'Dedicated Relationship Manager', 'Direct Chat & Phone Access'],
     isActive: true,
     isPopular: false,
   },

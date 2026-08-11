@@ -2,11 +2,11 @@
 // S2S Matrimony — Core TypeScript Types
 // ============================================================
 
-export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'MODERATOR' | 'SUPPORT_AGENT' | 'PREMIUM' | 'MEMBER' | 'GUEST';
+export type Role = 'SUPER_ADMIN' | 'ADMIN' | 'MEMBER' | string;
 
 export type Gender = 'MALE' | 'FEMALE';
 export type MaritalStatus = 'NEVER_MARRIED' | 'DIVORCED' | 'WIDOWED' | 'SEPARATED';
-export type MembershipTier = 'FREE' | 'SILVER' | 'GOLD' | 'ELITE' | 'PLATINUM';
+export type MembershipTier = 'FREE' | 'SILVER' | 'GOLD' | 'ELITE';
 export type ProfileStatus = 'PENDING' | 'ACTIVE' | 'SUSPENDED' | 'DELETED';
 export type InterestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
 export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';

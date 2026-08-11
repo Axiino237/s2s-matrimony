@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { User, UserCheck, Users, HeartHandshake, Smile, Sparkles, Lock, Mail, Phone, ArrowRight, ArrowLeft, Loader2, ShieldCheck, Eye, EyeOff, Star, MessageSquare } from 'lucide-react';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/auth.store';
+import { useSettingsStore } from '../../store/settings.store';
 
 const STEPS = ['Profile For', 'Personal Info', 'Contact & Password'];
 
@@ -12,6 +13,7 @@ const RegisterPage = () => {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const logoUrl = useSettingsStore((s) => s.logoUrl);
   const navigate = useNavigate();
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
@@ -102,7 +104,7 @@ const RegisterPage = () => {
               </div>
 
               <div className="flex items-center gap-4">
-                <img src="/images/logo.png" alt="S2S Matrimony Logo" className="w-28 h-28 sm:w-32 sm:h-32 object-contain rounded-3xl shadow-2xl border-2 border-amber-400/60 p-2 bg-white" />
+                <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-28 h-28 sm:w-32 sm:h-32 object-contain rounded-3xl shadow-2xl border-2 border-amber-400/60 p-2 bg-white" />
                 <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-black leading-tight drop-shadow-lg">
                   <span style={{ color: '#FBBF24' }} className="font-extrabold drop-shadow">
                     S2S Matrimony
@@ -161,7 +163,7 @@ const RegisterPage = () => {
               {/* Header inside Card — Big Logo centered at Top */}
               <div className="text-center mb-6">
                 <Link to="/" className="inline-flex flex-col items-center gap-2 mb-3 group">
-                  <img src="/images/logo.png" alt="S2S Matrimony Logo" className="w-36 h-36 sm:w-44 sm:h-44 object-contain rounded-3xl p-1.5 bg-white shadow-xl group-hover:scale-105 transition-transform border border-slate-100" />
+                  <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-36 h-36 sm:w-44 sm:h-44 object-contain rounded-3xl p-1.5 bg-white shadow-xl group-hover:scale-105 transition-transform border border-slate-100" />
                 </Link>
                 <h2 className="font-display text-2xl font-bold text-slate-900">Create Free Account</h2>
                 <p className="text-slate-500 text-xs mt-1">Join 50,000+ members and find your match</p>

@@ -25,11 +25,14 @@ interface NavGroup {
   items: NavItem[];
 }
 
+import { useSettingsStore } from '../../store/settings.store';
+
 // ─── MemberSidebar ─────────────────────────────────────────────────────
 const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: number }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isPremium, logout, hasPermission, isSuperAdmin } = useAuthStore();
+  const logoUrl = useSettingsStore((s) => s.logoUrl);
   const [, setRefreshKey] = useState(0);
 
   const profileCompletion = (user as any)?.profileCompletionPercent ?? 0;
@@ -52,13 +55,15 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
     DIAMOND: 'bg-gradient-to-r from-blue-400 to-indigo-600 text-white',
   };
 
+  const enableBiodataForm = useSettingsStore((s) => s.enableBiodataForm);
+
   const navGroups: NavGroup[] = [
     {
       title: 'Main',
       items: [
         { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', locked: !isProfileComplete, requiredPermission: 'member:dashboard' },
         { icon: User, label: 'My Profile', href: '/profile', locked: !isProfileComplete, requiredPermission: 'member:profile' },
-        { icon: FileText, label: 'Biodata Form', href: '/profile/biodata-form', requiredPermission: 'member:profile' },
+        ...(enableBiodataForm !== false ? [{ icon: FileText, label: 'Biodata Form', href: '/profile/biodata-form', requiredPermission: 'member:profile' }] : []),
       ],
     },
     {
@@ -73,6 +78,7 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
       items: [
         { icon: Heart, label: 'Interests', href: '/interests', locked: !isProfileComplete, badge: unreadCount > 0 ? String(unreadCount) : undefined, badgeColor: 'bg-rose-500', requiredPermission: 'member:interests' },
         { icon: MessageSquare, label: 'Messages', href: '/messages', locked: !isProfileComplete, requiredPermission: 'member:messages' },
+        { icon: Users, label: 'Who Viewed Me', href: '/profile-viewers', locked: !isProfileComplete, requiredPermission: 'member:viewers' },
       ],
     },
     {
@@ -126,7 +132,7 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
       {/* Logo */}
       <div className="p-5 border-b border-slate-100 flex-shrink-0">
         <Link to="/" className="flex items-center gap-3">
-          <img src="/images/logo.png" alt="S2S Matrimony" className="w-12 h-12 object-contain rounded-xl shadow-md" />
+          <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony" className="w-12 h-12 object-contain rounded-xl shadow-md" />
           <div>
             <span className="font-display font-bold text-lg text-text-primary">S2S</span>
             <span className="text-primary font-bold text-lg"> Matrimony</span>

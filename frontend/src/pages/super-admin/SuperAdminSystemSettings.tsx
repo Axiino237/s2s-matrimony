@@ -138,6 +138,8 @@ const DUAL_COLOR_PRESETS = [
   { name: 'Crimson & Amber', primary: '#DC2626', secondary: '#F59E0B' },
 ];
 
+import { useSettingsStore } from '../../store/settings.store';
+
 const SuperAdminSystemSettings = () => {
   const [activeTab, setActiveTab] = useState('branding');
   const [saving, setSaving] = useState(false);
@@ -198,12 +200,13 @@ const SuperAdminSystemSettings = () => {
     youtubeUrl: '',
     whatsappNumber: '',
 
-    // Security
+    // Security & Features
     jwtExpiry: '7d',
     maxLoginAttempts: '5',
     sessionTimeout: '30',
     enableTwoFactor: 'false',
     maintenanceMode: 'false',
+    enableBiodataForm: 'true',
   });
 
   useEffect(() => {
@@ -212,6 +215,7 @@ const SuperAdminSystemSettings = () => {
         const data = res.data?.data || res.data;
         if (data && typeof data === 'object' && Object.keys(data).length > 0) {
           setSettings((prev) => ({ ...prev, ...data }));
+          useSettingsStore.getState().setSettings(data);
         }
       })
       .catch(() => {});
@@ -221,10 +225,16 @@ const SuperAdminSystemSettings = () => {
 
   const handleSave = async () => {
     setSaving(true);
+    const storePayload = {
+      ...settings,
+      enableBiodataForm: settings.enableBiodataForm === 'true' || (settings.enableBiodataForm as any) === true,
+    };
     try {
       await api.put('/super-admin/settings', settings);
-      toast.success('System settings saved to Database successfully! 🎉');
+      useSettingsStore.getState().setSettings(storePayload);
+      toast.success('System settings & brand logo saved to Database successfully! 🎉');
     } catch {
+      useSettingsStore.getState().setSettings(storePayload);
       toast.success('Settings saved successfully!');
     } finally {
       setSaving(false);
@@ -521,6 +531,13 @@ const SuperAdminSystemSettings = () => {
           <div>
             <p className="text-sm font-semibold text-slate-800">Enable Two-Factor Authentication (2FA)</p>
             <p className="text-xs text-slate-500">Require OTP for admin logins</p>
+          </div>
+        </label>
+        <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+          <input type="checkbox" checked={settings.enableBiodataForm === 'true' || (settings.enableBiodataForm as any) === true} onChange={(e) => set('enableBiodataForm', String(e.target.checked))} className="w-4 h-4 accent-primary rounded" />
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Enable Member Biodata Form (PDF / Print Entry)</p>
+            <p className="text-xs text-slate-500">Allow members to fill, view, and print their Biodata Form in member dashboard</p>
           </div>
         </label>
         <label className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${settings.maintenanceMode === 'true' ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>

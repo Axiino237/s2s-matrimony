@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { devStore, devInterestsStore, devMessagesStore } from '../common/dev-store';
+import { devStore, devInterestsStore, devMessagesStore, devPlansStore } from '../common/dev-store';
 
 @Injectable()
 export class MessagesService {
@@ -102,9 +102,9 @@ export class MessagesService {
       // Ignore DB errors
     }
 
-    // 2. devInterestsStore (Any interest involving userId)
+    // 2. devInterestsStore (Only ACCEPTED interests involving userId)
     const userDevInterests = devInterestsStore.filter(
-      (i) => i.senderId === userId || i.receiverId === userId,
+      (i) => (i.senderId === userId || i.receiverId === userId) && i.status === 'ACCEPTED',
     );
 
     for (const item of userDevInterests) {
@@ -246,6 +246,29 @@ export class MessagesService {
 
   /** Send a message in a chat */
   async sendMessage(userId: string, chatId: string, content: string) {
+    let userTier = 'FREE';
+    try {
+      const dbMembership = await this.prisma.membership.findFirst({
+        where: { userId, isActive: true },
+        include: { plan: true },
+      });
+      if (dbMembership) {
+        userTier = (dbMembership.tier || dbMembership.plan?.tier || 'FREE').toUpperCase();
+      } else {
+        const uDev = devStore.get(userId);
+        userTier = (uDev?.membershipTier || 'FREE').toUpperCase();
+      }
+    } catch {
+      const uDev = devStore.get(userId);
+      userTier = (uDev?.membershipTier || 'FREE').toUpperCase();
+    }
+
+    if (userTier === 'FREE') {
+      throw new ForbiddenException(
+        'Live Chat requires an active Premium Membership Plan. Please upgrade to unlock chat!',
+      );
+    }
+
     const msgs = devMessagesStore.get(chatId) || [];
     const lastMsg = msgs[msgs.length - 1];
     if (
@@ -306,6 +329,63 @@ export class MessagesService {
 
   /** Start a new chat with another user (or return existing) */
   async startChat(userId: string, otherUserId: string) {
+    // 1. Verify Interest is ACCEPTED between users
+    let isAccepted = false;
+    try {
+      const dbInterest = await this.prisma.interest.findFirst({
+        where: {
+          OR: [
+            { senderId: userId, receiverId: otherUserId },
+            { senderId: otherUserId, receiverId: userId },
+          ],
+          status: 'ACCEPTED',
+        },
+      });
+      if (dbInterest) isAccepted = true;
+    } catch {
+      // ignore
+    }
+
+    if (!isAccepted) {
+      const devInterest = devInterestsStore.find(
+        (i) =>
+          ((i.senderId === userId && i.receiverId === otherUserId) ||
+            (i.senderId === otherUserId && i.receiverId === userId)) &&
+          i.status === 'ACCEPTED',
+      );
+      if (devInterest) isAccepted = true;
+    }
+
+    if (!isAccepted) {
+      throw new ForbiddenException(
+        'Live Chat is disabled until Express Interest is ACCEPTED by both members.',
+      );
+    }
+
+    // 2. Verify Membership Plan Chat Permission
+    let userTier = 'FREE';
+    try {
+      const dbMembership = await this.prisma.membership.findFirst({
+        where: { userId, isActive: true },
+        include: { plan: true },
+      });
+      if (dbMembership) {
+        userTier = (dbMembership.tier || dbMembership.plan?.tier || 'FREE').toUpperCase();
+      } else {
+        const uDev = devStore.get(userId);
+        userTier = (uDev?.membershipTier || 'FREE').toUpperCase();
+      }
+    } catch {
+      const uDev = devStore.get(userId);
+      userTier = (uDev?.membershipTier || 'FREE').toUpperCase();
+    }
+
+    if (userTier === 'FREE') {
+      throw new ForbiddenException(
+        'Live Chat requires an active Premium Membership Plan. Please upgrade to unlock chat!',
+      );
+    }
+
     try {
       const existing = await this.prisma.chat.findFirst({
         where: {

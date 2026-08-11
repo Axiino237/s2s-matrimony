@@ -175,28 +175,10 @@ export class AdminService {
   }
 
   async getUsers(search?: string, currentUser?: any, page = 1, limit = 10) {
-    const skip = (+page - 1) * +limit;
-    const isSuperAdmin = currentUser?.roles?.includes('SUPER_ADMIN');
-
+    const p = Math.max(1, +(page || 1));
+    const l = Math.max(1, +(limit || 10));
+    const skip = (p - 1) * l;
     const andConditions: any[] = [];
-    if (!isSuperAdmin) {
-      andConditions.push(
-        {
-          userRoles: {
-            none: {
-              role: {
-                name: { in: ['SUPER_ADMIN', 'ADMIN'] },
-              },
-            },
-          },
-        },
-        {
-          email: {
-            notIn: ['superadmin@s2smatrimony.com', 'admin@s2smatrimony.com'],
-          },
-        },
-      );
-    }
 
     if (search && search.trim()) {
       const q = search.trim();
@@ -225,7 +207,7 @@ export class AdminService {
         this.prisma.user.findMany({
           where: whereClause,
           skip,
-          take: +limit,
+          take: l,
           include: {
             profile: {
               include: {
@@ -250,64 +232,28 @@ export class AdminService {
         this.prisma.user.count({ where: whereClause }),
       ]);
 
-      if (users && users.length > 0) {
-        return { users, total, page: +page, totalPages: Math.max(1, Math.ceil(total / +limit)) };
+      if (users) {
+        return { users, total, page: p, totalPages: Math.max(1, Math.ceil(total / l)) };
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      console.error('getUsers error:', err);
     }
 
-    const devMembers = devStore.getAll()
-      .filter((u) => u.id !== 'super-admin-001' && u.id !== 'admin-001')
-      .map((u) => ({
-        id: u.id,
-        email: u.email,
-        phone: u.phone,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        profile: {
-          firstName: u.firstName || 'Member',
-          lastName: u.lastName || '',
-          community: { name: u.community || 'General' },
-          verificationStatus: 'PENDING',
-          profileCompletionPercent: 40,
-          gender: u.gender,
-          age: u.age,
-        },
-        userRoles: [{ role: { name: 'MEMBER' } }],
-      }));
-
-    const fallbackUsers = [
-      {
-        id: 'usr-001',
-        email: 'superadmin@s2smatrimony.com',
-        phone: '+919999999999',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        profile: { firstName: 'Super', lastName: 'Admin', community: { name: 'Global' }, verificationStatus: 'VERIFIED', profileCompletionPercent: 100 },
-        userRoles: [{ role: { name: 'SUPER_ADMIN' } }],
-      },
-      {
-        id: 'usr-002',
-        email: 'admin@s2smatrimony.com',
-        phone: '+918888888888',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        profile: { firstName: 'Platform', lastName: 'Admin', community: { name: 'Global' }, verificationStatus: 'VERIFIED', profileCompletionPercent: 100 },
-        userRoles: [{ role: { name: 'ADMIN' } }],
-      },
-      ...devMembers,
-    ];
-
-    return { users: fallbackUsers, total: fallbackUsers.length, page: +page, totalPages: 1 };
+    return { users: [], total: 0, page: p, totalPages: 1 };
   }
 
 
   async getPendingProfiles(search?: string, page = 1, limit = 10, status?: string) {
-    const skip = (+page - 1) * +limit;
+    const p = Math.max(1, +(page || 1));
+    const l = Math.max(1, +(limit || 10));
+    const skip = (p - 1) * l;
     const andConditions: any[] = [];
     if (status && status !== 'All') {
-      andConditions.push({ verificationStatus: status });
+      if (status === 'PENDING') {
+        andConditions.push({ verificationStatus: { in: ['PENDING', 'UNVERIFIED'] } });
+      } else {
+        andConditions.push({ verificationStatus: status });
+      }
     }
 
     if (search && search.trim()) {
@@ -331,7 +277,7 @@ export class AdminService {
         this.prisma.profile.findMany({
           where: whereClause,
           skip,
-          take: +limit,
+          take: l,
           include: {
             user: { select: { email: true, phone: true, createdAt: true } },
             community: true,
@@ -347,71 +293,11 @@ export class AdminService {
         this.prisma.profile.count({ where: whereClause }),
       ]);
 
-      if (profiles && profiles.length > 0) {
-        return { profiles, total, page: +page, totalPages: Math.max(1, Math.ceil(total / +limit)) };
-      }
-    } catch {
-      // Fallback
+      return { profiles, total, page: p, totalPages: Math.max(1, Math.ceil(total / l)) };
+    } catch (err) {
+      console.error('getPendingProfiles error:', err);
+      return { profiles: [], total: 0, page: p, totalPages: 1 };
     }
-
-    const fallbackProfiles = [
-      {
-        id: 'prof-01',
-        firstName: 'Anand',
-        lastName: 'Kumar',
-        displayName: 'Anand K',
-        profileFor: 'SELF',
-        age: 28,
-        gender: 'MALE',
-        dateOfBirth: '1998-05-15',
-        maritalStatus: 'NEVER_MARRIED',
-        heightCm: 175,
-        weight: 70,
-        complexion: 'Fair',
-        bodyType: 'Athletic',
-        diet: 'Vegetarian',
-        smoking: false,
-        drinking: false,
-        motherTongue: 'Tamil',
-        about: 'Software Engineer based in Chennai. Looking for a family-oriented girl.',
-        gothram: 'Kasyapa',
-        verificationStatus: 'PENDING',
-        profileCompletionPercent: 90,
-        createdAt: new Date().toISOString(),
-        user: { email: 'anand.k@gmail.com', phone: '+919876543214', createdAt: new Date().toISOString() },
-        community: { name: 'Kongu Vellalar' },
-        photos: [{ id: 'ph-1', url: '/images/groom.png', isMain: true }],
-      },
-      {
-        id: 'prof-02',
-        firstName: 'Priya',
-        lastName: 'Sundaram',
-        displayName: 'Priya S',
-        profileFor: 'SELF',
-        age: 25,
-        gender: 'FEMALE',
-        dateOfBirth: '2001-08-20',
-        maritalStatus: 'NEVER_MARRIED',
-        heightCm: 162,
-        weight: 55,
-        complexion: 'Very Fair',
-        bodyType: 'Slim',
-        diet: 'Vegetarian',
-        smoking: false,
-        drinking: false,
-        motherTongue: 'Tamil',
-        about: 'Doctor working at Apollo Hospital Chennai.',
-        gothram: 'Bharadwaja',
-        verificationStatus: 'PENDING',
-        profileCompletionPercent: 95,
-        createdAt: new Date().toISOString(),
-        user: { email: 'priya.s@gmail.com', phone: '+919876543215', createdAt: new Date().toISOString() },
-        community: { name: 'Iyer' },
-        photos: [{ id: 'ph-2', url: '/images/bride.jpg', isMain: true }],
-      },
-    ];
-
-    return { profiles: fallbackProfiles, total: fallbackProfiles.length, page: +page, totalPages: 1 };
   }
 
   async getPayments(search?: string, page = 1, limit = 10) {
@@ -490,35 +376,10 @@ export class AdminService {
         this.prisma.report.count({ where: whereClause }),
       ]);
 
-      if (reports && reports.length > 0) {
-        return { reports, total, page: +page, totalPages: Math.max(1, Math.ceil(total / +limit)) };
-      }
+      return { reports, total, page: +page, totalPages: Math.max(1, Math.ceil(total / +limit)) };
     } catch {
-      // Fallback
+      return { reports: [], total: 0, page: +page, totalPages: 1 };
     }
-
-    const fallbackReports = [
-      {
-        id: 'rep-001',
-        reason: 'FAKE_PROFILE',
-        description: 'Profile photo looks like a stock image and user is asking for money.',
-        status: 'PENDING',
-        createdAt: new Date().toISOString(),
-        reportedBy: { email: 'kavitha.r@gmail.com', profile: { firstName: 'Kavitha', lastName: 'Ramasamy' } },
-        reportedProfile: { firstName: 'Fake', lastName: 'User' },
-      },
-      {
-        id: 'rep-002',
-        reason: 'INAPPROPRIATE_BEHAVIOR',
-        description: 'Sent abusive messages in chat.',
-        status: 'RESOLVED',
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-        reportedBy: { email: 'ananya.v@outlook.com', profile: { firstName: 'Ananya', lastName: 'Venkatesh' } },
-        reportedProfile: { firstName: 'Karthik', lastName: 'Muthusamy' },
-      },
-    ];
-
-    return { reports: fallbackReports, total: fallbackReports.length, page: +page, totalPages: 1 };
   }
 
   async updateReportStatus(reportId: string, status: string, reviewNote?: string) {
@@ -552,79 +413,10 @@ export class AdminService {
         this.prisma.blog.count({ where: whereClause }),
       ]);
 
-      if (blogs && blogs.length > 0) {
-        const all = [...devBlogsStore, ...blogs];
-        return { blogs: all, total: all.length, page: +page, totalPages: Math.max(1, Math.ceil(all.length / +limit)) };
-      }
+      return { blogs, total, page: +page, totalPages: Math.max(1, Math.ceil(total / +limit)) };
     } catch {
-      // Fallback
+      return { blogs: [], total: 0, page: +page, totalPages: 1 };
     }
-
-    const fallbackBlogs = [
-      {
-        id: 'post-1',
-        title: 'How to Write the Perfect Matrimony Profile',
-        category: { name: 'Profile Tips' },
-        readTime: '5 min read',
-        createdAt: new Date('2026-07-15').toISOString(),
-        author: 'Dr. Swaminathan',
-        coverImage: '/images/couple_happy.png',
-        excerpt: 'Learn how to present your education, family background, and partner preferences authentically to attract compatible matches.',
-      },
-      {
-        id: 'post-2',
-        title: 'Top 10 Tips for Finding Your Perfect Match',
-        category: { name: 'Matchmaking' },
-        readTime: '6 min read',
-        createdAt: new Date('2026-07-10').toISOString(),
-        author: 'Rethinam Pillai',
-        coverImage: '/images/couple.png',
-        excerpt: 'Discover practical advice on setting realistic criteria, communicating effectively, and involving family members smoothly.',
-      },
-      {
-        id: 'post-3',
-        title: 'Horoscope Matching: What You Need to Know',
-        category: { name: 'Horoscope & Porutham' },
-        readTime: '8 min read',
-        createdAt: new Date('2026-07-05').toISOString(),
-        author: 'Astrologer Sundaram',
-        coverImage: '/images/ceremony.png',
-        excerpt: 'Understanding the 10 Poruthams, Chevvai Dosham, and how online horoscope tools calculate exact Gothram compatibility.',
-      },
-      {
-        id: 'post-4',
-        title: 'Photo Tips for Your Matrimony Profile',
-        category: { name: 'Profile Tips' },
-        readTime: '4 min read',
-        createdAt: new Date('2026-06-28').toISOString(),
-        author: 'Priya Ramanathan',
-        coverImage: '/images/couple_happy.png',
-        excerpt: 'Why clear, natural lighting and traditional attire photos increase express interest response rates by 300%.',
-      },
-      {
-        id: 'post-5',
-        title: 'How to Talk to Prospective Partners',
-        category: { name: 'Relationship Guide' },
-        readTime: '7 min read',
-        createdAt: new Date('2026-06-20').toISOString(),
-        author: 'Kavitha Mudaliar',
-        coverImage: '/images/couple.png',
-        excerpt: 'First conversation guide: icebreaker questions, discussing career goals, location flexibility, and mutual respect.',
-      },
-      {
-        id: 'post-6',
-        title: 'Wedding Planning on a Budget in Tamil Nadu',
-        category: { name: 'Wedding Guide' },
-        readTime: '9 min read',
-        createdAt: new Date('2026-06-12').toISOString(),
-        author: 'Venkatesh Iyer',
-        coverImage: '/images/ceremony.png',
-        excerpt: 'Smart tips for booking marriage halls, catering menus, photography teams, and jewelry shopping without overspending.',
-      },
-    ];
-
-    const allBlogs = [...devBlogsStore, ...fallbackBlogs];
-    return { blogs: allBlogs, total: allBlogs.length, page: +page, totalPages: 1 };
   }
 
   async getBanners(page = 1, limit = 20) {

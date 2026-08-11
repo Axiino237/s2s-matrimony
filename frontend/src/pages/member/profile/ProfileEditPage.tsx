@@ -535,6 +535,8 @@ const ProfileEditPage = () => {
       dasaBalance: formData.dasaBalance || undefined,
       timeOfBirth: formData.timeOfBirth || undefined,
       placeOfBirth: formData.placeOfBirth || undefined,
+      rasiChart: formData.rasiChart,
+      amsamChart: formData.amsamChart,
       // Partner Preferences
       prefGender: formData.prefGender || undefined,
       prefAgeMin: formData.prefAgeMin || undefined,

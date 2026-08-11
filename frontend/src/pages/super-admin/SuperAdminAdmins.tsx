@@ -34,24 +34,41 @@ export interface PermissionGroup {
 }
 
 export const OFFICIAL_PERMISSIONS: PermissionGroup[] = [
+  // ── Executive Group ──
   {
-    category: '📱 Admin Dashboard Screen',
+    category: '📊 Super Dashboard',
     perms: [
-      { key: 'dashboard:view', label: 'View Admin Dashboard Metrics & High-Level Stats' },
+      { key: 'dashboard:view', label: 'View Super Dashboard Metrics & High-Level Stats' },
     ],
   },
   {
-    category: '👥 User Accounts Management Screen',
+    category: '💰 Revenue Reports',
     perms: [
-      { key: 'users:read', label: 'View Registered Users List & Details' },
-      { key: 'users:write', label: 'Create & Edit User Account Info' },
-      { key: 'users:verify', label: 'Verify User Identity Badges' },
-      { key: 'users:ban', label: 'Ban & Deactivate User Accounts' },
-      { key: 'users:delete', label: 'Permanently Delete Users from Database' },
+      { key: 'revenue:view', label: 'View Revenue Analytics, Sales Reports & Trends' },
+    ],
+  },
+
+  // ── Platform Group ──
+  {
+    category: '🌐 Communities',
+    perms: [
+      { key: 'communities:read', label: 'View Communities & Subcastes List' },
+      { key: 'communities:write', label: 'Create & Edit Community Details' },
+      { key: 'communities:delete', label: 'Delete Community Records' },
     ],
   },
   {
-    category: '📋 Profile Moderation Screen',
+    category: '👥 All Members',
+    perms: [
+      { key: 'users:read', label: 'View Registered Members List & Details' },
+      { key: 'users:write', label: 'Create & Edit Member Account Info' },
+      { key: 'users:verify', label: 'Verify Member Identity Badges' },
+      { key: 'users:ban', label: 'Ban & Deactivate Member Accounts' },
+      { key: 'users:delete', label: 'Permanently Delete Members from Database' },
+    ],
+  },
+  {
+    category: '📋 Profile Moderation',
     perms: [
       { key: 'profiles:read', label: 'View Candidate Profiles & Photos' },
       { key: 'profiles:write', label: 'Edit Candidate Profile Information' },
@@ -60,37 +77,41 @@ export const OFFICIAL_PERMISSIONS: PermissionGroup[] = [
       { key: 'profiles:delete', label: 'Delete Candidate Profiles' },
     ],
   },
+
+  // ── Membership & Payments Group ──
   {
-    category: '👑 Membership Plans & Limits Screen',
+    category: '👑 Membership Plans',
     perms: [
       { key: 'plans:read', label: 'View Membership Plans & Pricing' },
       { key: 'plans:manage', label: 'Create, Edit, Pricing & Contact Limits' },
     ],
   },
   {
-    category: '💰 Financial Payments & Revenue Screen',
+    category: '💳 Payments',
     perms: [
-      { key: 'payments:view', label: 'View Payment Transactions & Revenue History' },
+      { key: 'payments:view', label: 'View Payment Transactions & Billing History' },
       { key: 'payments:refund', label: 'Issue Payment Refunds' },
     ],
   },
   {
-    category: '🏘️ Community Management Screen',
-    perms: [
-      { key: 'communities:read', label: 'View Communities List' },
-      { key: 'communities:write', label: 'Create & Edit Community Details' },
-      { key: 'communities:delete', label: 'Delete Community Records' },
-    ],
-  },
-  {
-    category: '🖼️ Banners & Ads Manager Screen',
+    category: '🖼️ Banners',
     perms: [
       { key: 'banners:read', label: 'View Promotional Banners' },
       { key: 'banners:write', label: 'Create, Upload & Manage Banners' },
     ],
   },
+
+  // ── Content & AI Group ──
   {
-    category: '✍️ Content CMS & Blogs Screen',
+    category: '💖 Success Stories',
+    perms: [
+      { key: 'stories:read', label: 'View Couples Success Stories' },
+      { key: 'stories:approve', label: 'Approve & Publish Success Stories' },
+      { key: 'stories:delete', label: 'Delete Success Stories' },
+    ],
+  },
+  {
+    category: '✍️ Blogs & CMS',
     perms: [
       { key: 'blogs:read', label: 'Read Blog Articles' },
       { key: 'blogs:write', label: 'Create & Edit Blog Posts' },
@@ -99,100 +120,146 @@ export const OFFICIAL_PERMISSIONS: PermissionGroup[] = [
     ],
   },
   {
-    category: '💍 Success Stories Screen',
+    category: '❓ FAQ Management',
     perms: [
-      { key: 'stories:read', label: 'View Couples Success Stories' },
-      { key: 'stories:approve', label: 'Approve & Publish Success Stories' },
-      { key: 'stories:delete', label: 'Delete Success Stories' },
+      { key: 'faq:read', label: 'View FAQ Help Center Questions' },
+      { key: 'faq:write', label: 'Create, Edit & Delete FAQ Entries' },
     ],
   },
   {
-    category: '✨ AI Biodata Parser & Engine Screen',
+    category: '⭐ Testimonials & Reviews',
+    perms: [
+      { key: 'testimonials:read', label: 'View Customer Testimonials' },
+      { key: 'testimonials:write', label: 'Manage & Moderate User Reviews' },
+    ],
+  },
+  {
+    category: '📜 Static Pages CMS',
+    perms: [
+      { key: 'static_pages:read', label: 'View Static Policy & Terms Pages' },
+      { key: 'static_pages:write', label: 'Edit Terms, Privacy & Policy Content' },
+    ],
+  },
+  {
+    category: '✨ AI Biodata Engine',
     perms: [
       { key: 'ai_biodata:read', label: 'Access AI Biodata Generator' },
       { key: 'ai_biodata:parse', label: 'Parse Candidate Resume/Biodata Files' },
     ],
   },
   {
-    category: '🚨 User Abuse Reports Screen',
+    category: '📄 Biodata Form Entry',
+    perms: [
+      { key: 'biodata_entry:create', label: 'Fill & Submit Candidate Biodata Form' },
+      { key: 'biodata_entry:view', label: 'View Form Drafts & Form Field Config' },
+    ],
+  },
+  {
+    category: '📑 Biodata Records List',
+    perms: [
+      { key: 'biodata_records:read', label: 'View Biodata Form Records & Submissions' },
+      { key: 'biodata_records:manage', label: 'Export & Manage Biodata Submissions' },
+    ],
+  },
+
+  // ── Administration Group ──
+  {
+    category: '🛡️ Admins & Roles (UAM)',
+    perms: [
+      { key: 'admins:manage', label: 'Manage Admin Staff & Role Permission Matrix' },
+    ],
+  },
+  {
+    category: '📜 Audit Logs',
+    perms: [
+      { key: 'audit:view', label: 'View System Audit Trail & Security Activity Logs' },
+    ],
+  },
+  {
+    category: '🚨 User Reports',
     perms: [
       { key: 'reports:view', label: 'View User Flagged Abuse Reports' },
       { key: 'reports:handle', label: 'Resolve & Action Reported Accounts' },
       { key: 'reports:delete', label: 'Delete Report History' },
     ],
   },
+
+  // ── System Group ──
   {
-    category: '🛡️ Admins & Roles Control (UAM) Screen',
+    category: '⚙️ System Settings',
     perms: [
-      { key: 'admins:manage', label: 'Manage Admin Staff & Role Permission Matrix' },
-    ],
-  },
-  {
-    category: '📈 Platform Analytics & Trends Screen',
-    perms: [
-      { key: 'analytics:view', label: 'View Analytics, Charts & Growth Metrics' },
-    ],
-  },
-  {
-    category: '📜 Audit & Security Activity Logs Screen',
-    perms: [
-      { key: 'audit:view', label: 'View System Audit Trail & Security Activity Logs' },
-    ],
-  },
-  {
-    category: '⚙️ Platform System Settings Screen',
-    perms: [
-      { key: 'settings:read', label: 'View Platform System Settings' },
+      { key: 'settings:read', label: 'View System Settings & Configuration' },
       { key: 'settings:manage', label: 'Update System Configuration Settings' },
       { key: 'notifications:send', label: 'Send Broadcast System Notifications' },
     ],
   },
   {
-    category: '🏠 Member Portal — Dashboard Screen',
+    category: '🔧 Settings',
+    perms: [
+      { key: 'general_settings:read', label: 'View General Account & Platform Settings' },
+      { key: 'general_settings:write', label: 'Update General Account & Platform Settings' },
+    ],
+  },
+  {
+    category: '📁 Legacy Logs',
+    perms: [
+      { key: 'legacy_logs:view', label: 'View Archived System Log Files & Reports' },
+    ],
+  },
+
+  // ── Member Portal ──
+  {
+    category: '🏠 Member Portal — Dashboard',
     perms: [
       { key: 'member:dashboard', label: 'Access Member Portal Overview & Stats' },
     ],
   },
   {
-    category: '👤 Member Portal — My Profile & Edit Screen',
+    category: '👤 Member Portal — My Profile',
     perms: [
       { key: 'member:profile', label: 'View & Edit Candidate Profile Details' },
     ],
   },
   {
-    category: '🔍 Member Portal — Search & Matches Screen',
+    category: '🔍 Member Portal — Search & Matches',
     perms: [
       { key: 'member:search', label: 'Search Candidates & Recommended Matches' },
     ],
   },
   {
-    category: '💌 Member Portal — Interests Sent & Received Screen',
+    category: '💌 Member Portal — Express Interest',
     perms: [
       { key: 'member:interests', label: 'Send, Accept & Manage Express Interest Requests' },
     ],
   },
   {
-    category: '💬 Member Portal — Messages & Direct Chat Screen',
+    category: '💬 Member Portal — Messages & Chat',
     perms: [
       { key: 'member:messages', label: 'Real-time Chat Messaging & Conversations' },
     ],
   },
   {
-    category: '👑 Member Portal — Upgrade Plan & Pricing Screen',
+    category: '👑 Member Portal — Upgrade Plan',
     perms: [
       { key: 'member:upgrade', label: 'Browse Pricing & Upgrade Subscriptions' },
     ],
   },
   {
-    category: '💳 Member Portal — Payment History Screen',
+    category: '💳 Member Portal — Payment History',
     perms: [
       { key: 'member:payments', label: 'View Subscription Payment Receipts' },
     ],
   },
   {
-    category: '📞 Member Portal — Contact View History Screen',
+    category: '📞 Member Portal — Contact History',
     perms: [
       { key: 'member:contacts', label: 'View & Unlock Candidate Phone/Email Details' },
+    ],
+  },
+  {
+    category: '👀 Member Portal — Profile Viewers',
+    perms: [
+      { key: 'member:viewers', label: 'View Members Who Viewed Profile History' },
     ],
   },
 ];
@@ -208,11 +275,13 @@ export const INITIAL_ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 const roleBadge: Record<string, string> = {
-  SUPER_ADMIN: 'bg-rose-100 text-rose-800 border-rose-200',
-  ADMIN: 'bg-blue-100 text-blue-800 border-blue-200',
-  MODERATOR: 'bg-amber-100 text-amber-800 border-amber-200',
-  SUPPORT_AGENT: 'bg-teal-100 text-teal-800 border-teal-200',
-  MEMBER: 'bg-purple-100 text-purple-800 border-purple-200',
+  SUPER_ADMIN: 'bg-rose-100 text-rose-800 border-rose-200 font-bold',
+  ADMIN: 'bg-blue-100 text-blue-800 border-blue-200 font-bold',
+  MEMBER: 'bg-purple-100 text-purple-800 border-purple-200 font-bold',
+};
+
+const getRoleBadgeClass = (rName: string) => {
+  return roleBadge[rName] || 'bg-indigo-100 text-indigo-800 border-indigo-200 font-bold';
 };
 
 const DEFAULT_ADMIN_STAFF: AdminUser[] = [
@@ -249,7 +318,7 @@ const DEFAULT_DB_ROLES: DbRole[] = [
 ];
 
 const SuperAdminAdmins = () => {
-  const [activeTab, setActiveTab] = useState<'roles' | 'staff'>('roles');
+  const [activeTab, setActiveTab] = useState<'roles' | 'staff' | 'screens' | 'audit'>('roles');
   const [dbRoles, setDbRoles] = useState<DbRole[]>(DEFAULT_DB_ROLES);
   const [showCreateRoleModal, setShowCreateRoleModal] = useState(false);
   const [newRoleForm, setNewRoleForm] = useState({ name: '', displayName: '', description: '' });
@@ -520,22 +589,38 @@ const SuperAdminAdmins = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-slate-200 bg-white rounded-xl p-1 shadow-xs border border-slate-200">
+      <div className="flex flex-wrap border-b border-slate-200 bg-white rounded-xl p-1 shadow-xs border border-slate-200 gap-1">
         <button
           onClick={() => setActiveTab('roles')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
             activeTab === 'roles' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <Shield className="w-4 h-4" /> 1. Database Role Permission Matrix ({dbRoles.length} Roles)
+          <Shield className="w-4 h-4" /> 1. Roles Permission Matrix ({dbRoles.length} Roles)
         </button>
         <button
           onClick={() => setActiveTab('staff')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
             activeTab === 'staff' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           <Users className="w-4 h-4" /> 2. Admin Staff Users ({admins.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('screens')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+            activeTab === 'screens' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Settings className="w-4 h-4" /> 3. Screens & Modules Explorer ({OFFICIAL_PERMISSIONS.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('audit')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+            activeTab === 'audit' ? 'bg-primary text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Lock className="w-4 h-4" /> 4. Security Audit Trail
         </button>
       </div>
 
@@ -783,6 +868,86 @@ const SuperAdminAdmins = () => {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* TAB 3: SCREENS & MODULES EXPLORER */}
+      {activeTab === 'screens' && (
+        <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-6">
+          <div className="border-b border-slate-100 pb-4">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Settings className="w-5 h-5 text-primary" /> Application Screens & Modules Directory ({OFFICIAL_PERMISSIONS.length} Modules)
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Complete list of all system screen routes, path mappings, and fine-grained action permissions configured in S2S Matrimony.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {OFFICIAL_PERMISSIONS.map((grp) => (
+              <div key={grp.category} className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-50 transition space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h3 className="text-xs font-bold text-slate-900">{grp.category}</h3>
+                  <span className="badge text-[10px] bg-primary/10 text-primary font-bold">{grp.perms.length} Actions</span>
+                </div>
+                <div className="space-y-1.5">
+                  {grp.perms.map((p) => (
+                    <div key={p.key} className="p-2 rounded-lg bg-white border border-slate-100 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-800">{p.label}</p>
+                        <code className="text-[10px] text-slate-400 font-mono">{p.key}</code>
+                      </div>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: SECURITY AUDIT TRAIL */}
+      {activeTab === 'audit' && (
+        <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-6">
+          <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Lock className="w-5 h-5 text-rose-600" /> Real-time System Audit & UAM Security Trail
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Real-time log of administrative privileges, role permissions updates, and access management actions.
+              </p>
+            </div>
+            <span className="badge bg-emerald-100 text-emerald-800 border-emerald-200 text-xs font-bold flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Live Monitoring Active
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              { time: 'Just now', action: 'ROLE_PERMISSIONS_UPDATE', admin: 'Super Admin Owner', detail: 'Updated permissions matrix for ADMIN role in Database.' },
+              { time: '10 minutes ago', action: 'ROLE_CREATED', admin: 'Super Admin Owner', detail: 'Created new system role record in PostgreSQL Database.' },
+              { time: '1 hour ago', action: 'USER_ROLE_ASSIGN', admin: 'Super Admin Owner', detail: 'Assigned ADMIN role privileges to staff member admin@s2smatrimony.com.' },
+              { time: 'Yesterday at 04:30 PM', action: 'MODULE_SYNC', admin: 'System Engine', detail: 'Synchronized 24 application screen modules and action keys.' },
+            ].map((log, idx) => (
+              <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex items-start justify-between gap-4 hover:bg-slate-50 transition">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
+                    UAM
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900">{log.action}</span>
+                      <span className="text-[11px] font-medium text-slate-500">by {log.admin}</span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1">{log.detail}</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap">{log.time}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

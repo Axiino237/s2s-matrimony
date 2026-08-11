@@ -32,9 +32,15 @@ type UserRecord = {
 const ROLE_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   SUPER_ADMIN: { label: 'Super Admin', color: 'bg-rose-100 text-rose-700 border-rose-200', icon: Crown },
   ADMIN:       { label: 'Admin',       color: 'bg-violet-100 text-violet-700 border-violet-200', icon: Shield },
-  MODERATOR:   { label: 'Moderator',   color: 'bg-amber-100 text-amber-700 border-amber-200', icon: UserCheck },
-  SUPPORT_AGENT: { label: 'Support',   color: 'bg-teal-100 text-teal-700 border-teal-200', icon: User },
   MEMBER:      { label: 'Member',      color: 'bg-slate-100 text-slate-600 border-slate-200', icon: User },
+};
+
+const getRoleConfig = (roleName: string) => {
+  return ROLE_CONFIG[roleName] || {
+    label: roleName.replace(/_/g, ' '),
+    color: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+    icon: UserCheck,
+  };
 };
 
 const SuperAdminUsers = () => {
@@ -226,7 +232,7 @@ const SuperAdminUsers = () => {
                   const name    = getUserName(u);
                   const role    = getUserRole(u);
                   const isActive = u.isActive;
-                  const roleConf = ROLE_CONFIG[role] || ROLE_CONFIG.MEMBER;
+                  const roleConf = getRoleConfig(role);
                   const RoleIcon = roleConf.icon;
 
                   return (

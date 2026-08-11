@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
+import { useSettingsStore } from './store/settings.store';
 
 // Layouts
 import PublicLayout from './components/layout/PublicLayout';
@@ -43,6 +45,7 @@ import InterestsPage from './pages/member/messages/InterestsPage';
 import PremiumPage from './pages/member/premium/PremiumPage';
 import PaymentSuccessPage from './pages/member/premium/PaymentSuccessPage';
 import ProfileViewersPage from './pages/member/profile/ProfileViewersPage';
+import PaymentHistoryPage from './pages/member/payments/PaymentHistoryPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -62,6 +65,7 @@ import AdminFaq from './pages/admin/AdminFaq';
 import AdminTestimonials from './pages/admin/AdminTestimonials';
 import AdminStaticPages from './pages/admin/AdminStaticPages';
 import AdminBiodataListPage from './pages/admin/AdminBiodataListPage';
+import BlankBiodataFormPrintPage from './pages/print/BlankBiodataFormPrintPage';
 
 // Super Admin Pages
 import SuperAdminDashboard from './pages/super-admin/SuperAdminDashboard';
@@ -90,6 +94,10 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  useEffect(() => {
+    useSettingsStore.getState().fetchSettings();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -110,6 +118,9 @@ function App() {
 
           {/* ── Standalone Public Biodata Form (No Website Header/Navbar) ── */}
           <Route path="/fill-biodata" element={<BiodataEntryPage />} />
+
+          {/* ── Blank Biodata Form Print Page (No Layout – opens in new tab, auto-prints) ── */}
+          <Route path="/print/blank-biodata" element={<BlankBiodataFormPrintPage />} />
 
           {/* ── Additional Auth Routes ── */}
           <Route path="/verify-otp" element={<OtpVerifyPage />} />
@@ -135,7 +146,7 @@ function App() {
                 <Route path="/profile-viewers" element={<ProfileViewersPage />} />
                 <Route path="/notifications" element={<DashboardPage />} />
                 <Route path="/contact-history" element={<DashboardPage />} />
-                <Route path="/payment-history" element={<DashboardPage />} />
+                <Route path="/payment-history" element={<PaymentHistoryPage />} />
                 <Route path="/settings" element={<ProfileEditPage />} />
               </Route>
 

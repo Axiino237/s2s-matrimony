@@ -1,11 +1,11 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Twilio from 'twilio';
+import * as twilio from 'twilio';
 
 @Injectable()
 export class OtpService {
   private readonly logger = new Logger(OtpService.name);
-  private readonly client?: ReturnType<typeof Twilio>;
+  private readonly client?: twilio.Twilio;
   private readonly verifySid?: string;
 
   constructor(private readonly configService: ConfigService) {
@@ -14,7 +14,7 @@ export class OtpService {
     this.verifySid = this.configService.get<string>('TWILIO_VERIFY_SERVICE_SID');
 
     if (accountSid && authToken && this.verifySid) {
-      this.client = Twilio(accountSid, authToken);
+      this.client = twilio(accountSid, authToken);
     } else if (this.isProduction) {
       throw new Error('Twilio Verify configuration is required in production');
     }

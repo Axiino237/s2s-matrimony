@@ -12,10 +12,13 @@ import {
 interface NavItem { icon: any; label: string; href: string; }
 interface NavGroup { key: string; title: string; icon: any; items: NavItem[]; }
 
+import { useSettingsStore } from '../../store/settings.store';
+
 const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (v: boolean) => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+  const logoUrl = useSettingsStore((s) => s.logoUrl);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     executive: true, platform: true, membership: false, content: false,
@@ -119,7 +122,7 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
       {/* Logo */}
       <div className="p-5 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
         <Link to="/super-admin/dashboard" className="flex items-center gap-3">
-          <img src="/images/logo.png" alt="S2S" className="w-10 h-10 object-contain rounded-xl shadow-md" />
+          <img src={logoUrl || "/images/logo.png"} alt="S2S" className="w-10 h-10 object-contain rounded-xl shadow-md" />
           <div>
             <span className="font-display font-bold text-lg text-slate-900">S2S</span>
             <span className="text-primary font-bold text-lg"> Super Admin</span>

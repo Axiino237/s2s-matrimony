@@ -33,21 +33,24 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/success-stories': 'stories:read',
   '/admin/blogs': 'blogs:read',
   '/admin/banners': 'banners:read',
-  '/admin/faq': 'settings:read',
-  '/admin/testimonials': 'stories:read',
-  '/admin/static-pages': 'settings:read',
+  '/admin/faq': 'faq:read',
+  '/admin/testimonials': 'testimonials:read',
+  '/admin/static-pages': 'static_pages:read',
   '/admin/ai-biodata': 'ai_biodata:read',
-  '/admin/biodata-entry': 'ai_biodata:read',
-  '/admin/biodata-list': 'ai_biodata:read',
+  '/admin/biodata-entry': 'biodata_entry:create',
+  '/admin/biodata-list': 'biodata_records:read',
   '/admin/reports': 'reports:view',
   '/admin/logs': 'audit:view',
   '/admin/settings': 'settings:read',
 };
 
+import { useSettingsStore } from '../../store/settings.store';
+
 const AdminSidebar = ({ isOpen }: { isOpen: boolean }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, hasPermission, isSuperAdmin } = useAuthStore();
+  const logoUrl = useSettingsStore((s) => s.logoUrl);
   const [, setRefreshKey] = useState(0);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
@@ -101,9 +104,9 @@ const AdminSidebar = ({ isOpen }: { isOpen: boolean }) => {
         { icon: Heart, label: 'Success Stories', href: '/admin/success-stories', requiredPermission: 'stories:read' },
         { icon: BookOpen, label: 'Blogs & CMS', href: '/admin/blogs', requiredPermission: 'blogs:read' },
         { icon: ImageIcon, label: 'Banners & Promotions', href: '/admin/banners', requiredPermission: 'banners:read' },
-        { icon: HelpCircle, label: 'FAQ Management', href: '/admin/faq', requiredPermission: 'settings:read' },
-        { icon: Star, label: 'Testimonials', href: '/admin/testimonials', requiredPermission: 'stories:read' },
-        { icon: FileQuestion, label: 'Static Pages', href: '/admin/static-pages', requiredPermission: 'settings:read' },
+        { icon: HelpCircle, label: 'FAQ Management', href: '/admin/faq', requiredPermission: 'faq:read' },
+        { icon: Star, label: 'Testimonials', href: '/admin/testimonials', requiredPermission: 'testimonials:read' },
+        { icon: FileQuestion, label: 'Static Pages', href: '/admin/static-pages', requiredPermission: 'static_pages:read' },
       ],
     },
     {
@@ -111,8 +114,8 @@ const AdminSidebar = ({ isOpen }: { isOpen: boolean }) => {
       icon: Sparkles,
       items: [
         { icon: Sparkles, label: '✨ AI Biodata Parser', href: '/admin/ai-biodata', requiredPermission: 'ai_biodata:read' },
-        { icon: FileText, label: 'Biodata Form Entry', href: '/admin/biodata-entry', requiredPermission: 'ai_biodata:read' },
-        { icon: ScrollText, label: 'Biodata Records List', href: '/admin/biodata-list', requiredPermission: 'ai_biodata:read' },
+        { icon: FileText, label: 'Biodata Form Entry', href: '/admin/biodata-entry', requiredPermission: 'biodata_entry:create' },
+        { icon: ScrollText, label: 'Biodata Records List', href: '/admin/biodata-list', requiredPermission: 'biodata_records:read' },
       ],
     },
     {
@@ -173,7 +176,7 @@ const AdminSidebar = ({ isOpen }: { isOpen: boolean }) => {
     >
       <div className="p-5 border-b border-slate-100 flex-shrink-0">
         <Link to="/" className="flex items-center gap-3">
-          <img src="/images/logo.png" alt="S2S Admin" className="w-12 h-12 object-contain rounded-xl shadow-md" />
+          <img src={logoUrl || "/images/logo.png"} alt="S2S Admin" className="w-12 h-12 object-contain rounded-xl shadow-md" />
           <div>
             <span className="font-display font-bold text-lg text-text-primary">S2S</span>
             <span className="text-primary font-bold text-lg"> Admin</span>

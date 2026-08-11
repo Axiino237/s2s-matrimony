@@ -4,6 +4,7 @@ import { Save, ArrowLeft, Printer, Sparkles, CheckCircle2, Upload, FileText, Key
 import toast from 'react-hot-toast';
 import api from '../../../services/api';
 import { useAuthStore } from '../../../store/auth.store';
+import { useSettingsStore } from '../../../store/settings.store';
 import { STARS, RASIS, DOSHAMS, CASTE_SUBCASTES } from '../../../constants/index';
 
 // Planet choices for 12-box chart grids
@@ -28,6 +29,28 @@ export default function BiodataEntryPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuthStore();
+  const enableBiodataForm = useSettingsStore((s) => s.enableBiodataForm);
+  const logoUrl = useSettingsStore((s) => s.logoUrl);
+
+  if (enableBiodataForm === false) {
+    return (
+      <div className="max-w-xl mx-auto py-20 px-4 text-center space-y-4">
+        <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+          <FileText className="w-8 h-8" />
+        </div>
+        <h2 className="font-display text-2xl font-bold text-slate-900">Biodata Form Disabled</h2>
+        <p className="text-slate-500 text-sm">
+          Biodata Form entry has been disabled by the Administrator in System Settings.
+        </p>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="btn-primary text-xs font-bold px-6 py-2.5 rounded-xl shadow-md"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -427,9 +450,33 @@ export default function BiodataEntryPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 py-6 px-3 sm:px-6">
+      {/* ── Print CSS: Continuous natural flow without giant forced gaps ── */}
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 5mm; }
+          *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          html, body, .min-h-screen { margin: 0 !important; padding: 0 !important; background: white !important; height: auto !important; overflow: visible !important; }
+          .no-print, nav, header, button { display: none !important; }
+          .mb-6 { margin-bottom: 8px !important; }
+          .mb-5 { margin-bottom: 6px !important; }
+          .mb-4 { margin-bottom: 6px !important; }
+          .p-4 { padding: 8px !important; }
+          #biodata-print-form {
+            display: block !important;
+            margin: 0 auto !important;
+            padding: 8px !important;
+            border-width: 2px !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            zoom: 0.78 !important;
+          }
+        }
+      `}</style>
       {/* Top Bar Actions (Only rendered for logged in Admin / Member routes, hidden on public /fill-biodata share link) */}
       {location.pathname !== '/fill-biodata' && (
-        <div className="max-w-5xl mx-auto mb-5 flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div className="no-print max-w-5xl mx-auto mb-5 flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
           <button
             onClick={() => navigate('/profile/edit')}
             className="flex items-center gap-2 text-slate-700 font-semibold hover:text-rose-600 transition"
@@ -488,9 +535,14 @@ export default function BiodataEntryPage() {
       )}
 
       {/* Traditional Biodata Form Sheet (Danam Standard Styling) */}
-      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-2xl border-4 border-rose-950 p-4 sm:p-8 font-sans print:shadow-none print:border-2">
+      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-2xl border-4 border-rose-950 p-4 sm:p-8 font-sans print:shadow-none print:border-2 relative overflow-hidden">
+        {/* Background Watermark Logo */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.08] z-0 overflow-hidden">
+          <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Watermark" className="w-[540px] h-[540px] object-contain select-none" />
+        </div>
+
         {/* Document Border Frame Header */}
-        <div className="text-center border-b-2 border-rose-900 pb-4 mb-6 relative">
+        <div className="text-center border-b-2 border-rose-900 pb-4 mb-6 relative z-10">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="text-left space-y-1">
               <div className="bg-rose-900 text-white px-2.5 py-0.5 text-xs font-black rounded inline-block shadow-sm">
@@ -502,7 +554,7 @@ export default function BiodataEntryPage() {
             </div>
 
             <div className="text-center flex flex-col items-center">
-              <img src="/images/logo.png" alt="S2S Matrimony Logo" className="w-12 h-12 object-contain mb-1 rounded-full shadow-sm border border-amber-300" />
+              <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-12 h-12 object-contain mb-1 rounded-full shadow-sm border border-amber-300 relative z-10" />
               <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-rose-900 uppercase">
                 S2S MATRIMONY
               </h1>
@@ -610,9 +662,9 @@ export default function BiodataEntryPage() {
             PERSONAL DETAILS
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-2 border-rose-900 border-t-0 p-4 rounded-b-md">
+          <div className="grid grid-cols-3 gap-4 border-2 border-rose-900 border-t-0 p-4 rounded-b-md">
             {/* Left 2 Columns: Inputs */}
-            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="col-span-2 grid grid-cols-2 gap-3 text-xs">
               <div className="border-b border-slate-200 pb-1">
                 <span className="font-bold text-slate-700">Date of Birth: </span>
                 <input
@@ -668,7 +720,7 @@ export default function BiodataEntryPage() {
               </div>
 
               <div className="border-b border-slate-200 pb-1">
-                <span className="font-bold text-slate-700">Diet (உணவு): </span>
+                <span className="font-bold text-slate-700">Diet: </span>
                 <select
                   className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1"
                   value={form.diet}
@@ -772,18 +824,18 @@ export default function BiodataEntryPage() {
               </div>
             </div>
 
-            {/* Right Column: Traditional Photo Frame */}
-            <div className="flex flex-col items-center justify-center border-2 border-dashed border-rose-300 bg-rose-50/50 p-4 rounded-lg">
-              <div className="w-36 h-48 bg-slate-200 rounded-md overflow-hidden shadow-md relative border-2 border-rose-800 flex items-center justify-center">
+            {/* Right Column: Traditional Full-Height Photo Box (Matching UI & PDF) */}
+            <div className="col-span-1 flex flex-col items-center justify-center border-2 border-dashed border-rose-300 bg-rose-50/40 p-4 rounded-lg h-full min-h-[220px]">
+              <div className="w-28 h-36 bg-slate-100 rounded border-2 border-rose-900 overflow-hidden shadow-sm relative flex items-center justify-center">
                 {photoPreview ? (
                   <img src={photoPreview} alt="Profile Preview" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-xs text-slate-500 font-semibold text-center px-2">No Photo Uploaded</span>
+                  <span className="text-[10px] text-slate-400 font-bold text-center px-1">No Photo Uploaded</span>
                 )}
               </div>
 
-              <label className="mt-3 cursor-pointer bg-rose-900 hover:bg-rose-950 text-white text-xs font-bold py-1.5 px-3 rounded shadow transition flex items-center gap-1">
-                <Upload className="w-3.5 h-3.5" /> Upload Photo
+              <label className="mt-2 cursor-pointer bg-rose-900 hover:bg-rose-950 text-white text-[11px] font-bold py-1 px-2.5 rounded shadow-sm transition flex items-center gap-1">
+                <Upload className="w-3 h-3" /> Upload Photo
                 <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
               </label>
             </div>
@@ -932,7 +984,7 @@ export default function BiodataEntryPage() {
         </div>
 
         {/* Section 3: Financial & Ancestral & Horoscope Details */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-2 gap-4 mb-4">
           {/* Left: Financial & Ancestral */}
           <div>
             <h2 className="bg-rose-900 text-white font-bold text-xs sm:text-sm tracking-wider uppercase px-3 py-1.5 rounded-t-md">
@@ -947,10 +999,10 @@ export default function BiodataEntryPage() {
                   value={form.resident}
                   onChange={(e) => handleSet('resident', e.target.value)}
                 >
-                  <option value="Own House">Own House (சொந்த வீடு)</option>
-                  <option value="Rent House">Rent House (வாடகை வீடு)</option>
-                  <option value="Lease">Lease (ஒத்தி / லீஸ்)</option>
-                  <option value="Quarters">Quarters (குவாட்டர்ஸ்)</option>
+                  <option value="Own House">Own House</option>
+                  <option value="Rent House">Rent House</option>
+                  <option value="Lease">Lease</option>
+                  <option value="Quarters">Quarters</option>
                 </select>
               </div>
 
@@ -1090,8 +1142,8 @@ export default function BiodataEntryPage() {
           </div>
         </div>
 
-        {/* Section 4: Interactive 12-Box Rasi & Navamsam Grid Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Section 4: Interactive 12-Box Rasi & Navamsam Grid Charts (Forced 2 columns side by side) */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
           {/* RASI CHART */}
           <div className="border-2 border-rose-900 rounded-lg overflow-hidden">
             <div className="bg-rose-900 text-white font-bold text-xs uppercase px-3 py-1.5 flex items-center justify-between">
@@ -1106,7 +1158,7 @@ export default function BiodataEntryPage() {
                   <div
                     key={h.id}
                     style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
-                    className="bg-rose-50/90 hover:bg-amber-100 p-1.5 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[65px] transition"
+                    className="bg-rose-50/90 hover:bg-amber-100 p-1 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[38px] transition"
                   >
                     <div className="flex justify-between items-center font-bold text-rose-950 text-[9px]">
                       <span>{h.tamil}</span>
@@ -1129,9 +1181,8 @@ export default function BiodataEntryPage() {
                               e.stopPropagation();
                               togglePlanet('rasiChart', h.id, p);
                             }}
-                            className={`px-1 py-0.2 rounded text-[7px] font-bold ${
-                              active ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'
-                            }`}
+                            className={`px-1 py-0.2 rounded text-[7px] font-bold ${active ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'
+                              }`}
                           >
                             {short}
                           </button>
@@ -1163,7 +1214,7 @@ export default function BiodataEntryPage() {
                   <div
                     key={h.id}
                     style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
-                    className="bg-rose-50/90 hover:bg-amber-100 p-1.5 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[65px] transition"
+                    className="bg-rose-50/90 hover:bg-amber-100 p-1 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[38px] transition"
                   >
                     <div className="flex justify-between items-center font-bold text-rose-950 text-[9px]">
                       <span>{h.tamil}</span>
@@ -1186,9 +1237,8 @@ export default function BiodataEntryPage() {
                               e.stopPropagation();
                               togglePlanet('amsamChart', h.id, p);
                             }}
-                            className={`px-1 py-0.2 rounded text-[7px] font-bold ${
-                              active ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'
-                            }`}
+                            className={`px-1 py-0.2 rounded text-[7px] font-bold ${active ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'
+                              }`}
                           >
                             {short}
                           </button>
@@ -1207,10 +1257,10 @@ export default function BiodataEntryPage() {
           </div>
         </div>
 
-        {/* Section 5: Account Login Credentials & Contact OTP Verification */}
-        <div className="mt-8 mb-6">
+        {/* Section 5: Account Login Credentials & Contact OTP Verification (Hidden on Print) */}
+        <div className="no-print mt-8 mb-6">
           <h2 className="bg-rose-900 text-white font-bold text-xs sm:text-sm tracking-wider uppercase px-3 py-1.5 rounded-t-md flex items-center justify-between">
-            <span>LOGIN CREDENTIALS & CONTACT VERIFICATION (உள்நுழைவு கடவுச்சொல் மற்றும் OTP சரிபார்ப்பு)</span>
+            <span>LOGIN CREDENTIALS & CONTACT VERIFICATION</span>
             <span className="text-[10px] text-amber-200">OTP Verified Access & Account Password</span>
           </h2>
 
@@ -1218,7 +1268,7 @@ export default function BiodataEntryPage() {
             {/* Phone Number & OTP */}
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
               <div>
-                <label className="font-bold text-slate-800 block mb-1">📱 Mobile Number (கைபேசி எண்):</label>
+                <label className="font-bold text-slate-800 block mb-1">📱 Mobile Number:</label>
                 <input
                   type="text"
                   className="w-full font-bold text-slate-900 border-b border-slate-300 focus:outline-none py-1 text-sm"
@@ -1254,7 +1304,7 @@ export default function BiodataEntryPage() {
             {/* Email Address & OTP */}
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
               <div>
-                <label className="font-bold text-slate-800 block mb-1">✉ Email ID (மின்னஞ்சல் முகவரி):</label>
+                <label className="font-bold text-slate-800 block mb-1">✉ Email ID:</label>
                 <input
                   type="email"
                   className="w-full font-bold text-slate-900 border-b border-slate-300 focus:outline-none py-1 text-sm"
@@ -1292,7 +1342,7 @@ export default function BiodataEntryPage() {
               <div>
                 <label className="font-bold text-slate-800 block mb-1 flex items-center gap-1">
                   <KeyRound className="w-3.5 h-3.5 text-rose-700" />
-                  <span>Login Password (கடவுச்சொல்):</span>
+                  <span>Login Password:</span>
                 </label>
                 <div className="relative mt-1">
                   <input
@@ -1321,8 +1371,8 @@ export default function BiodataEntryPage() {
           </div>
         </div>
 
-        {/* Bottom Save Action Footer */}
-        <div className="mt-8 pt-4 border-t-2 border-rose-900 flex items-center justify-between">
+        {/* Bottom Save Action Footer (Hidden on Print) */}
+        <div className="no-print mt-8 pt-4 border-t-2 border-rose-900 flex items-center justify-between">
           <p className="text-xs text-slate-500 font-medium">
             * All data entered here is automatically synced to your main S2S Matrimony profile database record.
           </p>
@@ -1339,7 +1389,7 @@ export default function BiodataEntryPage() {
 
       {/* OTP Verification Interactive Modal Popup */}
       {otpModal.open && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="no-print fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">

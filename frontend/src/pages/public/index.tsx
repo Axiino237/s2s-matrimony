@@ -143,13 +143,37 @@ export const MembershipPage = () => {
     { name: 'Platinum', price: '₹1,799', period: '/6 months', features: ['Everything in Elite', 'Unlimited Contacts', 'AI Match Score', 'Video Profile', 'Dedicated Manager'] },
   ];
 
-  const plansToRender = dbPlans.length > 0 ? dbPlans.map((p) => ({
+  const rawPlans = dbPlans.length > 0 ? dbPlans : defaultPlans;
+
+  const getPlanRank = (plan: any): number => {
+    const tier = (plan.tier || '').toUpperCase();
+    const name = (plan.name || '').toLowerCase();
+
+    if (tier === 'FREE' || name.includes('free')) return 1;
+    if (tier === 'SILVER' || name.includes('silver')) return 2;
+    if (tier === 'GOLD' || name.includes('gold')) return 3;
+    if (tier === 'ELITE' || name.includes('elite')) return 4;
+    if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
+    if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
+    return 100;
+  };
+
+  const sortedPlans = [...rawPlans].sort((a, b) => {
+    const rankA = getPlanRank(a);
+    const rankB = getPlanRank(b);
+    if (rankA !== rankB) return rankA - rankB;
+    const priceA = parseFloat(String(a.price).replace(/[^\d.]/g, '') || '0');
+    const priceB = parseFloat(String(b.price).replace(/[^\d.]/g, '') || '0');
+    return priceA - priceB;
+  });
+
+  const plansToRender = sortedPlans.map((p) => ({
     name: p.name === 'Diamond Plan' || p.name === 'Diamond' ? 'Elite Plan' : p.name,
-    price: `₹${p.price ?? 0}`,
-    period: p.duration || (p.durationMonths ? `/${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : ''),
+    price: `₹${parseFloat(String(p.price).replace(/[^\d.]/g, '') || '0')}`,
+    period: p.period || p.duration || (p.durationMonths ? `/${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : ''),
     features: Array.isArray(p.features) ? p.features : typeof p.features === 'string' ? JSON.parse(p.features) : ['Unlimited Profile Access', 'Direct Chat'],
-    isPopular: p.isPopular || p.tier === 'ELITE',
-  })) : defaultPlans.map((p, idx) => ({ ...p, isPopular: idx === 2 }));
+    isPopular: p.isPopular || (p.tier === 'ELITE' && !sortedPlans.some((x: any) => x.isPopular && x.id !== p.id)),
+  }));
 
   return (
     <div className="pt-20 min-h-screen flex justify-center w-full">

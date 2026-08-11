@@ -105,7 +105,30 @@ const AdminPlans = () => {
             isActive: p.isActive !== false,
           };
         });
-        setPlans(normalized);
+
+        const getPlanRank = (plan: any): number => {
+          const tier = (plan.tier || '').toUpperCase();
+          const name = (plan.name || '').toLowerCase();
+
+          if (tier === 'FREE' || name.includes('free')) return 1;
+          if (tier === 'SILVER' || name.includes('silver')) return 2;
+          if (tier === 'GOLD' || name.includes('gold')) return 3;
+          if (tier === 'ELITE' || name.includes('elite')) return 4;
+          if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
+          if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
+          return 100;
+        };
+
+        const sorted = normalized.sort((a, b) => {
+          const rankA = getPlanRank(a);
+          const rankB = getPlanRank(b);
+          if (rankA !== rankB) return rankA - rankB;
+          const pA = parseFloat(String(a.price).replace(/[^\d.]/g, '') || '0');
+          const pB = parseFloat(String(b.price).replace(/[^\d.]/g, '') || '0');
+          return pA - pB;
+        });
+
+        setPlans(sorted);
       } else {
         setPlans(INITIAL_PLANS);
       }

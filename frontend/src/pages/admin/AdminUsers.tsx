@@ -22,12 +22,13 @@ type UserRecord = {
   userRoles?: { role: { name: string } }[];
 };
 
-const roleBadgeStyle: Record<string, string> = {
-  SUPER_ADMIN: 'bg-primary/10 text-primary border border-primary/20 font-bold',
-  ADMIN:       'bg-blue-100 text-blue-700 border border-blue-200 font-bold',
-  MODERATOR:   'bg-amber-100 text-amber-700 border border-amber-200 font-bold',
-  SUPPORT_AGENT: 'bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold',
-  MEMBER:      'bg-slate-100 text-slate-700 border border-slate-200 font-medium',
+const getRoleBadgeStyle = (roleName: string) => {
+  const styles: Record<string, string> = {
+    SUPER_ADMIN: 'bg-rose-100 text-rose-700 border border-rose-200 font-bold',
+    ADMIN:       'bg-violet-100 text-violet-700 border border-violet-200 font-bold',
+    MEMBER:      'bg-slate-100 text-slate-700 border border-slate-200 font-medium',
+  };
+  return styles[roleName] || 'bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold';
 };
 
 const AdminUsers = () => {
@@ -217,7 +218,7 @@ const AdminUsers = () => {
                       <p className="text-text-muted text-xs font-mono">{u.phone}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`badge text-xs ${roleBadgeStyle[role] || 'bg-slate-100 text-slate-700'}`}>
+                      <span className={`badge text-xs ${getRoleBadgeStyle(role)}`}>
                         {role.replace('_', ' ')}
                       </span>
                     </td>
@@ -297,7 +298,7 @@ const AdminUsers = () => {
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-text-muted font-medium">Role</span>
-                <span className={`badge text-xs ${roleBadgeStyle[getUserRole(viewUser)]}`}>
+                <span className={`badge text-xs ${getRoleBadgeStyle(getUserRole(viewUser))}`}>
                   {getUserRole(viewUser).replace('_', ' ')}
                 </span>
               </div>

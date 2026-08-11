@@ -78,4 +78,13 @@ export const paymentsApi = {
       return { success: true, message: 'Payment verified successfully!' };
     }
   },
+
+  getMyHistory: async () => {
+    try {
+      const res = await api.get('/payments/my-history');
+      return res.data;
+    } catch {
+      return [];
+    }
+  },
 };

@@ -39,6 +39,21 @@ interface Profile {
   joinedDate: Date;
 }
 
+const HOUSES = [
+  { id: 'Mesham', tamil: 'மேஷம்', row: 0, col: 1 },
+  { id: 'Rishabam', tamil: 'ரிஷபம்', row: 0, col: 2 },
+  { id: 'Mithunam', tamil: 'மிதுனம்', row: 0, col: 3 },
+  { id: 'Kadagam', tamil: 'கடகம்', row: 1, col: 3 },
+  { id: 'Simmam', tamil: 'சிம்மம்', row: 2, col: 3 },
+  { id: 'Kanni', tamil: 'கன்னி', row: 3, col: 3 },
+  { id: 'Thulaam', tamil: 'துலாம்', row: 3, col: 2 },
+  { id: 'Viruchigam', tamil: 'விருச்சிகம்', row: 3, col: 1 },
+  { id: 'Dhanusu', tamil: 'தனுசு', row: 3, col: 0 },
+  { id: 'Magaram', tamil: 'மகரம்', row: 2, col: 0 },
+  { id: 'Kumbam', tamil: 'கும்பம்', row: 1, col: 0 },
+  { id: 'Meenam', tamil: 'மீனம்', row: 0, col: 0 },
+];
+
 const GENERATED_PROFILES: Profile[] = Array.from({ length: 40 }, (_, i) => {
   const isFemale = i % 2 === 0;
   const name = isFemale 
@@ -661,18 +676,69 @@ const ProfileViewPage = () => {
               )}
 
               {activeTab === 'horoscope' && (
-                <div className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
-                  {[
-                    ['Star (Nakshatra)', profile.star],
-                    ['Rasi (Moon Sign)', profile.rasi],
-                    ['Lagnam', profile.lagnam],
-                    ['Gothram', profile.gothram],
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between py-2 border-b border-slate-100">
-                      <span className="text-text-muted text-xs font-medium">{k}</span>
-                      <span className="text-text-primary text-xs font-semibold">{v}</span>
+                <div className="space-y-6">
+                  <div className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
+                    {[
+                      ['Star (Nakshatra)', profile.star],
+                      ['Rasi (Moon Sign)', profile.rasi],
+                      ['Lagnam', profile.lagnam],
+                      ['Gothram', profile.gothram],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex justify-between py-2 border-b border-slate-100">
+                        <span className="text-text-muted text-xs font-medium">{k}</span>
+                        <span className="text-text-primary text-xs font-semibold">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 12-HOUSE ASTROLOGY CHART DIAGRAMS */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                    {/* RASI CHART */}
+                    <div className="border-2 border-rose-900 rounded-xl overflow-hidden shadow-sm bg-white">
+                      <div className="bg-rose-900 text-white font-bold text-xs uppercase px-3 py-2 flex items-center justify-between">
+                        <span>RASI CHART (ராசி கட்டம்)</span>
+                        <span className="text-[10px] text-amber-200">South Indian Format</span>
+                      </div>
+                      <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 aspect-square text-[10px]">
+                        {HOUSES.map((h) => {
+                          const planets = ((apiProfile as any)?.rasiChart?.[h.id] || (apiProfile as any)?.horoscope?.rasiChart?.[h.id] || '');
+                          return (
+                            <div key={h.id} style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
+                              className="bg-rose-50/95 p-1.5 flex flex-col justify-between border border-rose-200 min-h-[55px]">
+                              <div className="font-bold text-rose-950 text-[9px]">{h.tamil}</div>
+                              <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[10px]">
+                                {planets || <span className="text-slate-300 text-[8px] font-normal">-</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex items-center justify-center font-extrabold text-rose-900 text-sm border-2 border-rose-900 shadow-inner">RASI</div>
+                      </div>
                     </div>
-                  ))}
+
+                    {/* NAVAMSAM CHART */}
+                    <div className="border-2 border-rose-900 rounded-xl overflow-hidden shadow-sm bg-white">
+                      <div className="bg-rose-900 text-white font-bold text-xs uppercase px-3 py-2 flex items-center justify-between">
+                        <span>NAVAMSAM CHART (அம்ச கட்டம்)</span>
+                        <span className="text-[10px] text-amber-200">South Indian Format</span>
+                      </div>
+                      <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 aspect-square text-[10px]">
+                        {HOUSES.map((h) => {
+                          const planets = ((apiProfile as any)?.amsamChart?.[h.id] || (apiProfile as any)?.horoscope?.amsamChart?.[h.id] || '');
+                          return (
+                            <div key={h.id} style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
+                              className="bg-rose-50/95 p-1.5 flex flex-col justify-between border border-rose-200 min-h-[55px]">
+                              <div className="font-bold text-rose-950 text-[9px]">{h.tamil}</div>
+                              <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[10px]">
+                                {planets || <span className="text-slate-300 text-[8px] font-normal">-</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex items-center justify-center font-extrabold text-rose-900 text-sm border-2 border-rose-900 shadow-inner">NAVAMSAM</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 

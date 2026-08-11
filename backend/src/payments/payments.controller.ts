@@ -87,4 +87,13 @@ export class PaymentsController {
     const userId = req.user.sub || req.user.id;
     return this.paymentsService.verifyPayment(userId, body);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('my-history')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user payment & transaction history' })
+  async getMyHistory(@Req() req: any) {
+    const userId = req.user.sub || req.user.id;
+    return this.paymentsService.getUserPaymentHistory(userId);
+  }
 }

@@ -24,7 +24,7 @@ const ProfileCompletionGuard = () => {
   }
 
   // Admins and Super Admins bypass profile completion check
-  const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'SUPPORT_AGENT'];
+  const adminRoles = ['ADMIN', 'SUPER_ADMIN'];
   if (user.roles?.some((r) => adminRoles.includes(r))) {
     return <Outlet />;
   }

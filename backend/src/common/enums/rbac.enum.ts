@@ -1,11 +1,7 @@
 export enum Role {
-  SUPER_ADMIN   = 'SUPER_ADMIN',
-  ADMIN         = 'ADMIN',
-  MODERATOR     = 'MODERATOR',
-  SUPPORT_AGENT = 'SUPPORT_AGENT',
-  PREMIUM       = 'PREMIUM',
-  MEMBER        = 'MEMBER',
-  GUEST         = 'GUEST',
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN       = 'ADMIN',
+  MEMBER      = 'MEMBER',
 }
 
 export enum Permission {
@@ -57,7 +53,7 @@ export enum Permission {
   GLOBAL_SETTINGS = 'global:settings',
 }
 
-export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   [Role.SUPER_ADMIN]: Object.values(Permission),
   [Role.ADMIN]: [
     Permission.USERS_READ, Permission.USERS_WRITE, Permission.USERS_BAN,
@@ -69,14 +65,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     Permission.SETTINGS_READ, Permission.SETTINGS_MANAGE,
     Permission.NOTIFICATIONS_SEND, Permission.AUDIT_VIEW,
   ],
-  [Role.MODERATOR]: [
-    Permission.PROFILES_READ, Permission.PROFILES_VERIFY, Permission.PROFILES_MODERATE,
-    Permission.REPORTS_VIEW, Permission.REPORTS_HANDLE, Permission.USERS_READ, Permission.BLOGS_READ,
-  ],
-  [Role.SUPPORT_AGENT]: [
-    Permission.USERS_READ, Permission.PROFILES_READ, Permission.PAYMENTS_VIEW, Permission.REPORTS_VIEW, Permission.REPORTS_HANDLE,
-  ],
-  [Role.PREMIUM]: [],
   [Role.MEMBER]: [],
-  [Role.GUEST]: [],
 };
+

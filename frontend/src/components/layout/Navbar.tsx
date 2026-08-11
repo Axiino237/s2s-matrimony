@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
+import { useSettingsStore } from '../../store/settings.store';
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { isAuthenticated, user, logout, isSuperAdmin, isAdmin } = useAuthStore();
+  const logoUrl = useSettingsStore((s) => s.logoUrl);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -39,7 +41,7 @@ const Navbar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
             <img 
-              src="/images/logo.png" 
+              src={logoUrl || "/images/logo.png"} 
               alt="S2S Matrimony" 
               className="w-10 h-10 object-contain rounded-xl shadow-sm border border-amber-400/40 p-0.5 bg-white" 
             />

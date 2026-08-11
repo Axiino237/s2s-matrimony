@@ -7,6 +7,7 @@ import {
   Eye, EyeOff, Mail, Info
 } from 'lucide-react';
 import { useAuthStore } from '../../store/auth.store';
+import { useSettingsStore } from '../../store/settings.store';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
@@ -18,6 +19,7 @@ const LoginPage = () => {
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, loginWithOtp } = useAuthStore();
+  const logoUrl = useSettingsStore((s) => s.logoUrl);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -128,7 +130,7 @@ const LoginPage = () => {
               </div>
 
               <div className="flex items-center gap-4">
-                <img src="/images/logo.png" alt="S2S Matrimony Logo" className="w-28 h-28 sm:w-32 sm:h-32 object-contain rounded-3xl shadow-2xl border-2 border-amber-400/60 p-2 bg-white" />
+                <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-28 h-28 sm:w-32 sm:h-32 object-contain rounded-3xl shadow-2xl border-2 border-amber-400/60 p-2 bg-white" />
                 <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-black leading-tight drop-shadow-lg">
                   <span style={{ color: '#FBBF24' }} className="font-extrabold drop-shadow">
                     S2S Matrimony
@@ -204,7 +206,7 @@ const LoginPage = () => {
               {/* Header inside Card */}
               <div className="text-center mb-6">
                 <Link to="/" className="inline-flex flex-col items-center gap-2 mb-3 group">
-                  <img src="/images/logo.png" alt="S2S Matrimony Logo" className="w-36 h-36 sm:w-44 sm:h-44 object-contain rounded-3xl p-1.5 bg-white shadow-xl group-hover:scale-105 transition-transform border border-slate-100" />
+                  <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-36 h-36 sm:w-44 sm:h-44 object-contain rounded-3xl p-1.5 bg-white shadow-xl group-hover:scale-105 transition-transform border border-slate-100" />
                 </Link>
                 <h2 className="font-display text-2xl font-bold text-slate-900">Member & Admin Sign In</h2>
                 <p className="text-slate-500 text-xs mt-1">Access your personalized portal securely</p>

@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  FileText, Search, Filter, RefreshCw, Printer, Eye, Edit, User, Phone, Mail,
+  FileText, Search, Filter, RefreshCw, Printer, Eye, Edit, User, Users, Phone, Mail,
   CheckCircle2, AlertCircle, Sparkles, Shield, MapPin, Briefcase, GraduationCap,
   Calendar, Star, Plus, Download, X, Share2, MessageCircle, Copy
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/auth.store';
+import { useSettingsStore } from '../../store/settings.store';
 
 // Role-based Privacy Masking Helpers
 const maskPhone = (phone?: string, isSuperAdmin?: boolean) => {
@@ -133,6 +134,9 @@ export default function AdminBiodataListPage() {
   const [printStart, setPrintStart] = useState<number>(1);
   const [printEnd, setPrintEnd] = useState<number>(100);
   const [preparedPrintRecords, setPreparedPrintRecords] = useState<BiodataRecord[]>([]);
+  const [showContactDetailsInPrint, setShowContactDetailsInPrint] = useState<boolean>(true);
+  const [showBlankFormModal, setShowBlankFormModal] = useState(false);
+  const [isBlankPrint, setIsBlankPrint] = useState(false);
 
   useEffect(() => {
     fetchBiodataList();
@@ -354,8 +358,30 @@ export default function AdminBiodataListPage() {
             <MessageCircle className="w-4 h-4" /> Send via WhatsApp
           </a>
 
+          <label className="flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 cursor-pointer shadow-sm transition select-none">
+            <input
+              type="checkbox"
+              checked={showContactDetailsInPrint}
+              onChange={(e) => setShowContactDetailsInPrint(e.target.checked)}
+              className="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 accent-rose-600 cursor-pointer"
+            />
+            <span className={showContactDetailsInPrint ? 'text-emerald-700 font-extrabold' : 'text-rose-700 font-extrabold'}>
+              {showContactDetailsInPrint ? '✓ Contact Info In PDF' : '✕ Hide Contact Info In PDF'}
+            </span>
+          </label>
+
           <button
             onClick={() => {
+              window.open('/print/blank-biodata', '_blank');
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-gradient-to-r from-amber-600 to-rose-700 hover:from-amber-700 hover:to-rose-800 text-white rounded-xl text-xs font-extrabold transition shadow-md"
+          >
+            <FileText className="w-4 h-4" /> Print Blank Form (கையெழுத்துப் படிவம்)
+          </button>
+
+          <button
+            onClick={() => {
+              setIsBlankPrint(false);
               const maxIdx = filteredRecords.length > 0 ? filteredRecords.length : 100;
               setPrintStart(1);
               setPrintEnd(Math.min(100, maxIdx));
@@ -383,8 +409,8 @@ export default function AdminBiodataListPage() {
             <p className="text-[11px] font-bold text-slate-500 uppercase">Total Biodatas</p>
             <p className="text-2xl font-extrabold text-slate-900 mt-1">{totalCount}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center font-bold text-lg">
-            📑
+          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-700 flex items-center justify-center font-bold">
+            <FileText className="w-5 h-5 text-rose-600" />
           </div>
         </div>
 
@@ -393,8 +419,8 @@ export default function AdminBiodataListPage() {
             <p className="text-[11px] font-bold text-slate-500 uppercase">Male Profiles</p>
             <p className="text-2xl font-extrabold text-slate-900 mt-1">{maleCount}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-lg">
-            👨
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
+            <User className="w-5 h-5 text-blue-600" />
           </div>
         </div>
 
@@ -403,8 +429,8 @@ export default function AdminBiodataListPage() {
             <p className="text-[11px] font-bold text-slate-500 uppercase">Female Profiles</p>
             <p className="text-2xl font-extrabold text-slate-900 mt-1">{femaleCount}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-700 flex items-center justify-center font-bold text-lg">
-            👩
+          <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-700 flex items-center justify-center font-bold">
+            <Users className="w-5 h-5 text-pink-600" />
           </div>
         </div>
 
@@ -413,8 +439,8 @@ export default function AdminBiodataListPage() {
             <p className="text-[11px] font-bold text-slate-500 uppercase">OTP Verified</p>
             <p className="text-2xl font-extrabold text-emerald-700 mt-1">{verifiedCount}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-lg">
-            ✓
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
           </div>
         </div>
       </div>
@@ -474,7 +500,7 @@ export default function AdminBiodataListPage() {
 
               <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                 {filteredRecords.map((r) => {
-                  const nameStr = `${r.firstName || ''} ${r.lastName || ''} ${r.name || ''}`.trim() || 'Anonymous';
+                  const nameStr = (r.name && r.name.trim()) ? r.name.trim() : `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'Anonymous';
                   const memId = r.memberId || r.customId || `S2S-${String(r.id || '').slice(0, 6).toUpperCase()}`;
                   const casteStr = r.caste || r.community?.name || 'Not specified';
                   const subCasteStr = r.subCaste || r.subcaste || r.sub_caste || '';
@@ -492,7 +518,7 @@ export default function AdminBiodataListPage() {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-800 font-bold flex items-center justify-center text-xs overflow-hidden border border-rose-200 flex-shrink-0">
                             {avatarPhoto ? (
-                              <img src={avatarPhoto} alt={nameStr} className="w-full h-full object-cover" />
+                              <img src={avatarPhoto} alt={nameStr} className="w-full h-full object-cover object-top" />
                             ) : (
                               nameStr[0]?.toUpperCase()
                             )}
@@ -594,23 +620,37 @@ export default function AdminBiodataListPage() {
 
             {/* Render Authentic Danam Matrimony / S2S Matrimony Form Layout */}
             <div className="p-4 sm:p-6">
-              <BiodataFormCard r={selectedRecord} isSuperAdmin={isSuperAdmin} />
+              <BiodataFormCard r={selectedRecord} isSuperAdmin={isSuperAdmin} showContactInfo={showContactDetailsInPrint} />
             </div>
             
-            <div className="mt-4 flex justify-end gap-3 pt-3 border-t border-slate-200">
-              <button
-                onClick={() => window.print()}
-                className="px-5 py-2.5 bg-rose-900 hover:bg-rose-950 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md"
-              >
-                <Printer className="w-4 h-4" /> Print Biodata Form
-              </button>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200">
+              <label className="inline-flex items-center gap-2 cursor-pointer bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-xs text-slate-800 transition select-none">
+                <input
+                  type="checkbox"
+                  checked={showContactDetailsInPrint}
+                  onChange={(e) => setShowContactDetailsInPrint(e.target.checked)}
+                  className="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 accent-rose-600 cursor-pointer"
+                />
+                <span className={showContactDetailsInPrint ? 'text-emerald-800 font-extrabold' : 'text-rose-700 font-extrabold'}>
+                  {showContactDetailsInPrint ? '✓ Contact Info Bar Included' : '✕ Contact Info Bar Hidden'}
+                </span>
+              </label>
 
-              <button
-                onClick={() => setSelectedRecord(null)}
-                className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl"
-              >
-                Close Preview
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-5 py-2.5 bg-rose-900 hover:bg-rose-950 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow-md"
+                >
+                  <Printer className="w-4 h-4" /> Print Biodata Form
+                </button>
+
+                <button
+                  onClick={() => setSelectedRecord(null)}
+                  className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl"
+                >
+                  Close Preview
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -672,12 +712,17 @@ export default function AdminBiodataListPage() {
                 </div>
               </div>
 
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center justify-between">
-                <span className="text-xs font-bold text-rose-950">Records Ready to Print:</span>
-                <span className="text-sm font-extrabold bg-rose-900 text-white px-2.5 py-0.5 rounded-full">
-                  {preparedPrintRecords.length} Form(s) Selected
+              <label className="flex items-center gap-2 p-3 bg-slate-100 hover:bg-slate-200/80 rounded-lg border border-slate-300 font-bold text-xs text-slate-800 cursor-pointer transition select-none">
+                <input
+                  type="checkbox"
+                  checked={showContactDetailsInPrint}
+                  onChange={(e) => setShowContactDetailsInPrint(e.target.checked)}
+                  className="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 accent-rose-600 cursor-pointer"
+                />
+                <span className={showContactDetailsInPrint ? 'text-emerald-800 font-extrabold' : 'text-rose-700 font-extrabold'}>
+                  {showContactDetailsInPrint ? '✓ Include Contact Info (Mobile & Email) in PDF' : '✕ Hide Contact Info (Mobile & Email) in PDF'}
                 </span>
-              </div>
+              </label>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
@@ -708,9 +753,85 @@ export default function AdminBiodataListPage() {
         </div>
       )}
 
+      {/* ── Blank Form Print Confirmation Modal ── */}
+      {showBlankFormModal && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative border border-amber-200">
+            <button
+              onClick={() => setShowBlankFormModal(false)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-700 font-bold text-xl p-2 bg-slate-100 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">கையெழுத்துப் படிவம் (Blank Form)</h3>
+                <p className="text-xs text-slate-500 font-medium">Print a blank biodata form for clients to fill by hand</p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2 my-4 text-xs text-amber-900 font-medium">
+              <p className="font-extrabold text-amber-800 text-sm">📋 What will be printed:</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li>Single A4 page with S2S Matrimony logo & branding</li>
+                <li>All sections: Personal, Family, Horoscope details</li>
+                <li>Empty underlined fields for handwriting</li>
+                <li>Photo box area for passport photo</li>
+                <li>Rasi & Navamsam grid charts (empty)</li>
+              </ul>
+              <p className="text-amber-700 mt-2">📌 கையால் நிரப்பி office-ல் Submit செய்யலாம்</p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setShowBlankFormModal(false)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowBlankFormModal(false);
+                  toast.success('🖨️ Opening printer for blank form...');
+                  setTimeout(() => { window.print(); }, 300);
+                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-rose-700 hover:from-amber-700 hover:to-rose-800 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" /> Print Blank Form Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Printable Container for CSS @media print (Page-by-page Authentic Form Layout) ── */}
       <style>{`
+        @page {
+          size: A4 portrait;
+          margin: 0 !important;
+        }
         @media print {
+          @page {
+            size: A4 portrait;
+            margin: 0;
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+          html, body {
+            width: 210mm !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            overflow: hidden !important;
+          }
           body * {
             visibility: hidden !important;
           }
@@ -718,36 +839,68 @@ export default function AdminBiodataListPage() {
             visibility: visible !important;
           }
           #bulk-print-container {
+            display: block !important;
             position: absolute !important;
-            left: 0 !important;
             top: 0 !important;
-            width: 100% !important;
+            left: 0 !important;
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
             background: #ffffff !important;
+            z-index: 999999 !important;
           }
           .print-form-page {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            max-height: 297mm !important;
+            padding: 3.5mm !important;
+            margin: 0 !important;
             page-break-after: always !important;
             break-after: page !important;
-            min-height: 98vh;
-            padding: 12px;
-            box-sizing: border-box;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            overflow: hidden !important;
+          }
+          .print-form-page:last-child {
+            page-break-after: avoid !important;
+            break-after: auto !important;
           }
         }
       `}</style>
 
       <div id="bulk-print-container" className="hidden print:block">
-        {preparedPrintRecords.map((r, index) => (
-          <div key={r.id || index} className="print-form-page bg-white mb-6">
-            <BiodataFormCard r={r} isSuperAdmin={isSuperAdmin} />
+        {isBlankPrint ? (
+          <div className="print-form-page bg-white">
+            <BlankBiodataFormCard />
           </div>
-        ))}
+        ) : (
+          (
+            selectedRecord
+              ? [selectedRecord]
+              : (preparedPrintRecords && preparedPrintRecords.length > 0)
+              ? preparedPrintRecords
+              : (filteredRecords || [])
+          ).map((r, index) => (
+            <div key={r?.id || index} className="print-form-page bg-white">
+              {r ? <BiodataFormCard r={r} isSuperAdmin={isSuperAdmin} showContactInfo={showContactDetailsInPrint} /> : null}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
 }
 
 // ── Reusable Authentic Matrimony Biodata Form Card Component (Matching Image 2) ──
-function BiodataFormCard({ r, isSuperAdmin }: { r: BiodataRecord; isSuperAdmin?: boolean }) {
-  const nameStr = `${r.firstName || ''} ${r.lastName || ''} ${r.name || ''}`.trim() || 'NOT SPECIFIED';
+function BiodataFormCard({ r, isSuperAdmin, showContactInfo = true }: { r: BiodataRecord; isSuperAdmin?: boolean; showContactInfo?: boolean }) {
+  const logoUrl = useSettingsStore((s) => s.logoUrl);
+  if (!r) return null;
+  const nameStr = (r.name && r.name.trim()) ? r.name.trim() : `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'NOT SPECIFIED';
   const regNo = r.memberId || r.customId || `S2S-${String(r.id || '').slice(0, 6).toUpperCase()}`;
   const regDate = r.createdAt ? String(r.createdAt).split('T')[0] : '27-04-2026';
   const mainPhoto = r.photos?.find((p) => p.isMain)?.url || r.photos?.[0]?.url;
@@ -758,57 +911,66 @@ function BiodataFormCard({ r, isSuperAdmin }: { r: BiodataRecord; isSuperAdmin?:
   const horo = r.horoscope || {};
 
   return (
-    <div className="bg-white text-slate-900 border-[4px] border-[#800000] p-3 shadow-sm font-sans text-xs">
-      {/* Top Header */}
-      <div className="flex justify-between items-start border-b-2 border-[#800000] pb-2 mb-2">
+    <div className="relative bg-white text-slate-900 border-[4px] border-[#b91c1c] p-3.5 shadow-none font-sans text-xs w-[203mm] h-[289mm] max-h-[289mm] flex flex-col justify-between box-border overflow-hidden">
+      {/* Background Watermark Logo */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.12] z-0 overflow-hidden">
+        <img
+          src={logoUrl || "/images/logo.png"}
+          alt="S2S Matrimony Watermark"
+          className="w-[580px] h-[580px] object-contain select-none"
+        />
+      </div>
+
+      {/* 1. Top Header */}
+      <div className="relative z-10 flex justify-between items-start border-b-2 border-[#b91c1c] pb-2.5">
         <div className="space-y-1">
-          <div className="bg-[#800000] text-white px-2 py-0.5 text-[11px] font-black rounded inline-block">
-            Regn No. - <span className="text-amber-300 font-bold">{regNo}</span>
+          <div className="bg-[#b91c1c] text-white px-3 py-1 text-xs font-black rounded inline-block shadow-sm">
+            Regn No. - <span className="text-amber-300 font-bold text-sm">{regNo}</span>
           </div>
-          <p className="font-bold text-slate-800 text-[11px]">Regn Date - <span className="font-extrabold">{regDate}</span></p>
+          <p className="font-bold text-slate-800 text-xs">Regn Date - <span className="font-extrabold">{regDate}</span></p>
         </div>
 
         <div className="text-center flex flex-col items-center justify-center">
-          <img src="/images/logo.png" alt="S2S Matrimony Logo" className="w-10 h-10 object-contain rounded-full shadow-sm mb-0.5 border border-amber-300" />
-          <h1 className="text-2xl font-black text-[#800000] tracking-wider uppercase font-serif">
+          <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-14 h-14 object-contain rounded-full shadow-sm mb-0.5 border border-amber-300" />
+          <h1 className="text-3xl font-black text-[#b91c1c] tracking-wider uppercase font-serif">
             S2S MATRIMONY
           </h1>
-          <p className="text-[9px] font-bold text-amber-900 uppercase tracking-widest">(S2S Matrimony Group)</p>
-          <span className="text-[10px] font-extrabold text-[#800000] bg-rose-50 px-2 py-0.5 rounded border border-rose-200 inline-block mt-0.5">
+          <p className="text-xs font-extrabold text-amber-900 uppercase tracking-widest">(S2S Matrimony Group)</p>
+          <span className="text-xs font-black text-[#b91c1c] bg-rose-50 px-2.5 py-0.5 rounded border border-rose-200 inline-block mt-0.5">
             BRANCH - Chennai
           </span>
         </div>
 
-        <div className="text-right text-[10px] font-bold text-slate-800 space-y-0.5">
-          <p>Cell : <span className="font-black text-[#800000]">7358732151 / 7338712658</span></p>
-          <p className="text-blue-900 font-extrabold">www.s2smatrimonygroup.com</p>
-          <p>Govt Regn No - 842 / 18</p>
+        <div className="text-right text-xs font-bold text-slate-800 space-y-0.5">
+          <p>Cell : <span className="font-black text-[#b91c1c] text-xs">7358732151 / 7338712658</span></p>
+          <p className="text-blue-900 font-black">www.s2smatrimonygroup.com</p>
+          <p className="text-xs">Govt Regn No - 842 / 18</p>
         </div>
       </div>
 
-      {/* Candidate Name Banner */}
-      <div className="border border-[#800000] bg-rose-50/50 px-3 py-1 font-bold text-sm text-[#800000] mb-2 flex items-center gap-2">
-        <span>Name - </span>
-        <span className="font-black text-slate-900 uppercase tracking-wide text-base">{nameStr}</span>
+      {/* 2. Candidate Name Banner */}
+      <div className="relative z-10 border-2 border-[#b91c1c] bg-rose-50/60 px-4 py-2 font-bold text-base text-[#b91c1c] flex items-center gap-3 rounded-sm">
+        <span className="text-base font-black">Name - </span>
+        <span className="font-black text-slate-900 uppercase tracking-wide text-xl">{nameStr}</span>
       </div>
 
-      {/* Community 3-Column Header */}
-      <div className="grid grid-cols-3 border border-[#800000] text-[11px] font-bold text-slate-900 mb-2 divide-x divide-[#800000]">
-        <div className="p-1 bg-rose-50/30">Caste - <span className="font-black text-[#800000]">{casteStr}</span></div>
-        <div className="p-1 bg-rose-50/30">Sub Caste - <span className="font-black text-[#800000]">{subCasteStr}</span></div>
-        <div className="p-1 bg-rose-50/30">Gothram - <span className="font-black text-[#800000]">{gothramStr}</span></div>
+      {/* 3. Community 3-Column Header */}
+      <div className="relative z-10 grid grid-cols-3 border-2 border-[#b91c1c] text-xs font-bold text-slate-900 divide-x-2 divide-[#b91c1c]">
+        <div className="p-2 bg-rose-50/40">Caste - <span className="font-black text-[#b91c1c] text-xs">{casteStr}</span></div>
+        <div className="p-2 bg-rose-50/40">Sub Caste - <span className="font-black text-[#b91c1c] text-xs">{subCasteStr}</span></div>
+        <div className="p-2 bg-rose-50/40">Gothram - <span className="font-black text-[#b91c1c] text-xs">{gothramStr}</span></div>
       </div>
 
-      {/* Main 2-Column Split (Left 65%, Right 35%) */}
-      <div className="grid grid-cols-12 gap-2 mb-2">
+      {/* 4. Main 2-Column Split (Personal, Family, Ancestral & Photo/Rasi) */}
+      <div className="relative z-10 grid grid-cols-12 gap-3 flex-grow">
         {/* Left Column */}
-        <div className="col-span-7 space-y-2">
+        <div className="col-span-7 space-y-2.5 flex flex-col justify-between">
           {/* PERSONAL DETAILS */}
-          <div className="border border-[#800000]">
-            <div className="bg-[#800000] text-white font-black px-2 py-0.5 uppercase text-[10px]">
+          <div className="border-2 border-[#b91c1c]">
+            <div className="bg-[#b91c1c] text-white font-black px-3 py-1 uppercase text-xs tracking-wider">
               PERSONAL DETAILS
             </div>
-            <div className="p-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-medium text-slate-900">
+            <div className="p-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs font-medium text-slate-900">
               <div><strong>Date of Birth - </strong> {r.dateOfBirth || '—'}</div>
               <div><strong>Birth Place - </strong> {maskSensitiveText(r.birthPlace || horo.birthPlace, isSuperAdmin)}</div>
               <div><strong>Birth Time - </strong> {r.birthTime || horo.birthTime || '—'}</div>
@@ -825,11 +987,11 @@ function BiodataFormCard({ r, isSuperAdmin }: { r: BiodataRecord; isSuperAdmin?:
           </div>
 
           {/* FAMILY DETAILS */}
-          <div className="border border-[#800000]">
-            <div className="bg-[#800000] text-white font-black px-2 py-0.5 uppercase text-[10px]">
+          <div className="border-2 border-[#b91c1c]">
+            <div className="bg-[#b91c1c] text-white font-black px-3 py-1 uppercase text-xs tracking-wider">
               FAMILY DETAILS
             </div>
-            <div className="p-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-medium text-slate-900">
+            <div className="p-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs font-medium text-slate-900">
               <div><strong>Father's Name - </strong> {r.fatherName || '—'}</div>
               <div><strong>Father's Job - </strong> {r.fatherOccupation || '—'}</div>
               <div><strong>Mother's Name - </strong> {r.motherName || '—'}</div>
@@ -846,11 +1008,11 @@ function BiodataFormCard({ r, isSuperAdmin }: { r: BiodataRecord; isSuperAdmin?:
           </div>
 
           {/* FINANCIAL & ANCESTRAL DETAILS */}
-          <div className="border border-[#800000]">
-            <div className="bg-[#800000] text-white font-black px-2 py-0.5 uppercase text-[10px]">
+          <div className="border-2 border-[#b91c1c]">
+            <div className="bg-[#b91c1c] text-white font-black px-3 py-1 uppercase text-xs tracking-wider">
               FINANCIAL & ANCESTRAL DETAILS
             </div>
-            <div className="p-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] font-medium text-slate-900">
+            <div className="p-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs font-medium text-slate-900">
               <div><strong>Resident - </strong> {r.residentStatus || '—'}</div>
               <div><strong>Property - </strong> {maskSensitiveText(r.propertyDetails, isSuperAdmin)}</div>
               <div><strong>Residence Place - </strong> {maskSensitiveText(r.city, isSuperAdmin)}</div>
@@ -860,93 +1022,267 @@ function BiodataFormCard({ r, isSuperAdmin }: { r: BiodataRecord; isSuperAdmin?:
         </div>
 
         {/* Right Column */}
-        <div className="col-span-5 space-y-2 flex flex-col justify-between">
+        <div className="col-span-5 space-y-2.5 flex flex-col justify-between">
           {/* Photo */}
-          <div className="border-2 border-[#800000] p-0.5 bg-slate-50 flex items-center justify-center min-h-[190px] overflow-hidden">
+          <div className="border-2 border-[#b91c1c] p-1 bg-slate-50 flex items-center justify-center min-h-[270px] h-[270px] overflow-hidden rounded-sm">
             {mainPhoto ? (
-              <img src={mainPhoto} alt={nameStr} className="w-full h-48 object-cover rounded" />
+              <img src={mainPhoto} alt={nameStr} className="w-full h-full object-cover object-top rounded" />
             ) : (
               <div className="text-center p-4 text-slate-400">
-                <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-800 font-bold mx-auto flex items-center justify-center text-lg mb-1">
+                <div className="w-16 h-16 rounded-full bg-rose-100 text-rose-800 font-bold mx-auto flex items-center justify-center text-2xl mb-2">
                   {nameStr.charAt(0)}
                 </div>
-                <p className="text-[9px] font-bold">Photo Not Uploaded</p>
+                <p className="text-xs font-extrabold text-slate-500">Photo Not Uploaded</p>
               </div>
             )}
           </div>
 
           {/* Rasi & Doshams */}
-          <div className="border border-[#800000] overflow-hidden flex-grow">
-            <div className="bg-[#800000] text-white font-black px-2 py-0.5 uppercase text-[10px]">
+          <div className="border-2 border-[#b91c1c] overflow-hidden flex-grow flex flex-col justify-between">
+            <div className="bg-[#b91c1c] text-white font-black px-3 py-1 uppercase text-xs tracking-wider">
               RASI & DOSHAMS
             </div>
-            <div className="p-1.5 space-y-1 text-[10px] font-medium text-slate-900">
-              <div><strong>Rasi - </strong> <span className="font-extrabold text-[#800000]">{r.rasi || horo.rasi || '—'}</span></div>
-              <div><strong>Natchathiram - </strong> <span className="font-extrabold text-[#800000]">{r.star || horo.star || '—'}</span></div>
-              <div><strong>Natchathiram Padham - </strong> {horo.starPadam || '1'}</div>
-              <div><strong>Lagnam - </strong> {horo.lagnam || '—'}</div>
-              <div><strong>Dasa Irupu - </strong> {horo.dasaBalance || '—'}</div>
-              <div><strong>Dosham - </strong> {horo.dosham || 'Clean'}</div>
+            <div className="p-3 space-y-2 text-xs font-medium text-slate-900 flex-grow flex flex-col justify-around">
+              <div><strong>Rasi - </strong> <span className="font-black text-[#b91c1c] text-sm">{r.rasi || horo.rasi || '—'}</span></div>
+              <div><strong>Natchathiram - </strong> <span className="font-black text-[#b91c1c] text-sm">{r.star || horo.star || '—'}</span></div>
+              <div><strong>Natchathiram Padham - </strong> <span className="font-bold">{horo.starPadam || '1'}</span></div>
+              <div><strong>Lagnam - </strong> <span className="font-bold">{horo.lagnam || '—'}</span></div>
+              <div><strong>Dasa Irupu - </strong> <span className="font-bold">{horo.dasaBalance || '—'}</span></div>
+              <div><strong>Dosham - </strong> <span className="font-bold">{horo.dosham || 'Clean'}</span></div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom 2 Astrology Charts (RASI & NAVAMSAM) */}
-      <div className="grid grid-cols-2 gap-2 mt-1">
-        <div className="border border-[#800000] p-1 text-center bg-white">
-          <p className="text-[9px] font-black text-[#800000] uppercase mb-0.5">RASI CHART (ராசி)</p>
-          <div className="grid grid-cols-4 grid-rows-4 gap-0.5 border border-slate-400 bg-slate-200 text-[8px] h-28">
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Meenam || 'மீனம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Mesham || 'மேஷம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Rishabam || 'ரிஷபம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Mithunam || 'மிதுனம்'}</div>
+      {/* 5. Bottom 2 Astrology Charts (RASI & NAVAMSAM) */}
+      <div className="relative z-10 grid grid-cols-2 gap-3">
+        <div className="border-2 border-[#b91c1c] p-2 text-center bg-white">
+          <p className="text-xs font-black text-[#b91c1c] uppercase mb-1.5">RASI CHART (ராசி)</p>
+          <div className="grid grid-cols-4 grid-rows-4 gap-0.5 border border-slate-400 bg-slate-200 text-xs h-52">
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Meenam || 'மீனம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Mesham || 'மேஷம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Rishabam || 'ரிஷபம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Mithunam || 'மிதுனம்'}</div>
 
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Kumbam || 'கும்பம்'}</div>
-            <div className="col-span-2 row-span-2 bg-rose-50/50 border border-slate-400 font-black text-[#800000] flex items-center justify-center text-xs">
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Kumbam || 'கும்பம்'}</div>
+            <div className="col-span-2 row-span-2 bg-rose-50/70 border border-slate-400 font-black text-[#b91c1c] flex items-center justify-center text-base tracking-widest">
               RASI
             </div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Kadagam || 'கடகம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Kadagam || 'கடகம்'}</div>
 
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Magaram || 'மகரம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Simmam || 'சிம்மம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Magaram || 'மகரம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Simmam || 'சிம்மம்'}</div>
 
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Dhanusu || 'தனுசு'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Viruchigam || 'விருச்சிகம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Thulaam || 'துலாம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.rasiChart?.Kanni || 'கன்னி'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Dhanusu || 'தனுசு'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Viruchigam || 'விருச்சிகம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Thulaam || 'துலாம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Kanni || 'கன்னி'}</div>
           </div>
         </div>
 
-        <div className="border border-[#800000] p-1 text-center bg-white">
-          <p className="text-[9px] font-black text-[#800000] uppercase mb-0.5">NAVAMSAM CHART (நவாம்சம்)</p>
-          <div className="grid grid-cols-4 grid-rows-4 gap-0.5 border border-slate-400 bg-slate-200 text-[8px] h-28">
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Meenam || 'மீனம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Mesham || 'மேஷம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Rishabam || 'ரிஷபம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Mithunam || 'மிதுனம்'}</div>
+        <div className="border-2 border-[#b91c1c] p-2 text-center bg-white">
+          <p className="text-xs font-black text-[#b91c1c] uppercase mb-1.5">NAVAMSAM CHART (நவாம்சம்)</p>
+          <div className="grid grid-cols-4 grid-rows-4 gap-0.5 border border-slate-400 bg-slate-200 text-xs h-52">
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Meenam || 'மீனம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Mesham || 'மேஷம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Rishabam || 'ரிஷபம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Mithunam || 'மிதுனம்'}</div>
 
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Kumbam || 'கும்பம்'}</div>
-            <div className="col-span-2 row-span-2 bg-rose-50/50 border border-slate-400 font-black text-[#800000] flex items-center justify-center text-xs">
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Kumbam || 'கும்பம்'}</div>
+            <div className="col-span-2 row-span-2 bg-rose-50/70 border border-slate-400 font-black text-[#b91c1c] flex items-center justify-center text-base tracking-widest">
               NAVAMSAM
             </div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Kadagam || 'கடகம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Kadagam || 'கடகம்'}</div>
 
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Magaram || 'மகரம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Simmam || 'சிம்மம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Magaram || 'மகரம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Simmam || 'சிம்மம்'}</div>
 
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Dhanusu || 'தனுசு'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Viruchigam || 'விருச்சிகம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Thulaam || 'துலாம்'}</div>
-            <div className="bg-white p-0.5 border border-slate-300 font-bold overflow-hidden">{horo.horoscopeData?.amsamChart?.Kanni || 'கன்னி'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Dhanusu || 'தனுசு'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Viruchigam || 'விருச்சிகம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Thulaam || 'துலாம்'}</div>
+            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Kanni || 'கன்னி'}</div>
           </div>
         </div>
       </div>
 
-      {/* Verified Contact Bar */}
-      <div className="mt-1.5 p-1 bg-emerald-50 border border-emerald-300 rounded flex justify-between items-center text-[9px] font-bold text-emerald-950">
-        <div>Mobile: <span className="font-extrabold text-slate-900">{maskPhone(r.phone || r.user?.phone, isSuperAdmin)}</span> ({r.isPhoneVerified ? '✓ Verified' : '⚠ Unverified'})</div>
-        <div>Email: <span className="font-extrabold text-slate-900">{maskEmail(r.email || r.user?.email, isSuperAdmin)}</span> ({r.isEmailVerified ? '✓ Verified' : '⚠ Unverified'})</div>
+      {/* 6. Bottom Footer: Verified Contact Bar (Conditional) */}
+      {showContactInfo && (
+        <div className="relative z-10 p-2 bg-emerald-50 border-2 border-emerald-400 rounded flex justify-between items-center text-xs font-bold text-emerald-950 shadow-sm">
+          <div>Mobile: <span className="font-black text-slate-900 text-xs">{maskPhone(r.phone || r.user?.phone, isSuperAdmin)}</span> ({r.isPhoneVerified ? '✓ Verified' : '✓ Verified'})</div>
+          <div>Email: <span className="font-black text-slate-900 text-xs">{maskEmail(r.email || r.user?.email, isSuperAdmin)}</span> ({r.isEmailVerified ? '✓ Verified' : '✓ Verified'})</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Blank Biodata Form Card (Empty – for client handwriting, A4 single page) ──
+function BlankBiodataFormCard() {
+  const logoUrl = useSettingsStore((s) => s.logoUrl);
+  // Underlined empty field helper
+  const F = ({ label, wide }: { label: string; wide?: boolean }) => (
+    <div className={`flex flex-col gap-0.5 ${wide ? 'col-span-2' : ''}`}>
+      <span className="text-[8px] font-black text-[#b91c1c] uppercase tracking-wide leading-tight">{label}</span>
+      <div className="border-b-[1.5px] border-slate-400 h-3.5 w-full" />
+    </div>
+  );
+
+  return (
+    <div className="relative bg-white text-slate-900 border-[4px] border-[#b91c1c] p-3 shadow-none font-sans text-xs w-[203mm] h-[289mm] max-h-[289mm] flex flex-col justify-between box-border overflow-hidden">
+
+      {/* Background Watermark Logo */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.12] z-0 overflow-hidden">
+        <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Watermark" className="w-[540px] h-[540px] object-contain select-none" />
+      </div>
+
+      {/* ── 1. Header ── */}
+      <div className="relative z-10 flex justify-between items-start border-b-2 border-[#b91c1c] pb-1.5">
+        <div className="space-y-0.5">
+          <div className="bg-[#b91c1c] text-white px-2.5 py-0.5 text-xs font-black rounded inline-block shadow-sm">
+            Regn No. - <span className="text-amber-300 font-bold">___________</span>
+          </div>
+          <p className="font-bold text-slate-800 text-[10px]">Regn Date: <span className="font-extrabold">___________</span></p>
+        </div>
+        <div className="text-center flex flex-col items-center">
+          <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-12 h-12 object-contain rounded-full border border-amber-300 mb-0.5" />
+          <h1 className="text-2xl font-black text-[#b91c1c] tracking-wider uppercase font-serif leading-tight">S2S MATRIMONY</h1>
+          <p className="text-[9px] font-bold text-amber-700 tracking-[0.18em] uppercase">Traditional Single Page Biodata Form</p>
+        </div>
+        <div className="text-right space-y-0.5">
+          <div className="border-2 border-amber-500 text-amber-700 font-black text-[10px] px-2.5 py-0.5 rounded inline-block">
+            BRANCH – <span className="text-slate-700">__________</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. Name Bar ── */}
+      <div className="relative z-10 flex items-center gap-2">
+        <span className="font-black text-slate-700 uppercase tracking-widest text-sm whitespace-nowrap">NAME:</span>
+        <div className="flex-1 border-b-2 border-[#b91c1c] h-5" />
+      </div>
+
+      {/* ── 3. Identity Strip ── */}
+      <div className="relative z-10 grid grid-cols-6 gap-1 bg-rose-50/70 border border-rose-200 rounded p-1.5">
+        {['Religion (மதம்)', 'Caste (ஜாதி)', 'Sub Caste', 'Gothram', 'Mother Tongue', 'Marital Status'].map((lbl) => (
+          <div key={lbl} className="flex flex-col items-center">
+            <span className="text-[8px] font-black text-[#b91c1c] uppercase text-center leading-tight">{lbl}</span>
+            <div className="border-b-[1.5px] border-slate-400 h-3.5 w-full mt-0.5" />
+          </div>
+        ))}
+      </div>
+
+      <div className="relative z-10 w-full border-t-2 border-[#b91c1c]" />
+
+      {/* ── 4. Main Body ── */}
+      <div className="relative z-10 flex gap-2 flex-1 min-h-0">
+
+        {/* Left: Personal + Family + Horoscope */}
+        <div className="flex flex-col gap-1 flex-1 min-w-0">
+
+          {/* Personal Details */}
+          <div className="bg-[#b91c1c] text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest">Personal Details (தனிப்பட்ட விவரங்கள்)</div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+            <F label="Date of Birth (பிறந்த தேதி)" />
+            <F label="Birth Place (பிறந்த ஊர்)" />
+            <F label="Birth Time (பிறந்த நேரம்)" />
+            <F label="Complexion (நிறம்)" />
+            <F label="Weight/kg (எடை)" />
+            <F label="Diet (உணவு பழக்கம்)" />
+            <F label="Birth Order (பிறப்பு வரிசை)" />
+            <F label="Height ft/cm (உயரம்)" />
+            <F label="Education (கல்வி)" wide />
+            <F label="Education Details" wide />
+            <F label="Designation (பதவி)" />
+            <F label="Salary/month (சம்பளம்)" />
+            <F label="Company Name" />
+            <F label="Job Location (பணியிடம்)" />
+          </div>
+
+          {/* Family Details */}
+          <div className="bg-[#b91c1c] text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest mt-0.5">Family Details (குடும்ப விவரங்கள்)</div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+            <F label="Father Name (தந்தை பெயர்)" />
+            <F label="Father Occupation (தொழில்)" />
+            <F label="Mother Name (தாய் பெயர்)" />
+            <F label="Mother Occupation (தொழில்)" />
+            <F label="Brothers (சகோதரர்கள்)" />
+            <F label="Sisters (சகோதரிகள்)" />
+            <F label="Native Place (சொந்த ஊர்)" />
+            <F label="Family Status" />
+          </div>
+
+          {/* Horoscope */}
+          <div className="bg-[#b91c1c] text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-widest mt-0.5">Horoscope (ஜாதக விவரம்)</div>
+          <div className="grid grid-cols-3 gap-x-3 gap-y-1">
+            <F label="Star (நட்சத்திரம்)" />
+            <F label="Raasi (ராசி)" />
+            <F label="Lagnam (லக்னம்)" />
+          </div>
+        </div>
+
+        {/* Right: Photo + Contact */}
+        <div className="flex flex-col gap-2 w-[130px] flex-shrink-0">
+          {/* Photo Box */}
+          <div className="border-2 border-dashed border-[#b91c1c] rounded-lg flex flex-col items-center justify-center bg-rose-50/50 h-[130px]">
+            <svg className="w-8 h-8 text-[#b91c1c] opacity-40 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p className="text-[9px] font-extrabold text-[#b91c1c] text-center leading-snug">Passport Size<br/>Photo</p>
+            <p className="text-[8px] text-slate-400 font-medium mt-0.5">Paste Here</p>
+          </div>
+
+          {/* Contact */}
+          <div className="border-2 border-[#b91c1c] rounded-lg p-1.5 bg-rose-50/30 space-y-1">
+            <p className="text-[9px] font-black text-[#b91c1c] uppercase text-center tracking-wide">Contact Details</p>
+            <F label="Mobile No." />
+            <F label="Alt. Mobile / WhatsApp" />
+            <F label="Email ID" />
+            <div className="mt-0.5">
+              <span className="text-[8px] font-black text-[#b91c1c] uppercase">Address</span>
+              <div className="border-b-[1.5px] border-slate-400 h-3.5 w-full mt-0.5" />
+              <div className="border-b-[1.5px] border-slate-400 h-3.5 w-full mt-1" />
+              <div className="border-b-[1.5px] border-slate-400 h-3.5 w-full mt-1" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 5. Astrology Charts ── */}
+      <div className="relative z-10 grid grid-cols-2 gap-2">
+        {(['RASI CHART (ராசி)', 'NAVAMSAM CHART (நவாம்சம்)'] as const).map((label) => (
+          <div key={label} className="border-2 border-[#b91c1c] p-1 text-center bg-white">
+            <p className="text-[9px] font-black text-[#b91c1c] uppercase mb-0.5">{label}</p>
+            <div className="grid grid-cols-4 grid-rows-4 gap-[1px] border border-slate-400 bg-slate-200 h-[82px]">
+              {/* Row 1 */}
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">மீனம்</div>
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">மேஷம்</div>
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">ரிஷபம்</div>
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">மிதுனம்</div>
+              {/* Row 2 */}
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">கும்பம்</div>
+              <div className="col-span-2 row-span-2 bg-rose-50/70 border border-slate-400 font-black text-[#b91c1c] flex items-center justify-center text-[9px] tracking-widest">
+                {label.includes('RASI') ? 'RASI' : 'NAVAMSAM'}
+              </div>
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">கடகம்</div>
+              {/* Row 3 */}
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">மகரம்</div>
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">சிம்மம்</div>
+              {/* Row 4 */}
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">தனுசு</div>
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">விருச்சிகம்</div>
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">துலாம்</div>
+              <div className="bg-white flex items-center justify-center text-[7px] font-bold text-slate-500 border border-slate-200 overflow-hidden p-0.5">கன்னி</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+
+      {/* ── 6. Footer ── */}
+      <div className="relative z-10 p-1.5 bg-[#b91c1c]/10 border-2 border-[#b91c1c] rounded flex justify-between items-center text-[8px] font-bold text-[#b91c1c]">
+        <span>S2S MATRIMONY — Traditional Biodata Form</span>
+        <span className="font-black">www.s2smatrimony.com</span>
+        <span>© {new Date().getFullYear()} All Rights Reserved</span>
       </div>
     </div>
   );

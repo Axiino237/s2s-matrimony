@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
+import { useSettingsStore } from '../../store/settings.store';
 
 const Footer = () => {
   const year = new Date().getFullYear();
+  const logoUrl = useSettingsStore((s) => s.logoUrl);
 
   return (
     <footer className="bg-white border-t border-slate-200 pt-16 pb-8">
@@ -10,7 +12,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="col-span-1 md:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-3 mb-4">
-              <img src="/images/logo.png" alt="S2S Matrimony Logo" className="w-14 h-14 object-contain rounded-xl shadow-sm" />
+              <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-14 h-14 object-contain rounded-xl shadow-sm" />
               <span className="font-display font-bold text-xl text-text-primary">S2S <span className="text-primary">Matrimony</span></span>
             </div>
             <p className="text-text-secondary text-sm leading-relaxed mb-6">

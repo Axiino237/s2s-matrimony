@@ -17,14 +17,28 @@ interface Plan {
   createdAt?: string;
 }
 
-const TIERS = ['FREE', 'SILVER', 'ELITE', 'PLATINUM', 'DIAMOND'];
+const TIERS = ['FREE', 'SILVER', 'GOLD', 'ELITE'];
 const TIER_COLORS: Record<string, string> = {
   FREE: 'bg-slate-100 text-slate-600 font-medium',
   SILVER: 'bg-slate-200 text-slate-700 font-medium',
+  GOLD: 'bg-amber-100 text-amber-800 font-bold border border-amber-300',
   ELITE: 'bg-indigo-100 text-indigo-800 font-bold border border-indigo-300',
-  PLATINUM: 'bg-cyan-100 text-cyan-700 font-medium',
-  DIAMOND: 'bg-blue-100 text-blue-700 font-medium',
 };
+
+const PREDEFINED_FEATURES = [
+  'View contact details',
+  'Send interests',
+  'Chat messaging',
+  'Profile highlighting',
+  'Priority listing',
+  'Advanced search',
+  'Profile verification badge',
+  'Whatsapp connect',
+  'Dedicated relationship manager',
+  'AI-match recommendations',
+  'Priority support',
+  'Horoscope matching',
+];
 
 const DEFAULT_PLAN: Omit<Plan, 'id' | 'createdAt'> = {
   name: '',
@@ -74,15 +88,28 @@ const PlanFormModal = ({
 
   const set = (field: string, val: any) => setForm(prev => ({ ...prev, [field]: val }));
 
-  const addFeature = () => {
+  const toggleFeature = (feat: string) => {
+    const current = form.features || [];
+    if (current.includes(feat)) {
+      set('features', current.filter(f => f !== feat));
+    } else {
+      set('features', [...current, feat]);
+    }
+  };
+
+  const addCustomFeature = () => {
     if (!featureInput.trim()) return;
-    set('features', [...(form.features || []), featureInput.trim()]);
+    const feat = featureInput.trim();
+    if (!form.features?.includes(feat)) {
+      set('features', [...(form.features || []), feat]);
+    }
     setFeatureInput('');
   };
 
-  const removeFeature = (i: number) => {
-    set('features', form.features.filter((_, idx) => idx !== i));
-  };
+  const allFeatureOptions = useMemo(() => {
+    const set = new Set([...PREDEFINED_FEATURES, ...(form.features || [])]);
+    return Array.from(set);
+  }, [form.features]);
 
   const handleSave = async () => {
     if (!form.name || !form.tier || form.price === undefined || form.price === null) {
@@ -194,36 +221,60 @@ const PlanFormModal = ({
             />
           </div>
 
-          {/* Features */}
+          {/* Features - Checkbox selection */}
           <div className="sm:col-span-2">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-2">Features</label>
-            <div className="flex gap-2 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Select Features ({form.features?.length || 0} selected)
+              </label>
+            </div>
+
+            {/* Tick box grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 max-h-52 overflow-y-auto p-2 border border-slate-200 rounded-2xl bg-slate-50/50">
+              {allFeatureOptions.map((feat) => {
+                const isSelected = form.features?.includes(feat);
+                return (
+                  <label
+                    key={feat}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      toggleFeature(feat);
+                    }}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer select-none transition-all ${
+                      isSelected
+                        ? 'bg-primary/10 border-primary text-primary shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {}}
+                      className="w-4 h-4 accent-primary rounded cursor-pointer pointer-events-none"
+                    />
+                    <span className="flex-1 truncate">{feat}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            {/* Add Custom Feature */}
+            <div className="flex gap-2">
               <input
                 type="text"
                 value={featureInput}
                 onChange={(e) => setFeatureInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
-                placeholder="Add a feature and press Enter..."
-                className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomFeature())}
+                placeholder="Add custom feature..."
+                className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
               <button
                 type="button"
-                onClick={addFeature}
-                className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
+                onClick={addCustomFeature}
+                className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-medium hover:bg-slate-900 transition-colors"
               >
-                Add
+                + Add Feature
               </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {form.features?.map((f, i) => (
-                <div key={i} className="flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-medium">
-                  <CheckCircle2 className="w-3 h-3" />
-                  {f}
-                  <button onClick={() => removeFeature(i)} className="ml-1 text-primary/60 hover:text-rose-500">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
             </div>
           </div>
 
@@ -282,8 +333,8 @@ const SuperAdminPlans = () => {
   const FALLBACK_PLANS: Plan[] = [
     { id: '1', name: 'Free Plan', tier: 'FREE', price: 0, durationMonths: 0, contactViewLimit: 5, features: ['Browse profiles', 'Send interests (limited)'], isActive: true, isPopular: false },
     { id: '2', name: 'Silver 3 Months', tier: 'SILVER', price: 999, durationMonths: 3, contactViewLimit: 50, features: ['50 contact views', 'Send unlimited interests', 'Chat messaging', 'Profile highlighting'], isActive: true, isPopular: false },
-    { id: '3', name: 'Elite 6 Months', tier: 'ELITE', price: 1999, durationMonths: 6, contactViewLimit: 100, features: ['100 contact views', 'Priority listing', 'Advanced search', 'Profile verification badge', 'Whatsapp connect'], isActive: true, isPopular: true },
-    { id: '4', name: 'Platinum 12 Months', tier: 'PLATINUM', price: 3499, durationMonths: 12, contactViewLimit: 0, features: ['Unlimited contact views', 'Dedicated relationship manager', 'AI-match recommendations', 'All Elite features', 'Priority support'], isActive: true, isPopular: false },
+    { id: '3', name: 'Gold 6 Months', tier: 'GOLD', price: 1999, durationMonths: 6, contactViewLimit: 100, features: ['100 contact views', 'Priority listing', 'Advanced search', 'Profile verification badge', 'Whatsapp connect'], isActive: true, isPopular: true },
+    { id: '4', name: 'Elite 12 Months', tier: 'ELITE', price: 3499, durationMonths: 12, contactViewLimit: 0, features: ['Unlimited contact views', 'Dedicated relationship manager', 'AI-match recommendations', 'All Gold features', 'Priority support'], isActive: true, isPopular: false },
   ];
 
   useEffect(() => {
@@ -307,7 +358,28 @@ const SuperAdminPlans = () => {
           isPopular: p.isPopular === true,
           description: p.description || '',
         }));
-        setPlans(normalized);
+
+        const getPlanRank = (plan: any): number => {
+          const tier = (plan.tier || '').toUpperCase();
+          const name = (plan.name || '').toLowerCase();
+
+          if (tier === 'FREE' || name.includes('free')) return 1;
+          if (tier === 'SILVER' || name.includes('silver')) return 2;
+          if (tier === 'GOLD' || name.includes('gold')) return 3;
+          if (tier === 'ELITE' || name.includes('elite')) return 4;
+          if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
+          if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
+          return 100;
+        };
+
+        const sorted = normalized.sort((a, b) => {
+          const rankA = getPlanRank(a);
+          const rankB = getPlanRank(b);
+          if (rankA !== rankB) return rankA - rankB;
+          return a.price - b.price;
+        });
+
+        setPlans(sorted);
       } else {
         setPlans(FALLBACK_PLANS);
       }
