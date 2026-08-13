@@ -26,6 +26,47 @@ interface AuthStore {
   isPremium: () => boolean;
 }
 
+const extractRoleName = (r: any): string => {
+  if (!r) return '';
+  if (typeof r === 'string') return r;
+  if (typeof r === 'object') {
+    return r.name || r.role?.name || r.displayName || '';
+  }
+  return String(r);
+};
+
+export const getUserMainRole = (user: any): string => {
+  if (!user) return 'MEMBER';
+
+  let roleStr = '';
+
+  if (user.role) {
+    roleStr = extractRoleName(user.role);
+  }
+
+  if ((!roleStr || roleStr === '[object Object]') && Array.isArray(user.roles) && user.roles.length > 0) {
+    for (const r of user.roles) {
+      const extracted = extractRoleName(r);
+      if (extracted && extracted !== '[object Object]') {
+        roleStr = extracted;
+        break;
+      }
+    }
+  }
+
+  if ((!roleStr || roleStr === '[object Object]') && Array.isArray(user.userRoles) && user.userRoles.length > 0) {
+    for (const ur of user.userRoles) {
+      const extracted = extractRoleName(ur.role || ur);
+      if (extracted && extracted !== '[object Object]') {
+        roleStr = extracted;
+        break;
+      }
+    }
+  }
+
+  return (roleStr && roleStr !== '[object Object]' ? roleStr : 'MEMBER').toUpperCase();
+};
+
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
@@ -97,12 +138,7 @@ export const useAuthStore = create<AuthStore>()(
       hasRole: (role) => {
         const user = get().user;
         if (!user) return false;
-        const mainRole = (
-          user.role ||
-          user.roles?.[0] ||
-          (user as any).userRoles?.[0]?.role?.name ||
-          'MEMBER'
-        ).toString().toUpperCase();
+        const mainRole = getUserMainRole(user);
         if (mainRole === 'SUPER_ADMIN') return true;
         return mainRole === role.toUpperCase();
       },
@@ -110,12 +146,7 @@ export const useAuthStore = create<AuthStore>()(
       hasAnyRole: (...roles) => {
         const user = get().user;
         if (!user) return false;
-        const mainRole = (
-          user.role ||
-          user.roles?.[0] ||
-          (user as any).userRoles?.[0]?.role?.name ||
-          'MEMBER'
-        ).toString().toUpperCase();
+        const mainRole = getUserMainRole(user);
         if (mainRole === 'SUPER_ADMIN') return true;
         return roles.some((r) => r.toUpperCase() === mainRole);
       },
@@ -124,21 +155,19 @@ export const useAuthStore = create<AuthStore>()(
         const user = get().user;
         if (!user) return false;
 
-        const mainRole = (
-          user.role ||
-          user.roles?.[0] ||
-          (user as any).userRoles?.[0]?.role?.name ||
-          'MEMBER'
-        ).toString().toUpperCase();
+        const mainRole = getUserMainRole(user);
 
-        if (mainRole === 'SUPER_ADMIN') return true;
+        // Always allow dashboard:view for ADMIN and SUPER_ADMIN so they can view their main dashboard
+        if (perm === 'dashboard:view' && (mainRole === 'ADMIN' || mainRole === 'SUPER_ADMIN')) {
+          return true;
+        }
 
         const savedMapStr = localStorage.getItem('s2s_role_permissions');
         if (savedMapStr) {
           try {
             const map = JSON.parse(savedMapStr);
             const rolePerms = map[mainRole];
-            if (Array.isArray(rolePerms)) {
+            if (Array.isArray(rolePerms) && rolePerms.length > 0) {
               return rolePerms.includes(perm);
             }
           } catch {
@@ -146,8 +175,14 @@ export const useAuthStore = create<AuthStore>()(
           }
         }
 
-        if (user.permissions && Array.isArray(user.permissions)) {
+        if (user.permissions && Array.isArray(user.permissions) && user.permissions.length > 0) {
           return user.permissions.includes(perm);
+        }
+
+        if (mainRole === 'SUPER_ADMIN') return true;
+
+        if (mainRole === 'ADMIN' || mainRole === 'MODERATOR' || mainRole === 'SUPPORT_AGENT') {
+          return perm !== 'admins:manage';
         }
 
         return false;

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { adminApi } from '../../services/admin.service';
 import { paymentsApi } from '../../services/payments.service';
 import api from '../../services/api';
+import { useAuthStore, getUserMainRole } from '../../store/auth.store';
 
 
 // Stub pages for public routes
@@ -701,26 +702,39 @@ export const NotFoundPage = () => (
   </div>
 );
 
-export const UnauthorizedPage = () => (
-  <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-    <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center">
-      <div className="w-20 h-20 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">
-        🔒
-      </div>
-      <h1 className="font-display text-3xl font-bold text-slate-900 mb-3">Access Restricted</h1>
-      <p className="text-slate-600 text-sm mb-8 leading-relaxed">
-        You do not have sufficient role permissions to view this section. If you believe this is an error, please switch to an admin account or return to your dashboard.
-      </p>
-      <div className="flex flex-col sm:flex-row gap-3 justify-center">
-        <Link to="/" className="px-5 py-3 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors">
-          Home Page
-        </Link>
-        <Link to="/dashboard" className="px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 text-white text-sm font-semibold hover:opacity-95 shadow-md transition-all">
-          Go to Dashboard
-        </Link>
+export const UnauthorizedPage = () => {
+  const { user } = useAuthStore();
+
+  const getDashboardLink = () => {
+    if (!user) return '/login';
+    const role = getUserMainRole(user);
+
+    if (role === 'SUPER_ADMIN') return '/super-admin/dashboard';
+    if (role === 'ADMIN' || role === 'MODERATOR' || role === 'SUPPORT_AGENT') return '/admin/dashboard';
+    return '/dashboard';
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+      <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center">
+        <div className="w-20 h-20 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">
+          🔒
+        </div>
+        <h1 className="font-display text-3xl font-bold text-slate-900 mb-3">Access Restricted</h1>
+        <p className="text-slate-600 text-sm mb-8 leading-relaxed">
+          You do not have sufficient role permissions to view this section. If you believe this is an error, please switch to an admin account or return to your dashboard.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Link to="/" className="px-5 py-3 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors">
+            Home Page
+          </Link>
+          <Link to={getDashboardLink()} className="px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 text-white text-sm font-semibold hover:opacity-95 shadow-md transition-all">
+            Go to Dashboard
+          </Link>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default {};

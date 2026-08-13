@@ -24,8 +24,21 @@ const ProfileCompletionGuard = () => {
   }
 
   // Admins and Super Admins bypass profile completion check
-  const adminRoles = ['ADMIN', 'SUPER_ADMIN'];
-  if (user.roles?.some((r) => adminRoles.includes(r))) {
+  const userRole = (
+    user.role ||
+    user.roles?.[0] ||
+    (user as any).userRoles?.[0]?.role?.name ||
+    'MEMBER'
+  ).toString().toUpperCase();
+
+  const adminRoles = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'SUPPORT_AGENT'];
+  if (
+    adminRoles.includes(userRole) ||
+    (Array.isArray(user.roles) &&
+      user.roles.some((r: any) =>
+        adminRoles.includes((typeof r === 'string' ? r : r?.name || '').toUpperCase())
+      ))
+  ) {
     return <Outlet />;
   }
 

@@ -9,16 +9,25 @@ import {
   ScrollText, Sliders, HelpCircle
 } from 'lucide-react';
 
-interface NavItem { icon: any; label: string; href: string; }
+interface NavItem { icon: any; label: string; href: string; requiredPermission?: string; }
 interface NavGroup { key: string; title: string; icon: any; items: NavItem[]; }
 
 import { useSettingsStore } from '../../store/settings.store';
+import { useEffect } from 'react';
 
 const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (v: boolean) => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user, logout, hasPermission } = useAuthStore();
   const logoUrl = useSettingsStore((s) => s.logoUrl);
+
+  const [, setPermTick] = useState(0);
+
+  useEffect(() => {
+    const handleUpdate = () => setPermTick((t) => t + 1);
+    window.addEventListener('s2s_permissions_updated', handleUpdate);
+    return () => window.removeEventListener('s2s_permissions_updated', handleUpdate);
+  }, []);
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     executive: true, platform: true, membership: false, content: false,
@@ -33,8 +42,8 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
       title: 'Executive',
       icon: LayoutDashboard,
       items: [
-        { icon: LayoutDashboard, label: 'Super Dashboard', href: '/super-admin/dashboard' },
-        { icon: DollarSign, label: 'Revenue Reports', href: '/super-admin/revenue' },
+        { icon: LayoutDashboard, label: 'Super Dashboard', href: '/super-admin/dashboard', requiredPermission: 'dashboard:view' },
+        { icon: DollarSign, label: 'Revenue Reports', href: '/super-admin/revenue', requiredPermission: 'revenue:view' },
       ],
     },
     {
@@ -42,9 +51,9 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
       title: 'Platform',
       icon: Globe,
       items: [
-        { icon: Globe, label: 'Communities', href: '/super-admin/communities' },
-        { icon: Users, label: 'All Members', href: '/super-admin/users' },
-        { icon: UserCheck, label: 'Profile Moderation', href: '/super-admin/profiles' },
+        { icon: Globe, label: 'Communities', href: '/super-admin/communities', requiredPermission: 'communities:read' },
+        { icon: Users, label: 'All Members', href: '/super-admin/users', requiredPermission: 'users:read' },
+        { icon: UserCheck, label: 'Profile Moderation', href: '/super-admin/profiles', requiredPermission: 'profiles:read' },
       ],
     },
     {
@@ -52,9 +61,9 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
       title: 'Membership & Payments',
       icon: Crown,
       items: [
-        { icon: Crown, label: 'Membership Plans', href: '/super-admin/plans' },
-        { icon: CreditCard, label: 'Payments', href: '/super-admin/payments' },
-        { icon: DollarSign, label: 'Banners', href: '/super-admin/banners' },
+        { icon: Crown, label: 'Membership Plans', href: '/super-admin/plans', requiredPermission: 'plans:read' },
+        { icon: CreditCard, label: 'Payments', href: '/super-admin/payments', requiredPermission: 'payments:view' },
+        { icon: DollarSign, label: 'Banners', href: '/super-admin/banners', requiredPermission: 'banners:read' },
       ],
     },
     {
@@ -62,11 +71,11 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
       title: 'Content & AI',
       icon: BookOpen,
       items: [
-        { icon: Heart, label: 'Success Stories', href: '/super-admin/success-stories' },
-        { icon: BookOpen, label: 'Blogs & CMS', href: '/super-admin/blogs' },
-        { icon: Sparkles, label: 'AI Biodata Engine', href: '/super-admin/ai-biodata' },
-        { icon: FileText, label: 'Biodata Form Entry', href: '/super-admin/biodata-entry' },
-        { icon: ScrollText, label: 'Biodata Records List', href: '/super-admin/biodata-list' },
+        { icon: Heart, label: 'Success Stories', href: '/super-admin/success-stories', requiredPermission: 'stories:read' },
+        { icon: BookOpen, label: 'Blogs & CMS', href: '/super-admin/blogs', requiredPermission: 'blogs:read' },
+        { icon: Sparkles, label: 'AI Biodata Engine', href: '/super-admin/ai-biodata', requiredPermission: 'ai_biodata:read' },
+        { icon: FileText, label: 'Biodata Form Entry', href: '/super-admin/biodata-entry', requiredPermission: 'biodata_entry:create' },
+        { icon: ScrollText, label: 'Biodata Records List', href: '/super-admin/biodata-list', requiredPermission: 'biodata_records:read' },
       ],
     },
     {
@@ -74,9 +83,8 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
       title: 'Administration',
       icon: Shield,
       items: [
-        { icon: Shield, label: 'Admins & Roles (UAM)', href: '/super-admin/admins' },
-        { icon: ScrollText, label: 'Audit Logs', href: '/super-admin/audit-logs' },
-        { icon: AlertTriangle, label: 'User Reports', href: '/super-admin/reports' },
+        { icon: Shield, label: 'Admins & Roles (UAM)', href: '/super-admin/admins', requiredPermission: 'admins:manage' },
+        { icon: ScrollText, label: 'Audit Logs', href: '/super-admin/audit-logs', requiredPermission: 'audit:view' },
       ],
     },
     {
@@ -84,12 +92,22 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
       title: 'System',
       icon: Settings,
       items: [
-        { icon: Sliders, label: 'System Settings', href: '/super-admin/system-settings' },
-        { icon: Settings, label: 'Settings', href: '/super-admin/settings' },
-        { icon: FileText, label: 'Legacy Logs', href: '/super-admin/logs' },
+        { icon: Sliders, label: 'System Settings', href: '/super-admin/system-settings', requiredPermission: 'settings:read' },
+        { icon: Settings, label: 'Settings', href: '/super-admin/settings', requiredPermission: 'general_settings:read' },
+        { icon: FileText, label: 'Legacy Logs', href: '/super-admin/logs', requiredPermission: 'legacy_logs:view' },
       ],
     },
   ];
+
+  const visibleNavGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (!item.requiredPermission) return true;
+        return hasPermission(item.requiredPermission);
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
 
   const isActive = (href: string) => {
     const currentUrl = location.pathname + location.search;
@@ -150,7 +168,7 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
 
       {/* Navigation Groups */}
       <nav className="flex-1 px-3 py-2 flex flex-col gap-3 overflow-y-auto">
-        {navGroups.map((group) => (
+        {visibleNavGroups.map((group) => (
           <div key={group.key}>
             <p className="px-3 text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">{group.title}</p>
             <div className="flex flex-col gap-0.5">
@@ -219,7 +237,7 @@ const SuperAdminLayout = () => {
       '/super-admin/success-stories': 'Success Stories',
       '/super-admin/ai-biodata': 'AI Biodata Engine',
       '/super-admin/audit-logs': 'Audit Logs',
-      '/super-admin/reports': 'Platform Reports',
+
       '/super-admin/system-settings': 'System Settings',
       '/super-admin/settings': 'Settings',
       '/super-admin/logs': 'System Logs',

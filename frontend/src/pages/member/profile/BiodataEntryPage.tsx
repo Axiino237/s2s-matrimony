@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Save, ArrowLeft, Printer, Sparkles, CheckCircle2, Upload, FileText, KeyRound, Eye, EyeOff, ShieldCheck, RotateCcw, Share2, MessageCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../services/api';
-import { useAuthStore } from '../../../store/auth.store';
+import { useAuthStore, getUserMainRole } from '../../../store/auth.store';
 import { useSettingsStore } from '../../../store/settings.store';
 import { STARS, RASIS, DOSHAMS, CASTE_SUBCASTES } from '../../../constants/index';
 
@@ -32,7 +32,10 @@ export default function BiodataEntryPage() {
   const enableBiodataForm = useSettingsStore((s) => s.enableBiodataForm);
   const logoUrl = useSettingsStore((s) => s.logoUrl);
 
-  if (enableBiodataForm === false) {
+  const mainRole = getUserMainRole(user);
+  const isStaff = ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'SUPPORT_AGENT'].includes(mainRole) || location.pathname.startsWith('/admin') || location.pathname.startsWith('/super-admin');
+
+  if (enableBiodataForm === false && !isStaff) {
     return (
       <div className="max-w-xl mx-auto py-20 px-4 text-center space-y-4">
         <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">

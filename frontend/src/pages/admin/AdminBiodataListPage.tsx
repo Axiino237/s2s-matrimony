@@ -370,14 +370,7 @@ export default function AdminBiodataListPage() {
             </span>
           </label>
 
-          <button
-            onClick={() => {
-              window.open('/print/blank-biodata', '_blank');
-            }}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-gradient-to-r from-amber-600 to-rose-700 hover:from-amber-700 hover:to-rose-800 text-white rounded-xl text-xs font-extrabold transition shadow-md"
-          >
-            <FileText className="w-4 h-4" /> Print Blank Form (கையெழுத்துப் படிவம்)
-          </button>
+
 
           <button
             onClick={() => {

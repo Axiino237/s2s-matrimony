@@ -6,7 +6,7 @@ import {
   ArrowRight, Star, Key, CheckCircle2, MessageSquare, Award,
   Eye, EyeOff, Mail, Info
 } from 'lucide-react';
-import { useAuthStore } from '../../store/auth.store';
+import { useAuthStore, getUserMainRole } from '../../store/auth.store';
 import { useSettingsStore } from '../../store/settings.store';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -82,22 +82,13 @@ const LoginPage = () => {
     const fromPath = location.state?.from?.pathname;
     const fromSearch = location.state?.from?.search || '';
 
-    const userRoleStr = (
-      user?.role ||
-      (Array.isArray(user?.roles) ? user?.roles[0] : user?.roles) ||
-      (user as any)?.userRoles?.[0]?.role?.name ||
-      'MEMBER'
-    ).toString().toUpperCase();
+    const mainRole = getUserMainRole(user);
 
-    const allRoles: string[] = Array.isArray(user?.roles)
-      ? user.roles.map((r: any) => (typeof r === 'string' ? r : r?.name || '').toUpperCase())
-      : ((user as any)?.userRoles ? (user as any).userRoles.map((ur: any) => (ur.role?.name || ur.name || '').toUpperCase()) : [userRoleStr]);
-
-    if (fromPath && fromPath !== '/login' && fromPath !== '/register') {
+    if (fromPath && !['/login', '/register', '/unauthorized'].includes(fromPath)) {
       navigate(fromPath + fromSearch);
-    } else if (userRoleStr === 'SUPER_ADMIN' || allRoles.includes('SUPER_ADMIN')) {
+    } else if (mainRole === 'SUPER_ADMIN') {
       navigate('/super-admin/dashboard');
-    } else if (userRoleStr === 'ADMIN' || allRoles.includes('ADMIN') || allRoles.includes('MODERATOR')) {
+    } else if (['ADMIN', 'MODERATOR', 'SUPPORT_AGENT'].includes(mainRole)) {
       navigate('/admin/dashboard');
     } else {
       navigate('/search');

@@ -76,7 +76,7 @@ import SuperAdminSettings from './pages/super-admin/SuperAdminSettings';
 import SuperAdminPlans from './pages/super-admin/SuperAdminPlans';
 import SuperAdminAuditLogs from './pages/super-admin/SuperAdminAuditLogs';
 import SuperAdminSystemSettings from './pages/super-admin/SuperAdminSystemSettings';
-import SuperAdminReports from './pages/super-admin/SuperAdminReports';
+
 import SuperAdminUsers from './pages/super-admin/SuperAdminUsers';
 
 // Error Pages
@@ -163,10 +163,10 @@ function App() {
             <Route element={<AdminLayout />}>
               <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/users" element={<SuperAdminUsers />} />
               <Route path="/admin/profiles" element={<AdminProfiles />} />
-              <Route path="/admin/communities" element={<AdminCommunities />} />
-              <Route path="/admin/plans" element={<AdminPlans />} />
+              <Route path="/admin/communities" element={<SuperAdminCommunities />} />
+              <Route path="/admin/plans" element={<SuperAdminPlans />} />
               <Route path="/admin/payments" element={<AdminPayments />} />
               <Route path="/admin/banners" element={<AdminBanners />} />
               <Route path="/admin/blogs" element={<AdminBlogs />} />
@@ -201,7 +201,7 @@ function App() {
               <Route path="/super-admin/biodata-list" element={<AdminBiodataListPage />} />
               <Route path="/super-admin/blogs" element={<AdminBlogs />} />
               <Route path="/super-admin/success-stories" element={<AdminSuccessStories />} />
-              <Route path="/super-admin/reports" element={<SuperAdminReports />} />
+
               <Route path="/super-admin/audit-logs" element={<SuperAdminAuditLogs />} />
               <Route path="/super-admin/system-settings" element={<SuperAdminSystemSettings />} />
               <Route path="/super-admin/settings" element={<SuperAdminSettings />} />

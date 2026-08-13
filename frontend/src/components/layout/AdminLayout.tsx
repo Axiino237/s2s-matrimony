@@ -135,11 +135,18 @@ const AdminSidebar = ({ isOpen }: { isOpen: boolean }) => {
     },
   ];
 
+  const [, setPermTick] = useState(0);
+
+  useEffect(() => {
+    const handleUpdate = () => setPermTick((t) => t + 1);
+    window.addEventListener('s2s_permissions_updated', handleUpdate);
+    return () => window.removeEventListener('s2s_permissions_updated', handleUpdate);
+  }, []);
+
   const visibleNavGroups = navGroups
     .map((group) => ({
       ...group,
       items: group.items.filter((item) => {
-        if (isSuperAdmin()) return true;
         if (!item.requiredPermission) return true;
         return hasPermission(item.requiredPermission);
       }),

@@ -265,8 +265,11 @@ export const OFFICIAL_PERMISSIONS: PermissionGroup[] = [
 ];
 
 export const ALL_PERM_KEYS = OFFICIAL_PERMISSIONS.flatMap((g) => g.perms.map((p) => p.key));
-export const ADMIN_PERM_KEYS = OFFICIAL_PERMISSIONS.filter(g => !g.category.includes('Member Portal')).flatMap((g) => g.perms.map((p) => p.key));
-export const MEMBER_PERM_KEYS = OFFICIAL_PERMISSIONS.filter(g => g.category.includes('Member Portal')).flatMap((g) => g.perms.map((p) => p.key));
+export const ADMIN_PERM_KEYS = OFFICIAL_PERMISSIONS
+  .filter((g) => !g.category.includes('Member Portal'))
+  .flatMap((g) => g.perms.map((p) => p.key))
+  .filter((k) => k !== 'admins:manage');
+export const MEMBER_PERM_KEYS = OFFICIAL_PERMISSIONS.filter((g) => g.category.includes('Member Portal')).flatMap((g) => g.perms.map((p) => p.key));
 
 export const INITIAL_ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: ALL_PERM_KEYS,
@@ -327,9 +330,7 @@ const SuperAdminAdmins = () => {
     const saved = localStorage.getItem('s2s_role_permissions');
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        parsed.SUPER_ADMIN = ALL_PERM_KEYS;
-        return parsed;
+        return JSON.parse(saved);
       } catch { return INITIAL_ROLE_PERMISSIONS; }
     }
     return INITIAL_ROLE_PERMISSIONS;
@@ -416,7 +417,6 @@ const SuperAdminAdmins = () => {
     fetchAdmins();
     superAdminService.getRolePermissions().then((data) => {
       if (data && Object.keys(data).length > 0) {
-        data.SUPER_ADMIN = ALL_PERM_KEYS;
         setRolePermissions(data);
         localStorage.setItem('s2s_role_permissions', JSON.stringify(data));
       }
@@ -467,10 +467,6 @@ const SuperAdminAdmins = () => {
   };
 
   const handleToggleRolePermission = (permKey: string) => {
-    if (selectedRole === 'SUPER_ADMIN') {
-      toast.error('Super Admin retains full system permissions at all times.');
-      return;
-    }
     const currentList = rolePermissions[selectedRole] || [];
     const updated = currentList.includes(permKey)
       ? currentList.filter((p) => p !== permKey)
@@ -481,10 +477,6 @@ const SuperAdminAdmins = () => {
   };
 
   const handleToggleCategory = (categoryPermKeys: string[]) => {
-    if (selectedRole === 'SUPER_ADMIN') {
-      toast.error('Super Admin retains full system permissions at all times.');
-      return;
-    }
     const currentList = rolePermissions[selectedRole] || [];
     const allIncluded = categoryPermKeys.every((k) => currentList.includes(k));
     const updated = allIncluded
@@ -496,13 +488,11 @@ const SuperAdminAdmins = () => {
   };
 
   const handleSelectAllRolePerms = () => {
-    if (selectedRole === 'SUPER_ADMIN') return;
     const newMap = { ...rolePermissions, [selectedRole]: ALL_PERM_KEYS };
     setRolePermissions(newMap);
   };
 
   const handleClearAllRolePerms = () => {
-    if (selectedRole === 'SUPER_ADMIN') return;
     const newMap = { ...rolePermissions, [selectedRole]: [] };
     setRolePermissions(newMap);
   };
@@ -511,18 +501,18 @@ const SuperAdminAdmins = () => {
     try {
       const currentList = rolePermissions[selectedRole] || [];
       const updatedMap = await superAdminService.updateRolePermissions(selectedRole, currentList);
-      const finalMap = (updatedMap && Object.keys(updatedMap).length > 0)
-        ? updatedMap
-        : rolePermissions;
+      const finalMap = {
+        ...rolePermissions,
+        ...(updatedMap && typeof updatedMap === 'object' ? updatedMap : {}),
+        [selectedRole]: currentList,
+      };
       
       setRolePermissions(finalMap);
       localStorage.setItem('s2s_role_permissions', JSON.stringify(finalMap));
       window.dispatchEvent(new Event('s2s_permissions_updated'));
       toast.success(`Role permissions updated & saved to Database for ${selectedRole.replace('_', ' ')}! 🎉`);
-    } catch {
-      localStorage.setItem('s2s_role_permissions', JSON.stringify(rolePermissions));
-      window.dispatchEvent(new Event('s2s_permissions_updated'));
-      toast.success(`Role permissions saved for ${selectedRole.replace('_', ' ')}!`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save permissions to database. Please try again.');
     }
   };
 
@@ -641,8 +631,7 @@ const SuperAdminAdmins = () => {
               const title = rObj.displayName || role;
               const desc = rObj.description || `${title} Role`;
               const isSelected = selectedRole === role;
-              const isSuperAdminRole = role === 'SUPER_ADMIN';
-              const count = isSuperAdminRole ? ALL_PERM_KEYS.length : getRolePermCount(role);
+              const count = getRolePermCount(role);
               const canDelete = !['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(role);
 
               return (
@@ -698,8 +687,7 @@ const SuperAdminAdmins = () => {
                 </p>
               </div>
 
-              {selectedRole !== 'SUPER_ADMIN' ? (
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                   {dbRoles.find(r => r.name === selectedRole) && !['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(selectedRole) && (
                     <button
                       type="button"
@@ -722,11 +710,6 @@ const SuperAdminAdmins = () => {
                     Save Role Permissions
                   </button>
                 </div>
-              ) : (
-                <div className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5" /> Full Root Access Granted
-                </div>
-              )}
             </div>
 
             <div className="space-y-5">
@@ -743,40 +726,33 @@ const SuperAdminAdmins = () => {
                         <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">{group.category}</h3>
                         <span className="text-[11px] font-bold text-slate-400">({enabledInGroup}/{categoryKeys.length})</span>
                       </div>
-                      {selectedRole !== 'SUPER_ADMIN' && (
-                        <button
+                      <button
                           type="button"
                           onClick={() => handleToggleCategory(categoryKeys)}
                           className="text-[11px] font-bold text-primary hover:underline"
                         >
                           {allGroupEnabled ? 'Deselect Category' : 'Select Category'}
                         </button>
-                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                      {group.perms.map((perm) => {
-                        const isSuper = selectedRole === 'SUPER_ADMIN';
-                        const active = isSuper || rolePerms.includes(perm.key);
-                        return (
+                      {group.perms.map((perm) => (
                           <button
                             key={perm.key}
-                            disabled={isSuper}
                             onClick={() => handleToggleRolePermission(perm.key)}
-                            className={`flex items-start justify-between p-3 rounded-xl text-left text-xs border transition-all ${
-                              active
+                            className={`flex items-start justify-between p-3 rounded-xl text-left text-xs border transition-all cursor-pointer ${
+                              rolePerms.includes(perm.key)
                                 ? 'bg-primary/10 border-primary/40 text-primary font-bold shadow-xs'
                                 : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                            } ${isSuper ? 'opacity-90 cursor-default' : 'cursor-pointer'}`}
+                            }`}
                           >
                             <div className="pr-2">
                               <p className="font-semibold">{perm.label}</p>
                               <code className="text-[10px] text-slate-400 font-mono">{perm.key}</code>
                             </div>
-                            {active && <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />}
+                            {rolePerms.includes(perm.key) && <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />}
                           </button>
-                        );
-                      })}
+                      ))}
                     </div>
                   </div>
                 );
