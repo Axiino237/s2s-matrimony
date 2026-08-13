@@ -1,13 +1,42 @@
 const { Client } = require('pg');
+const { default: EmbeddedPostgres } = require('embedded-postgres');
 const fs = require('fs');
 const path = require('path');
 
 async function main() {
-  const connectionString = 'postgresql://postgres:password@localhost:5432/s2s_matrimony';
-  console.log('Connecting to PostgreSQL at 5432...');
+  const dataDir = path.join(__dirname, 'data', 'postgres');
+  let pgServer = null;
 
-  const client = new Client({ connectionString });
-  await client.connect();
+  // Try connecting first
+  let client = new Client({ connectionString: 'postgresql://postgres:password@localhost:5432/s2s_matrimony' });
+  let connected = false;
+
+  try {
+    await client.connect();
+    connected = true;
+    console.log('Connected to existing PostgreSQL server on port 5432.');
+  } catch (err) {
+    console.log('No active PostgreSQL on 5432. Starting Embedded PostgreSQL...');
+    pgServer = new EmbeddedPostgres({
+      port: 5432,
+      databaseDir: dataDir,
+      user: 'postgres',
+      password: 'password',
+      persistent: true,
+      dbName: 's2s_matrimony',
+    });
+    try {
+      await pgServer.initialise();
+    } catch (e) {
+      // already initialized
+    }
+    await pgServer.start();
+    console.log('Embedded PostgreSQL started.');
+
+    client = new Client({ connectionString: 'postgresql://postgres:password@localhost:5432/s2s_matrimony' });
+    await client.connect();
+    connected = true;
+  }
 
   const targetDir = 'D:\\projects\\Aravindhan\\Aravindhan\\dumb db';
   if (!fs.existsSync(targetDir)) {
@@ -22,14 +51,14 @@ async function main() {
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const seconds = String(now.getSeconds()).padStart(2, '0');
 
-  const filename = `s2s_matrimony_dump_${year}${month}${day}_${hours}${minutes}${seconds}.sql`;
+  const filename = `s2s_matrimony_dump_${year}-${month}-${day}_${hours}-${minutes}-${seconds}.sql`;
   const fullPath = path.join(targetDir, filename);
 
   console.log(`Generating DB Dump to: ${fullPath}`);
 
   let dumpContent = `-- ========================================================\n`;
   dumpContent += `-- S2S Matrimony Database Dump\n`;
-  dumpContent += `-- Exported at: ${now.toISOString()}\n`;
+  dumpContent += `-- Exported at: ${now.toLocaleString()} (${now.toISOString()})\n`;
   dumpContent += `-- ========================================================\n\n`;
 
   dumpContent += `SET statement_timeout = 0;\n`;
@@ -63,7 +92,6 @@ async function main() {
     dumpContent += `TRUNCATE TABLE "${tableName}" CASCADE;\n`;
 
     if (rows.length > 0) {
-      // Get column names
       const cols = Object.keys(rows[0]).map(c => `"${c}"`).join(', ');
 
       for (const row of rows) {
@@ -73,7 +101,6 @@ async function main() {
           if (typeof val === 'number') return val;
           if (val instanceof Date) return `'${val.toISOString()}'`;
           if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
-          // String escaping
           return `'${String(val).replace(/'/g, "''")}'`;
         }).join(', ');
 
@@ -84,12 +111,17 @@ async function main() {
   }
 
   fs.writeFileSync(fullPath, dumpContent, 'utf8');
-  console.log(`Dump successfully created! File size: ${(fs.statSync(fullPath).size / 1024).toFixed(2)} KB`);
+  console.log(`Dump successfully created!\nFile: ${fullPath}\nSize: ${(fs.statSync(fullPath).size / 1024).toFixed(2)} KB`);
 
   await client.end();
+  if (pgServer) {
+    await pgServer.stop();
+    console.log('Embedded PostgreSQL stopped.');
+  }
 }
 
 main().catch(err => {
   console.error('Failed to export dump:', err);
   process.exit(1);
 });
+
