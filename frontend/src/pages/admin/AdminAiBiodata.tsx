@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Sparkles, FileText, Upload, CheckCircle2, Code, Copy, RefreshCw, Database, ExternalLink, Image as ImageIcon, XCircle, User } from 'lucide-react';
+import { Sparkles, Upload, CheckCircle2, Code, Copy, RefreshCw, Database, ExternalLink, Image as ImageIcon, XCircle, User } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { analyzeImageWithGemini, analyzeBase64ImageWithGemini } from '../../services/gemini.service';
 import { profilesApi } from '../../services/profiles.service';
 
 const SAMPLE_TAMIL_BIODATA = `MATRIMONIAL BIODATA
@@ -31,8 +32,6 @@ Address: No 45, Gandhi Street, T.Nagar, Chennai 600017
 Horoscope: Suddha Jathagam, Chevvai: No`;
 
 const AdminAiBiodata = () => {
-  const [activeTab, setActiveTab] = useState<'text' | 'file'>('text');
-  const [rawText, setRawText] = useState(SAMPLE_TAMIL_BIODATA);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
@@ -43,24 +42,26 @@ const AdminAiBiodata = () => {
   const [savedResult, setSavedResult] = useState<any>(null);
 
   const handleParse = async () => {
-    if (activeTab === 'text' && !rawText.trim()) {
-      return toast.error('Please paste or type biodata text first');
-    }
-    if (activeTab === 'file' && !imagePreview && !rawText.trim()) {
-      return toast.error('Please upload an image or document file first');
+    if (!imagePreview) {
+      return toast.error('Please upload a biodata image or document first');
     }
 
     setParsing(true);
     setSavedResult(null);
     try {
-      const data = await profilesApi.parseBiodata(
-        activeTab === 'file' && imagePreview ? '' : rawText,
-        imagePreview || undefined
-      );
+      let data: Record<string, any>;
+      toast.loading('🔍 Gemini Vision reading Tamil/English biodata image...', { id: 'g' });
+      if (selectedFile) {
+        data = await analyzeImageWithGemini(selectedFile);
+      } else {
+        data = await analyzeBase64ImageWithGemini(imagePreview);
+      }
+      toast.dismiss('g');
       setExtractedData(data);
-      toast.success('✨ AI extracted all biodata & horoscope fields successfully!');
-    } catch {
-      toast.error('Failed to extract biodata with AI');
+      toast.success('✨ Gemini AI extracted all biodata & horoscope fields successfully!');
+    } catch (err: any) {
+      toast.dismiss('g');
+      toast.error(err?.message || 'Failed to extract biodata with Gemini AI');
     } finally {
       setParsing(false);
     }
@@ -82,13 +83,7 @@ const AdminAiBiodata = () => {
       reader.readAsDataURL(file);
     } else {
       setImagePreview(null);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        setRawText(content || '');
-        toast.success(`Loaded file: ${file.name}`);
-      };
-      reader.readAsText(file);
+      toast.error('Please upload an image file (JPG, PNG, WEBP). Text/PDF not supported in image mode.');
     }
   };
 
@@ -120,15 +115,99 @@ const AdminAiBiodata = () => {
     if (!extractedData) return;
     setSaving(true);
     try {
-      const payload = {
-        ...extractedData,
-        profile_photo: profilePicPreview || extractedData.profile_photo || extractedData.profile?.profile_photo,
+      const d = extractedData;
+
+      // Support both structured and flat objects
+      const eduDegree = d.education?.degree || d.education?.highestQualification || d.education || null;
+      const eduCollege = d.education?.college || d.college || null;
+      const occ = d.career?.occupation || d.career?.designation || d.occupation || d.designation || null;
+      const comp = d.career?.company || d.company || null;
+      const loc = d.career?.workLocation || d.workLocation || d.currentCity || null;
+      const inc = d.career?.annualIncome || d.annualIncome || d.salary || null;
+      const fatName = d.family?.fatherName || d.fatherName || null;
+      const fatJob = d.family?.fatherOccupation || d.fatherOccupation || null;
+      const motName = d.family?.motherName || d.motherName || null;
+      const motJob = d.family?.motherOccupation || d.motherOccupation || null;
+      const mob = d.contact?.mobile || d.mobile || null;
+      const em = d.contact?.email || d.email || null;
+      const addr = d.contact?.address || d.address || null;
+      const city = d.contact?.currentCity || d.currentCity || null;
+      const exp = d.expectations || d.aboutPartner || null;
+
+      const nested = {
+        profile: {
+          name: d.name || d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim() || null,
+          first_name: d.firstName || (d.name ? String(d.name).split(' ')[0] : null),
+          last_name: d.lastName || (d.name ? String(d.name).split(' ').slice(1).join(' ') : null),
+          gender: d.gender || null,
+          dob: d.dateOfBirth || d.dob || null,
+          age: d.age || null,
+          height: d.height || (d.heightCm ? `${d.heightCm} cm` : null),
+          height_cm: d.heightCm || null,
+          weight: d.weight || (d.weightKg ? `${d.weightKg} kg` : null),
+          complexion: d.complexion || null,
+          blood_group: d.bloodGroup || null,
+          mother_tongue: d.motherTongue || 'Tamil',
+          religion: d.religion || null,
+          caste: d.caste || null,
+          sub_caste: d.subCaste || null,
+          gothram: d.gothram || null,
+          rasi: d.horoscope?.rasi || d.rasi || null,
+          nakshatra: d.horoscope?.nakshatra || d.nakshatra || d.star || null,
+          chevvai: d.horoscope?.chevvai || d.chevvai || d.dosham || null,
+          marital_status: d.maritalStatus || null,
+          disability: d.disability || null,
+          about: d.about || null,
+          birth_place: d.birthPlace || d.horoscope?.birthPlace || null,
+          birth_time: d.birthTime || d.horoscope?.birthTime || null,
+          horoscope_details: d.horoscopeDetails || d.horoscope?.horoscopeDetails || null,
+          member_id: d.memberId || null,
+          profile_photo: profilePicPreview || d.profilePhotoUrl || null,
+        },
+        education: {
+          highest_qualification: eduDegree,
+          degree: eduDegree ? [eduDegree] : [],
+          college: eduCollege,
+          university: eduCollege,
+        },
+        career: {
+          occupation: occ,
+          designation: occ,
+          company: comp,
+          work_location: loc,
+          annual_income: inc,
+        },
+        family: {
+          father_name: fatName,
+          father_occupation: fatJob,
+          mother_name: motName,
+          mother_occupation: motJob,
+          siblings: d.family?.siblings ?? d.siblings ?? null,
+          elder_brothers: d.family?.elderBrothers ?? d.elderBrothers ?? 0,
+          younger_brothers: d.family?.youngerBrothers ?? d.youngerBrothers ?? 0,
+          elder_sisters: d.family?.elderSisters ?? d.elderSisters ?? 0,
+          younger_sisters: d.family?.youngerSisters ?? d.youngerSisters ?? 0,
+          family_type: d.family?.familyType || d.familyType || null,
+          family_status: d.family?.familyStatus || d.familyStatus || null,
+          native_place: d.family?.nativePlace || d.nativePlace || null,
+          property_assets: d.family?.propertyAssets || d.propertyAssets || d.propertyDetails || null,
+        },
+        contact: {
+          mobile: mob ? [String(mob).replace(/[^\d,]/g, '').split(',')[0]] : [],
+          email: em,
+          address: addr,
+          current_city: city,
+        },
+        expectations: exp,
       };
-      const result = await profilesApi.saveParsedProfile(payload);
+
+      const result = await profilesApi.saveParsedProfile(nested);
       setSavedResult(result);
-      toast.success(`🎉 Profile & Photo successfully stored in Database! (ID: ${result.profileId})`);
+      toast.success(`🎉 Profile saved to Database successfully! (ID: ${result.profileId || result.id || 'saved'})`);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to save profile to database');
+      const msg = err?.response?.data?.message || err?.message || 'Failed to save profile to database';
+      toast.error(msg);
+      console.error('Save error:', err?.response?.data || err);
     } finally {
       setSaving(false);
     }
@@ -166,43 +245,7 @@ const AdminAiBiodata = () => {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Left Column — Input */}
         <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
-              <button
-                onClick={() => setActiveTab('text')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  activeTab === 'text' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" /> Text Input
-              </button>
-              <button
-                onClick={() => setActiveTab('file')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  activeTab === 'file' ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                <Upload className="w-3.5 h-3.5" /> Document / Photo
-              </button>
-            </div>
-
-            <button
-              onClick={() => { setActiveTab('text'); setRawText(SAMPLE_TAMIL_BIODATA); }}
-              className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
-            >
-              <Sparkles className="w-3.5 h-3.5" /> Load Sample
-            </button>
-          </div>
-
-          {activeTab === 'text' ? (
-            <textarea
-              rows={14}
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder="Paste biodata here..."
-              className="input w-full font-mono text-xs leading-relaxed p-4 bg-slate-50 border-slate-200 focus:bg-white"
-            />
-          ) : imagePreview ? (
+          {imagePreview ? (
             <div className="border border-slate-200 rounded-2xl p-4 bg-slate-900 text-white space-y-3 relative group">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                 <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
@@ -229,6 +272,7 @@ const AdminAiBiodata = () => {
               <div>
                 <p className="text-text-primary font-bold text-sm">Upload Biodata Document or Image</p>
                 <p className="text-text-muted text-xs mt-1">Supports JPG, PNG, WEBP, PDF, or TXT files</p>
+                <p className="text-[10px] text-emerald-600 font-bold mt-1.5 bg-emerald-50 inline-block px-2 py-0.5 rounded-full">✦ Powered by Google Gemini 1.5 Flash Vision — reads Tamil, English, Hindi</p>
               </div>
               <input
                 type="file"

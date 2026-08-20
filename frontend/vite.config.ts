@@ -7,7 +7,7 @@ export default defineConfig({
     proxy: {
       // Proxy all /api/* calls to the NestJS backend at port 3001
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'http://localhost:3002',
         changeOrigin: true,
         secure: false,
       },

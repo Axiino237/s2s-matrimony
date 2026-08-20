@@ -332,6 +332,7 @@ model Profile {
   branch                  String?
   residentStatus          String?
   propertyDetails         String?
+  biodataJson             String?
   status                  ProfileStatus @default(PENDING)
   isVerified              Boolean       @default(false)
   verificationStatus      VerificationStatus @default(UNVERIFIED)

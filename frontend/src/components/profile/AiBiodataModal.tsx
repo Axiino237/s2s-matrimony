@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Sparkles, FileText, Upload, CheckCircle2, X, Loader2, Code } from 'lucide-react';
+import { Sparkles, FileText, Upload, CheckCircle2, X, Loader2, Code, Eye, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { profilesApi } from '../../services/profiles.service';
+import { analyzeImageWithGemini, analyzeTextWithGemini } from '../../services/gemini.service';
 
 interface AiBiodataModalProps {
   isOpen: boolean;
@@ -41,6 +41,8 @@ export const AiBiodataModal = ({ isOpen, onClose, onApplyExtracted }: AiBiodataM
   const [rawText, setRawText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -48,14 +50,27 @@ export const AiBiodataModal = ({ isOpen, onClose, onApplyExtracted }: AiBiodataM
     if (activeTab === 'text' && !rawText.trim()) {
       return toast.error('Please paste or type biodata text first');
     }
+    if (activeTab === 'file' && !uploadedFile) {
+      return toast.error('Please upload a biodata image or document first');
+    }
 
     setParsing(true);
     try {
-      const data = await profilesApi.parseBiodata(rawText);
+      let data: Record<string, any>;
+      if (activeTab === 'file' && uploadedFile) {
+        toast.loading('🔍 Gemini Vision is reading your biodata image...', { id: 'gemini' });
+        data = await analyzeImageWithGemini(uploadedFile);
+        toast.dismiss('gemini');
+      } else {
+        toast.loading('🤖 Gemini AI is parsing your biodata text...', { id: 'gemini' });
+        data = await analyzeTextWithGemini(rawText);
+        toast.dismiss('gemini');
+      }
       setExtractedData(data);
-      toast.success('✨ AI extracted all biodata fields successfully!');
-    } catch {
-      toast.error('Failed to extract biodata with AI');
+      toast.success('✨ Gemini AI extracted all biodata fields successfully!');
+    } catch (err: any) {
+      toast.dismiss('gemini');
+      toast.error(err?.message || 'Failed to extract biodata with Gemini AI');
     } finally {
       setParsing(false);
     }
@@ -65,13 +80,26 @@ export const AiBiodataModal = ({ isOpen, onClose, onApplyExtracted }: AiBiodataM
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setRawText(content || file.name);
-      toast.success(`Loaded document: ${file.name}`);
-    };
-    reader.readAsText(file);
+    setUploadedFile(file);
+    setExtractedData(null);
+
+    // Show image preview for image files
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImagePreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setImagePreview(null);
+      // For text/PDF, read as text fallback
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setRawText(event.target?.result as string || '');
+      };
+      reader.readAsText(file);
+    }
+    toast.success(`📎 Loaded: ${file.name}`);
   };
 
   const handleApply = () => {
@@ -147,22 +175,62 @@ export const AiBiodataModal = ({ isOpen, onClose, onApplyExtracted }: AiBiodataM
               />
             </div>
           ) : (
-            <div className="border-2 border-dashed border-slate-200 hover:border-primary/40 rounded-2xl p-8 text-center bg-slate-50/50 hover:bg-white transition-all space-y-3">
-              <Upload className="w-10 h-10 text-primary mx-auto animate-bounce" />
-              <div>
-                <p className="text-text-primary font-bold text-sm">Upload Biodata File (Image, PDF, DOCX)</p>
-                <p className="text-text-muted text-xs mt-1">Supports scanned documents, Mobile camera photos, or WhatsApp images</p>
-              </div>
-              <input
-                type="file"
-                accept="image/*,.pdf,.txt"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="biodata-file-input"
-              />
-              <label htmlFor="biodata-file-input" className="btn btn-secondary btn-sm cursor-pointer inline-flex items-center gap-2">
-                Browse Files
-              </label>
+            <div className="space-y-3">
+              {/* Upload Zone */}
+              {!imagePreview ? (
+                <div className="border-2 border-dashed border-slate-200 hover:border-primary/40 rounded-2xl p-8 text-center bg-slate-50/50 hover:bg-white transition-all space-y-3">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/10 to-amber-100 flex items-center justify-center mx-auto">
+                    <ImageIcon className="w-7 h-7 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-text-primary font-bold text-sm">Upload Biodata Image / Document</p>
+                    <p className="text-text-muted text-xs mt-1">📸 Gemini Vision AI reads scanned photos, WhatsApp images, camera shots</p>
+                    <p className="text-[10px] text-emerald-600 font-bold mt-1.5 bg-emerald-50 inline-block px-2 py-0.5 rounded-full">✦ Powered by Google Gemini 1.5 Flash Vision</p>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf,.txt"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="biodata-file-input"
+                  />
+                  <label htmlFor="biodata-file-input" className="btn btn-secondary btn-sm cursor-pointer inline-flex items-center gap-2">
+                    <Upload className="w-4 h-4" /> Browse Files
+                  </label>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Image Preview */}
+                  <div className="relative rounded-2xl overflow-hidden border-2 border-primary/20 bg-slate-900">
+                    <img
+                      src={imagePreview}
+                      alt="Biodata preview"
+                      className="w-full max-h-64 object-contain"
+                    />
+                    <div className="absolute top-2 right-2 flex gap-2">
+                      <span className="text-[10px] bg-black/70 text-emerald-300 px-2 py-1 rounded-full font-bold border border-emerald-800">
+                        ✦ Ready for Gemini Vision
+                      </span>
+                      <button
+                        onClick={() => { setImagePreview(null); setUploadedFile(null); }}
+                        className="bg-black/60 hover:bg-red-500/80 text-white rounded-full p-1 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-text-muted flex items-center gap-1.5">
+                      <Eye className="w-3.5 h-3.5 text-primary" />
+                      {uploadedFile?.name}
+                    </p>
+                    <label htmlFor="biodata-file-input" className="text-xs text-primary font-bold hover:underline cursor-pointer">
+                      Change Image
+                    </label>
+                    <input type="file" accept="image/*,.pdf,.txt" onChange={handleFileUpload} className="hidden" id="biodata-file-input" />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

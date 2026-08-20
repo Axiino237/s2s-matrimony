@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Gender } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { devStore } from '../common/dev-store';
+import { buildCanonicalProfileJson } from '../common/profile-json-formatter';
 
 @Injectable()
 export class ProfilesService {
@@ -175,6 +176,8 @@ export class ProfilesService {
           familyStatus: profile.family?.familyStatus || devUser.familyStatus || 'MIDDLE',
           familyValues: profile.family?.familyValues || devUser.familyValues || 'MODERATE',
         },
+        biodataJson: (profile as any).biodataJson || JSON.stringify(buildCanonicalProfileJson(profile)),
+        profileJson: (profile as any).biodataJson ? JSON.parse((profile as any).biodataJson) : buildCanonicalProfileJson(profile),
       };
     } catch (err: any) {
       if (err instanceof NotFoundException) throw err;
@@ -278,7 +281,12 @@ export class ProfilesService {
     }).catch(() => null);
 
     if (!profile) throw new NotFoundException('Profile not found');
-    return profile;
+    const canonicalJson = (profile as any).biodataJson ? JSON.parse((profile as any).biodataJson) : buildCanonicalProfileJson(profile);
+    return {
+      ...profile,
+      biodataJson: (profile as any).biodataJson || JSON.stringify(canonicalJson),
+      profileJson: canonicalJson,
+    };
   }
 
   async updateProfile(userId: string, data: any) {
@@ -586,6 +594,33 @@ export class ProfilesService {
               heightMax: data.prefHeightMax ? Number(data.prefHeightMax) : undefined,
               aboutPartner: aboutObj,
             },
+          }).catch(() => null);
+        }
+      }
+
+      if (profileId) {
+        const fullProfile = await this.prisma.profile.findUnique({
+          where: { id: profileId },
+          include: {
+            user: true,
+            religion: true,
+            community: true,
+            caste: true,
+            subCaste: true,
+            photos: true,
+            education: true,
+            occupation: true,
+            family: true,
+            horoscope: true,
+            partnerPreference: true,
+          },
+        }).catch(() => null);
+
+        if (fullProfile) {
+          const canonicalJson = buildCanonicalProfileJson(fullProfile, data, 'PROFILE_UPDATE');
+          await this.prisma.profile.update({
+            where: { id: profileId },
+            data: { biodataJson: JSON.stringify(canonicalJson) },
           }).catch(() => null);
         }
       }
@@ -1107,6 +1142,29 @@ export class ProfilesService {
       }).catch(() => null);
     }
 
+    const fullProfile = await this.prisma.profile.findUnique({
+      where: { id: profile.id },
+      include: {
+        user: true,
+        religion: true,
+        community: true,
+        caste: true,
+        subCaste: true,
+        photos: true,
+        education: true,
+        occupation: true,
+        family: true,
+        horoscope: true,
+        partnerPreference: true,
+      },
+    }).catch(() => null);
+
+    const canonicalJson = buildCanonicalProfileJson(fullProfile || profile, extractedData, 'AI_OCR');
+    await this.prisma.profile.update({
+      where: { id: profile.id },
+      data: { biodataJson: JSON.stringify(canonicalJson) },
+    }).catch(() => null);
+
     return {
       success: true,
       message: 'Parsed AI Biodata successfully saved to Database!',
@@ -1115,6 +1173,7 @@ export class ProfilesService {
       displayName: profile.displayName,
       email: user.email,
       phone: user.phone,
+      profileJson: canonicalJson,
     };
   }
 }
