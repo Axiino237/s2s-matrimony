@@ -18,8 +18,8 @@ const INITIAL_SETTINGS: SettingSection[] = [
     section: 'General',
     fields: [
       { label: 'Site Name', value: 'S2S Matrimony' },
-      { label: 'Support Email', value: 'support@s2smatrimony.com', type: 'email' },
-      { label: 'Support Phone', value: '+91 44 1234 5678', type: 'tel' },
+      { label: 'Support Email', value: 's2smdoffice@gmail.com', type: 'email' },
+      { label: 'Support Phone', value: '+91 84380 11191', type: 'tel' },
     ],
   },
   {

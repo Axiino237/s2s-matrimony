@@ -7,10 +7,16 @@ export const paymentsApi = {
       return res.data;
     } catch {
       return [
-        { id: 'plan-free', name: 'Free', price: '0', duration: 'Lifetime', tier: 'FREE', contactLimit: 5, features: ['5 Interests/day', 'Basic Search', '5 Contact Views'] },
-        { id: 'plan-silver', name: 'Silver', price: '599', duration: '1 month', tier: 'SILVER', contactLimit: 50, features: ['50 Interests/day', 'Advanced Search', '50 Contacts', 'Chat Access'] },
-        { id: 'plan-elite', name: 'Elite', price: '999', duration: '3 months', tier: 'ELITE', isPopular: true, contactLimit: 100, features: ['Unlimited Interests', 'All Features', '100 Contacts', 'Priority Listing', 'AI Match'] },
-        { id: 'plan-platinum', name: 'Platinum', price: '1799', duration: '6 months', tier: 'PLATINUM', contactLimit: 999, features: ['Everything+', 'Unlimited Contacts', 'Video Profile', 'Dedicated Manager'] },
+        // General Plans
+        { id: 'gen-free', name: 'Free Starter', category: 'GENERAL', price: '0', duration: 'Lifetime', tier: 'FREE', contactLimit: 5, features: ['5 Daily Express Interests', 'Basic Search (Age, Religion, Caste)', '5 Profile & Photo Views/day', 'Basic Compatibility Score'] },
+        { id: 'gen-silver', name: 'Silver Plan', category: 'GENERAL', price: '599', duration: '1 Month', tier: 'SILVER', contactLimit: 50, features: ['50 Daily Express Interests', 'Advanced Search Filters', '50 Contact Unlocks', 'Direct Instant Messaging & Live Chat', 'Full Horoscope Overview'] },
+        { id: 'gen-gold', name: 'Gold Plan', category: 'GENERAL', price: '1199', duration: '3 Months', tier: 'GOLD', isPopular: true, contactLimit: 150, features: ['UNLIMITED Express Interests', '150 Contact Unlocks', 'Unlimited Direct Messaging & Chat', 'Full Horoscope & Porutham Match Reports', 'Priority Profile Placement'] },
+        { id: 'gen-platinum', name: 'Platinum Plan', category: 'GENERAL', price: '1999', duration: '6 Months', tier: 'PLATINUM', contactLimit: 300, features: ['UNLIMITED Express Interests', '300 Contact Unlocks', 'Unlimited Chat & Messaging', 'Full Horoscope & 10 Porutham Reports', 'TOP 5 Featured Placement', 'Complete Privacy Shield'] },
+
+        // Elite Plans
+        { id: 'elite-silver', name: 'Elite Silver', category: 'ELITE', price: '4999', duration: '3 Months', tier: 'SILVER', contactLimit: 500, features: ['Dedicated Matchmaking Advisor', '15 Curated & Handpicked Introductions', 'Personal Profile Screening & Verification', 'Confidential Contact Information Sharing', 'Full Astrological & Horoscope Matching'] },
+        { id: 'elite-gold', name: 'Elite Gold', category: 'ELITE', price: '9999', duration: '6 Months', tier: 'GOLD', isPopular: true, contactLimit: 1000, features: ['Senior Personal Relationship Manager', '35 Handpicked & Pre-Screened Matches', 'Family Meeting Setup & Facilitation', 'Discreet Introductions & Complete Discretion', 'In-Depth Background & Horoscope Verification'] },
+        { id: 'elite-platinum', name: 'Elite Platinum', category: 'ELITE', price: '18999', duration: 'Till Marriage (12M)', tier: 'PLATINUM', contactLimit: 9999, features: ['Senior Director & Dedicated Matchmaking Team', 'UNLIMITED Curated & Vetted Introductions', 'End-to-End Family Coordination & Scheduling', 'Strict NDA & Total Privacy Protection', '24/7 Dedicated Concierge Support'] },
       ];
     }
   },

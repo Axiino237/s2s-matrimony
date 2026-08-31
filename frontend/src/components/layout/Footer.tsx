@@ -79,11 +79,11 @@ const Footer = () => {
               </li>
               <li className="flex items-center gap-2 text-sm text-text-secondary">
                 <span>📞</span>
-                <a href="tel:+914412345678" className="hover:text-primary transition-colors">+91 44 1234 5678</a>
+                <a href="tel:+918438011191" className="hover:text-primary transition-colors">+91 84380 11191</a>
               </li>
               <li className="flex items-center gap-2 text-sm text-text-secondary">
                 <span>✉️</span>
-                <a href="mailto:support@s2smatrimony.com" className="hover:text-primary transition-colors">support@s2smatrimony.com</a>
+                <a href="mailto:s2smdoffice@gmail.com" className="hover:text-primary transition-colors">s2smdoffice@gmail.com</a>
               </li>
               <li className="text-sm text-text-secondary">
                 <span>🕐</span> Mon–Sat: 9 AM – 6 PM
@@ -94,11 +94,15 @@ const Footer = () => {
 
         {/* Bottom Bar */}
         <div className="border-t border-slate-200 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-text-muted text-sm text-center md:text-left">
-            © {year} S2S Matrimony. All rights reserved. Built with ❤️ for our community.
-          </p>
-          <div className="flex items-center gap-6">
-            <img src="https://razorpay.com/assets/razorpay-glyph.svg" alt="Razorpay" className="h-5 opacity-50" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          <div className="text-text-muted text-sm text-center md:text-left flex flex-wrap items-center justify-center md:justify-start gap-x-2 gap-y-1">
+            <span>© {year} S2S Matrimony. All rights reserved.</span>
+            <span className="hidden sm:inline text-slate-300">•</span>
+            <span className="font-medium text-slate-700">
+              Developed by <span className="font-bold text-primary hover:underline cursor-pointer">Axiino</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <img src="https://razorpay.com/assets/razorpay-glyph.svg" alt="Razorpay" className="h-4 opacity-60" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             <span className="text-text-muted text-xs">Secure Payments by Razorpay</span>
           </div>
         </div>

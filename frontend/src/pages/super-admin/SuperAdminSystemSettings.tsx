@@ -153,16 +153,16 @@ const SuperAdminSystemSettings = () => {
     gradientDirection: 'to right',
     logoUrl: '/images/logo.png',
     faviconUrl: '/favicon.ico',
-    supportEmail: 'support@s2smatrimony.com',
-    supportPhone: '+91 98765 43210',
+    supportEmail: 's2smdoffice@gmail.com',
+    supportPhone: '+91 84380 11191',
 
     // Email / SMTP
     smtpHost: 'smtp.gmail.com',
     smtpPort: '587',
-    smtpUser: '',
+    smtpUser: 's2smdoffice@gmail.com',
     smtpPass: '',
     smtpFromName: 'S2S Matrimony',
-    smtpFromEmail: 'noreply@s2smatrimony.com',
+    smtpFromEmail: 's2smdoffice@gmail.com',
 
     // SMS / OTP
     smsProvider: 'twilio',

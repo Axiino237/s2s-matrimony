@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { Heart, Loader2, RefreshCw, Plus, CheckCircle2, X, Trash2, Pencil } from 'lucide-react';
+import { Heart, Loader2, RefreshCw, Plus, CheckCircle2, X, Trash2, Pencil, FolderOpen } from 'lucide-react';
 import { adminApi } from '../../services/admin.service';
 
 type Story = {
@@ -264,26 +264,91 @@ const AdminSuccessStories = () => {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-text-muted mb-1">Photo Image URL</label>
+              {/* Photo Image with Browse Option */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-text-muted">Couple Photo Image</label>
+                  <span className="text-[11px] text-slate-400">Browse file or paste URL</span>
+                </div>
+
+                <div className="flex gap-2 items-center">
                   <input
                     type="text"
                     value={form.photo}
                     onChange={(e) => setForm({ ...form, photo: e.target.value })}
                     placeholder="/images/couple_happy.png"
-                    className="input w-full"
+                    className="input flex-1 text-xs"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-text-muted mb-1">Marriage Date</label>
                   <input
-                    type="date"
-                    value={form.marriageDate}
-                    onChange={(e) => setForm({ ...form, marriageDate: e.target.value })}
-                    className="input w-full"
+                    type="file"
+                    id="story-photo-file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error('Image size should be less than 5MB');
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          if (event.target?.result) {
+                            setForm({ ...form, photo: event.target.result as string });
+                            toast.success('Photo loaded successfully! 📸');
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
                   />
+                  <label
+                    htmlFor="story-photo-file"
+                    className="btn btn-secondary btn-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap px-3 py-2 font-bold shadow-xs hover:bg-slate-200"
+                  >
+                    <FolderOpen className="w-4 h-4 text-primary" />
+                    <span>Browse</span>
+                  </label>
                 </div>
+
+                {form.photo && (
+                  <div className="flex items-center gap-3 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-300 bg-white flex-shrink-0">
+                      <img
+                        src={form.photo}
+                        alt="Couple preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/images/couple_happy.png';
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-800 truncate">Photo Selected</p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        {form.photo.startsWith('data:') ? 'Local file uploaded' : form.photo}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, photo: '' })}
+                      className="text-xs text-rose-500 hover:text-rose-700 font-semibold p-1 hover:bg-rose-50 rounded"
+                      title="Clear photo"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-text-muted mb-1">Marriage Date</label>
+                <input
+                  type="date"
+                  value={form.marriageDate}
+                  onChange={(e) => setForm({ ...form, marriageDate: e.target.value })}
+                  className="input w-full"
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-text-muted mb-1">Success Story *</label>

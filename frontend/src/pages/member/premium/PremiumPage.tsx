@@ -13,6 +13,7 @@ declare global {
 export interface PlanItem {
   id: string;
   name: string;
+  category?: 'GENERAL' | 'ELITE';
   price: string | number;
   duration?: string;
   tier: string;
@@ -61,28 +62,41 @@ const loadRazorpayScript = (): Promise<boolean> => {
 
 const PremiumPage = () => {
   const { user, fetchMe } = useAuthStore();
+  const [category, setCategory] = useState<'GENERAL' | 'ELITE' | null>(null);
   const [plans, setPlans] = useState<PlanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
+
+  const defaultPlans: PlanItem[] = [
+    // General Plans
+    { id: 'gen-free', name: 'Free Starter', category: 'GENERAL', price: '0', duration: 'Lifetime', tier: 'FREE', contactLimit: 5, features: ['5 Daily Express Interests', 'Basic Search (Age, Religion, Caste)', '5 Profile & Photo Views/day', 'Basic Compatibility Score'] },
+    { id: 'gen-silver', name: 'Silver Plan', category: 'GENERAL', price: '599', duration: '1 Month', tier: 'SILVER', contactLimit: 50, features: ['50 Daily Express Interests', 'Advanced Search Filters', '50 Contact Unlocks', 'Direct Instant Messaging & Live Chat', 'Full Horoscope Overview'] },
+    { id: 'gen-gold', name: 'Gold Plan', category: 'GENERAL', price: '1199', duration: '3 Months', tier: 'GOLD', isPopular: true, contactLimit: 150, features: ['UNLIMITED Express Interests', '150 Contact Unlocks', 'Unlimited Direct Messaging & Chat', 'Full Horoscope & Porutham Match Reports', 'Priority Profile Placement'] },
+    { id: 'gen-platinum', name: 'Platinum Plan', category: 'GENERAL', price: '1999', duration: '6 Months', tier: 'PLATINUM', contactLimit: 300, features: ['UNLIMITED Express Interests', '300 Contact Unlocks', 'Unlimited Chat & Messaging', 'Full Horoscope & 10 Porutham Reports', 'TOP 5 Featured Placement', 'Complete Privacy Shield'] },
+
+    // Elite Plans
+    { id: 'elite-silver', name: 'Elite Silver', category: 'ELITE', price: '4999', duration: '3 Months', tier: 'SILVER', contactLimit: 500, features: ['Dedicated Matchmaking Advisor', '15 Curated & Handpicked Introductions', 'Personal Profile Screening & Verification', 'Confidential Contact Information Sharing', 'Full Astrological & Horoscope Matching'] },
+    { id: 'elite-gold', name: 'Elite Gold', category: 'ELITE', price: '9999', duration: '6 Months', tier: 'GOLD', isPopular: true, contactLimit: 1000, features: ['Senior Personal Relationship Manager', '35 Handpicked & Pre-Screened Matches', 'Family Meeting Setup & Facilitation', 'Discreet Introductions & Complete Discretion', 'In-Depth Background & Horoscope Verification'] },
+    { id: 'elite-platinum', name: 'Elite Platinum', category: 'ELITE', price: '18999', duration: 'Till Marriage (12M)', tier: 'PLATINUM', contactLimit: 9999, features: ['Senior Director & Dedicated Matchmaking Team', 'UNLIMITED Curated & Vetted Introductions', 'End-to-End Family Coordination & Scheduling', 'Strict NDA & Total Privacy Protection', '24/7 Dedicated Concierge Support'] },
+  ];
 
   useEffect(() => {
     paymentsApi
       .getPlans()
       .then((res) => {
         if (Array.isArray(res) && res.length > 0) {
-          setPlans(sortPlans(res));
+          const mapped = res.map((p: any) => ({
+            ...p,
+            category: p.category || (p.name?.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL'),
+          }));
+          setPlans(sortPlans(mapped));
         } else {
-          setPlans(
-            sortPlans([
-              { id: 'plan-free', name: 'Free Plan', price: '0', duration: 'Lifetime', tier: 'FREE', contactLimit: 5, features: ['5 Daily Express Interests', 'Basic Profile Search Filters', '5 Verified Candidate Contact Views'] },
-              { id: 'plan-silver', name: 'Silver Plan', price: '599', duration: '1 Month', tier: 'SILVER', contactLimit: 50, features: ['50 Daily Express Interests', 'Advanced Search Filters', '50 Contact Views', 'Direct Chat Access'] },
-              { id: 'plan-gold', name: 'Gold Plan', price: '999', duration: '3 Months', tier: 'GOLD', isPopular: true, contactLimit: 100, features: ['Unlimited Express Interests', 'Advanced Search & Dosha Filters', '100 Contact Unlocks', 'Direct Chat Messaging', 'Priority Profile Ranking', 'AI Match Score'] },
-              { id: 'plan-elite', name: 'Elite Plan', price: '1799', duration: '6 Months', tier: 'ELITE', contactLimit: 999, features: ['Everything in Gold +', 'Unlimited Contact Unlocks', 'Highlighted Profile Badge', 'Dedicated Relationship Manager', 'Direct Chat & Phone Access'] },
-            ])
-          );
+          setPlans(sortPlans(defaultPlans));
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        setPlans(sortPlans(defaultPlans));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -187,8 +201,13 @@ const PremiumPage = () => {
 
   const currentTier = user?.membershipStatus || 'FREE';
 
+  const filteredPlans = plans.filter((p) => {
+    const pCat = p.category || (p.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL');
+    return pCat === category;
+  });
+
   return (
-    <div className="max-w-6xl mx-auto space-y-10 py-6 px-4 animate-fade-in">
+    <div className="max-w-6xl mx-auto space-y-8 py-6 px-4 animate-fade-in">
       {/* Header Banner */}
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 bg-rose-500/10 border border-rose-200 rounded-full px-4 py-1.5 text-xs font-bold text-rose-700 shadow-xs">
@@ -199,7 +218,7 @@ const PremiumPage = () => {
           Upgrade Your <span className="text-primary">Membership Plan</span>
         </h1>
         <p className="text-slate-600 text-sm max-w-xl mx-auto font-medium">
-          Get direct access to candidate phone numbers, verified profiles, unlimited express interests, and AI match recommendations.
+          Choose between self-managed General plans or personalized Elite VIP assisted matchmaking.
         </p>
       </div>
 
@@ -225,15 +244,107 @@ const PremiumPage = () => {
         </div>
       </div>
 
-      {/* Loading State */}
-      {loading ? (
+      {/* Category Toggle */}
+      <div className="flex flex-col items-center justify-center pt-2">
+        <div className="bg-slate-200/90 p-1.5 rounded-2xl flex items-center gap-2 shadow-inner border border-slate-300 max-w-lg w-full">
+          <button
+            type="button"
+            onClick={() => setCategory(category === 'GENERAL' ? null : 'GENERAL')}
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-extrabold transition-all duration-300 cursor-pointer ${
+              category === 'GENERAL'
+                ? 'bg-white text-slate-900 shadow-lg ring-2 ring-primary/20 scale-[1.02]'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+          >
+            <span>🌟 General Plans</span>
+            <span className={`text-[10px] py-0.5 px-2 rounded-full font-bold ml-1 ${category === 'GENERAL' ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-600'}`}>
+              4 Plans
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategory(category === 'ELITE' ? null : 'ELITE')}
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-extrabold transition-all duration-300 cursor-pointer ${
+              category === 'ELITE'
+                ? 'bg-gradient-gold text-white shadow-lg ring-2 ring-amber-400/40 scale-[1.02]'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+          >
+            <Crown className="w-4 h-4 text-amber-200" />
+            <span>👑 Elite VIP Plans</span>
+            <span className={`text-[10px] py-0.5 px-2 rounded-full font-bold ml-1 ${category === 'ELITE' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+              3 Plans
+            </span>
+          </button>
+        </div>
+
+        {category && (
+          <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-3 text-center animate-fade-in">
+            {category === 'GENERAL'
+              ? '✨ General Membership: Self-managed search, 50-300 contact unlocks & instant messaging.'
+              : '👑 Elite VIP Service: Dedicated senior relationship advisor, curated introductions & full coordination.'}
+          </p>
+        )}
+      </div>
+
+      {/* When Category is Null: Show Interactive Prompt */}
+      {category === null ? (
+        <div className="max-w-3xl mx-auto py-6 px-4 text-center w-full animate-fade-in">
+          <div className="bg-white border-2 border-dashed border-slate-300 rounded-3xl p-8 sm:p-12 shadow-sm space-y-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-rose-50 text-primary mb-2 shadow-inner">
+              <Crown className="w-8 h-8 text-primary" />
+            </div>
+            <h3 className="font-sans text-2xl font-black text-slate-900">
+              Please Select a Plan Category to Upgrade
+            </h3>
+            <p className="text-slate-500 text-sm max-w-md mx-auto">
+              Choose between self-managed membership packages or our assisted luxury VIP matchmaking service.
+            </p>
+
+            <div className="grid sm:grid-cols-2 gap-4 max-w-md mx-auto pt-2">
+              <button
+                type="button"
+                onClick={() => setCategory('GENERAL')}
+                className="p-5 rounded-2xl border-2 border-slate-200 hover:border-primary bg-slate-50 hover:bg-white transition-all text-left group shadow-xs hover:shadow-md cursor-pointer"
+              >
+                <div className="flex items-center gap-2 text-primary font-bold text-base mb-1">
+                  <span>🌟 General Plans</span>
+                </div>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                  4 Plans from ₹0 to ₹1,999. Includes Free, Silver, Gold & Platinum.
+                </p>
+                <span className="text-primary text-xs font-bold mt-3 inline-block group-hover:translate-x-1 transition-transform">
+                  View General Plans →
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCategory('ELITE')}
+                className="p-5 rounded-2xl border-2 border-amber-200 hover:border-amber-400 bg-amber-50/50 hover:bg-white transition-all text-left group shadow-xs hover:shadow-md cursor-pointer"
+              >
+                <div className="flex items-center gap-2 text-amber-700 font-bold text-base mb-1">
+                  <span>👑 Elite VIP Plans</span>
+                </div>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                  3 VIP Plans from ₹4,999 to ₹18,999 with dedicated relationship manager.
+                </p>
+                <span className="text-amber-700 text-xs font-bold mt-3 inline-block group-hover:translate-x-1 transition-transform">
+                  View Elite VIP Plans →
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
         </div>
       ) : (
-        /* Plans Grid - Strictly Ordered: Free -> Silver -> Gold -> Elite -> Custom Plans */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-          {plans.map((plan) => {
+        /* Plans Grid */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch animate-fade-in">
+          {filteredPlans.map((plan) => {
             const isCurrent = currentTier.toUpperCase() === (plan.tier || '').toUpperCase();
             const isProcessing = processingPlanId === plan.id;
             const displayPrice = String(plan.price).startsWith('₹') ? plan.price : `₹${plan.price}`;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { FileText, Search, Loader2, RefreshCw, Plus, Pencil, X, Trash2 } from 'lucide-react';
+import { FileText, Search, Loader2, RefreshCw, Plus, Pencil, X, Trash2, FolderOpen, Upload, Image as ImageIcon } from 'lucide-react';
 import { adminApi } from '../../services/admin.service';
 
 type Blog = {
@@ -223,15 +223,85 @@ const AdminBlogs = () => {
                   className="input w-full"
                 />
               </div>
+              {/* Cover Image with Browse Option */}
               <div>
-                <label className="block text-xs font-semibold text-text-muted mb-1">Cover Image URL</label>
-                <input
-                  type="text"
-                  value={form.coverImage}
-                  onChange={(e) => setForm({ ...form, coverImage: e.target.value })}
-                  placeholder="/images/ceremony.png"
-                  className="input w-full"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-text-muted">Cover Image</label>
+                  <span className="text-[11px] text-slate-400">Upload from device or enter URL</span>
+                </div>
+
+                <div className="space-y-3">
+                  {/* File Browse Button & URL Input */}
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={form.coverImage}
+                      onChange={(e) => setForm({ ...form, coverImage: e.target.value })}
+                      placeholder="Paste image URL or browse file..."
+                      className="input flex-1 text-xs"
+                    />
+                    <input
+                      type="file"
+                      id="blog-cover-file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast.error('Image size should be less than 5MB');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            if (event.target?.result) {
+                              setForm({ ...form, coverImage: event.target.result as string });
+                              toast.success('Cover image loaded successfully! 🖼️');
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor="blog-cover-file"
+                      className="btn btn-secondary btn-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap px-3.5 py-2 font-bold shadow-xs hover:bg-slate-200"
+                    >
+                      <FolderOpen className="w-4 h-4 text-primary" />
+                      <span>Browse</span>
+                    </label>
+                  </div>
+
+                  {/* Image Preview */}
+                  {form.coverImage && (
+                    <div className="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                      <div className="w-16 h-12 rounded-lg overflow-hidden border border-slate-300 bg-white flex-shrink-0 shadow-xs">
+                        <img
+                          src={form.coverImage}
+                          alt="Cover preview"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = '/images/ceremony.png';
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">Cover Image Selected</p>
+                        <p className="text-[11px] text-slate-400 truncate">
+                          {form.coverImage.startsWith('data:') ? 'Local file uploaded' : form.coverImage}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, coverImage: '' })}
+                        className="text-xs text-rose-500 hover:text-rose-700 font-semibold p-1 hover:bg-rose-50 rounded"
+                        title="Clear image"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-text-muted mb-1">Tags (comma separated)</label>

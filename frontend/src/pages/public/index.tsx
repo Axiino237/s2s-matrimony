@@ -126,6 +126,7 @@ export const SuccessStoriesPage = () => {
 
 
 export const MembershipPage = () => {
+  const [category, setCategory] = useState<'GENERAL' | 'ELITE' | null>(null);
   const [dbPlans, setDbPlans] = useState<any[]>([]);
 
   useEffect(() => {
@@ -137,93 +138,339 @@ export const MembershipPage = () => {
     }).catch(() => {});
   }, []);
 
-  const defaultPlans = [
-    { name: 'Free', price: '₹0', features: ['5 Daily Interests', 'Basic Search', '5 Profile Views/day'] },
-    { name: 'Silver', price: '₹599', period: '/month', features: ['50 Interests/day', 'Advanced Search', '50 Contact Views'] },
-    { name: 'Elite', price: '₹999', period: '/3 months', features: ['Unlimited Interests', 'Chat Access', '100 Contact Views', 'Priority Listing'] },
-    { name: 'Platinum', price: '₹1,799', period: '/6 months', features: ['Everything in Elite', 'Unlimited Contacts', 'AI Match Score', 'Video Profile', 'Dedicated Manager'] },
+  const generalPlans = [
+    {
+      id: 'gen-free',
+      name: 'Free Starter',
+      price: '₹0',
+      period: 'Lifetime Free',
+      popular: false,
+      badge: 'Free Forever',
+      badgeBg: 'bg-slate-100 text-slate-700 border-slate-300 font-semibold',
+      checkColor: 'text-slate-500',
+      description: 'Ideal for exploring verified profiles and getting started',
+      features: [
+        { text: '5 Daily Expressed Interests', active: true },
+        { text: 'Basic Search (Age, Religion, Community)', active: true },
+        { text: '5 Profile Views per Day', active: true },
+        { text: 'Basic Compatibility Score', active: true },
+        { text: 'Verified Member Badge', active: true },
+        { text: 'Contact Numbers & Email Unlocks', active: false },
+        { text: 'Direct Instant Messaging & Live Chat', active: false },
+        { text: 'Priority Search Ranking in Results', active: false },
+      ],
+      ctaText: 'Register Free',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300',
+    },
+    {
+      id: 'gen-silver',
+      name: 'Silver Plan',
+      price: '₹599',
+      period: '1 month',
+      popular: false,
+      badge: 'Standard Access',
+      badgeBg: 'bg-teal-50 text-teal-800 border-teal-200 font-bold',
+      checkColor: 'text-teal-600',
+      description: 'Unlock contact details & start connecting directly with matches',
+      features: [
+        { text: '50 Daily Expressed Interests', active: true },
+        { text: 'Advanced Search & Education Filters', active: true },
+        { text: '50 Contact Number & Phone Unlocks', active: true },
+        { text: 'Direct Instant Messaging & Live Chat', active: true },
+        { text: 'Full Horoscope Overview', active: true },
+        { text: 'Verified Search Badge Priority', active: true },
+        { text: 'Top 10 Search Placement', active: false },
+        { text: 'Dedicated Matchmaking Advisor', active: false },
+      ],
+      ctaText: 'Choose Silver',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-teal-600 hover:bg-teal-700 text-white font-bold border-0 shadow-md',
+    },
+    {
+      id: 'gen-gold',
+      name: 'Gold Plan',
+      price: '₹1,199',
+      period: '3 months',
+      popular: true,
+      badge: 'Best Value ⭐',
+      badgeBg: 'bg-amber-100 text-amber-900 border-amber-300 font-extrabold',
+      checkColor: 'text-amber-600',
+      description: 'High visibility, faster responses & full horoscope match reports',
+      features: [
+        { text: 'UNLIMITED Expressed Interests', active: true },
+        { text: '150 Direct Contact & Phone Unlocks', active: true },
+        { text: 'Unlimited Direct Messaging & Chat', active: true },
+        { text: 'Full Horoscope & Porutham Match Reports', active: true },
+        { text: 'Priority Search Placement in Results', active: true },
+        { text: 'AI Matchmaking & Compatibility Score', active: true },
+        { text: 'Privacy Shield & Photo Lock Controls', active: true },
+        { text: 'Dedicated Relationship Manager', active: false },
+      ],
+      ctaText: 'Choose Gold',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-gradient-gold text-white font-extrabold shadow-lg hover:brightness-105 border-0',
+    },
+    {
+      id: 'gen-platinum',
+      name: 'Platinum Plan',
+      price: '₹1,999',
+      period: '6 months',
+      popular: false,
+      badge: 'Maximum Access',
+      badgeBg: 'bg-primary/10 text-primary-dark border-primary/30 font-extrabold',
+      checkColor: 'text-primary',
+      description: 'Maximum connection limits, top tier ranking & premium badges',
+      features: [
+        { text: 'UNLIMITED Expressed Interests', active: true },
+        { text: '300 Direct Contact & Phone Unlocks', active: true },
+        { text: 'Unlimited Chat & Priority Messaging', active: true },
+        { text: 'Full Horoscope & 10 Porutham Reports', active: true },
+        { text: 'TOP 5 Featured Profile Placement', active: true },
+        { text: 'Highlighted Platinum Badge on Profile', active: true },
+        { text: 'Complete Privacy & Contact Protection', active: true },
+        { text: 'Priority Email & WhatsApp Support', active: true },
+      ],
+      ctaText: 'Choose Platinum',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-gradient-primary text-white font-black shadow-xl hover:opacity-95 border-0',
+    },
   ];
 
-  const rawPlans = dbPlans.length > 0 ? dbPlans : defaultPlans;
+  const elitePlans = [
+    {
+      id: 'elite-silver',
+      name: 'Elite Silver',
+      price: '₹4,999',
+      period: '3 months',
+      popular: false,
+      badge: 'Curated Matchmaking',
+      badgeBg: 'bg-slate-100 text-slate-800 border-slate-300 font-bold',
+      checkColor: 'text-slate-700',
+      description: 'Assisted matchmaking with handpicked matches & dedicated guidance',
+      features: [
+        { text: 'Dedicated Matchmaking Advisor', active: true },
+        { text: '15 Curated & Handpicked Introductions', active: true },
+        { text: 'Personal Profile Screening & Verification', active: true },
+        { text: 'Confidential Contact Information Sharing', active: true },
+        { text: 'Full Astrological & Horoscope Matching', active: true },
+        { text: 'Unlimited Profile Views on Portal', active: true },
+        { text: 'Direct Communication Support', active: true },
+        { text: 'Family Meeting Coordination', active: false },
+      ],
+      ctaText: 'Get Elite Silver',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-slate-800 hover:bg-slate-900 text-white font-bold border-0 shadow-md',
+    },
+    {
+      id: 'elite-gold',
+      name: 'Elite Gold',
+      price: '₹9,999',
+      period: '6 months',
+      popular: true,
+      badge: 'Most Preferred VIP ⭐',
+      badgeBg: 'bg-amber-100 text-amber-900 border-amber-400 font-extrabold',
+      checkColor: 'text-amber-600',
+      description: 'Complete personalized matchmaking with senior relationship manager',
+      features: [
+        { text: 'Senior Personal Relationship Manager', active: true },
+        { text: '35 Handpicked & Pre-Screened Matches', active: true },
+        { text: 'Family Meeting Setup & Facilitation', active: true },
+        { text: 'Discreet Introductions & Complete Discretion', active: true },
+        { text: 'In-Depth Background & Horoscope Verification', active: true },
+        { text: 'Priority Search & Direct Family Connect', active: true },
+        { text: 'VIP Concierge & Weekly Progress Calls', active: true },
+        { text: 'Till Marriage Commitment Guarantee', active: false },
+      ],
+      ctaText: 'Get Elite Gold',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-gradient-gold text-white font-extrabold shadow-xl hover:brightness-105 border-0',
+    },
+    {
+      id: 'elite-platinum',
+      name: 'Elite Platinum',
+      price: '₹18,999',
+      period: 'Till Marriage (12M)',
+      popular: false,
+      badge: 'Royal Bespoke VIP',
+      badgeBg: 'bg-primary/10 text-primary-dark border-primary/30 font-black',
+      checkColor: 'text-primary',
+      description: 'Bespoke executive matchmaking for accomplished individuals & families',
+      features: [
+        { text: 'Senior Director & Dedicated Matchmaking Team', active: true },
+        { text: 'UNLIMITED Curated & Vetted Introductions', active: true },
+        { text: 'End-to-End Family Coordination & Scheduling', active: true },
+        { text: 'Strict NDA & Total Privacy Protection', active: true },
+        { text: 'Comprehensive Background & Kundali Verification', active: true },
+        { text: '24/7 Dedicated Concierge & Relationship Support', active: true },
+        { text: 'Exclusive Cross-Community & NRI Match Network', active: true },
+        { text: 'Active Matchmaking Support Until Marriage', active: true },
+      ],
+      ctaText: 'Join Elite Platinum',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-gradient-primary text-white font-black shadow-2xl hover:opacity-95 border-0',
+    },
+  ];
 
-  const getPlanRank = (plan: any): number => {
-    const tier = (plan.tier || '').toUpperCase();
-    const name = (plan.name || '').toLowerCase();
-
-    if (tier === 'FREE' || name.includes('free')) return 1;
-    if (tier === 'SILVER' || name.includes('silver')) return 2;
-    if (tier === 'GOLD' || name.includes('gold')) return 3;
-    if (tier === 'ELITE' || name.includes('elite')) return 4;
-    if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
-    if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
-    return 100;
-  };
-
-  const sortedPlans = [...rawPlans].sort((a, b) => {
-    const rankA = getPlanRank(a);
-    const rankB = getPlanRank(b);
-    if (rankA !== rankB) return rankA - rankB;
-    const priceA = parseFloat(String(a.price).replace(/[^\d.]/g, '') || '0');
-    const priceB = parseFloat(String(b.price).replace(/[^\d.]/g, '') || '0');
-    return priceA - priceB;
-  });
-
-  const plansToRender = sortedPlans.map((p) => ({
-    name: p.name === 'Diamond Plan' || p.name === 'Diamond' ? 'Elite Plan' : p.name,
-    price: `₹${parseFloat(String(p.price).replace(/[^\d.]/g, '') || '0')}`,
-    period: p.period || p.duration || (p.durationMonths ? `/${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : ''),
-    features: Array.isArray(p.features) ? p.features : typeof p.features === 'string' ? JSON.parse(p.features) : ['Unlimited Profile Access', 'Direct Chat'],
-    isPopular: p.isPopular || (p.tier === 'ELITE' && !sortedPlans.some((x: any) => x.isPopular && x.id !== p.id)),
-  }));
+  const activePlans = category === 'GENERAL' ? generalPlans : category === 'ELITE' ? elitePlans : [];
 
   return (
-    <div className="pt-20 min-h-screen flex justify-center w-full">
-      <div className="container mx-auto px-4 md:px-8 py-16 flex flex-col items-center w-full">
-        <div className="text-center mb-12 max-w-2xl mx-auto">
-          <h1 className="section-title mb-4">Membership <span className="text-gradient">Plans</span></h1>
-          <p className="section-subtitle">Choose the plan that fits you</p>
+    <div className="pt-24 pb-16 min-h-screen bg-slate-50">
+      <div className="container mx-auto px-4 md:px-8 flex flex-col items-center w-full">
+        <div className="text-center mb-10 max-w-2xl mx-auto">
+          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-primary text-xs font-bold uppercase tracking-wider mb-3">
+            ✨ Transparent Plans & Benefits
+          </div>
+          <h1 className="font-sans text-4xl sm:text-5xl font-black text-slate-900 mb-3 tracking-tight">
+            Membership <span className="text-gradient">Plans</span>
+          </h1>
+          <p className="text-text-muted text-base">
+            Click on a plan category below to explore self-managed General plans or personalized Elite VIP services.
+          </p>
         </div>
-        <div className="flex flex-wrap justify-center items-stretch gap-6 max-w-6xl mx-auto">
-          {plansToRender.map((plan: any, i: number) => {
-            const isPopular = plan.isPopular || (plansToRender.length === 3 && i === 2) || (plansToRender.length === 4 && i === 2);
-            return (
+
+        {/* Category Toggle - Default null */}
+        <div className="flex flex-col items-center justify-center mb-10">
+          <div className="bg-slate-200/90 p-1.5 rounded-2xl flex items-center gap-2 shadow-inner border border-slate-300 max-w-lg w-full">
+            <button
+              type="button"
+              onClick={() => setCategory(category === 'GENERAL' ? null : 'GENERAL')}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-extrabold transition-all duration-300 cursor-pointer ${
+                category === 'GENERAL'
+                  ? 'bg-white text-slate-900 shadow-lg ring-2 ring-primary/20 scale-[1.02]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+              }`}
+            >
+              <span>🌟 General Plans</span>
+              <span className={`text-[10px] py-0.5 px-2 rounded-full font-bold ml-1 ${category === 'GENERAL' ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-600'}`}>
+                4 Plans
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategory(category === 'ELITE' ? null : 'ELITE')}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-extrabold transition-all duration-300 cursor-pointer ${
+                category === 'ELITE'
+                  ? 'bg-gradient-gold text-white shadow-lg ring-2 ring-amber-400/40 scale-[1.02]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+              }`}
+            >
+              <span>👑 Elite VIP Plans</span>
+              <span className={`text-[10px] py-0.5 px-2 rounded-full font-bold ml-1 ${category === 'ELITE' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                3 Plans
+              </span>
+            </button>
+          </div>
+
+          {category && (
+            <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-4 text-center animate-fade-in">
+              {category === 'GENERAL'
+                ? '✨ General Plans: Self-service membership, instant direct chat, verified profiles & horoscope porutham reports.'
+                : '👑 Elite VIP Service: Dedicated senior matchmaking manager, handpicked introductions & complete confidentiality.'}
+            </p>
+          )}
+        </div>
+
+        {/* When Category is Null: Show Interactive Prompt */}
+        {category === null ? (
+          <div className="max-w-3xl mx-auto py-8 px-4 text-center w-full animate-fade-in">
+            <div className="bg-white border-2 border-dashed border-slate-300 rounded-3xl p-8 sm:p-12 shadow-sm space-y-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary mb-2 shadow-inner">
+                <span className="text-3xl">✨</span>
+              </div>
+              <h3 className="font-sans text-2xl font-black text-slate-900">
+                Please Select a Plan Category to View Packages
+              </h3>
+              <p className="text-slate-500 text-sm max-w-md mx-auto">
+                Choose between self-managed membership packages or our assisted luxury matchmaking service.
+              </p>
+
+              <div className="grid sm:grid-cols-2 gap-4 max-w-md mx-auto pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCategory('GENERAL')}
+                  className="p-5 rounded-2xl border-2 border-slate-200 hover:border-primary bg-slate-50 hover:bg-white transition-all text-left group shadow-xs hover:shadow-md cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 text-primary font-bold text-base mb-1">
+                    <span>🌟 General Plans</span>
+                  </div>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    4 Plans from ₹0 to ₹1,999. Includes Free Starter, Silver, Gold & Platinum.
+                  </p>
+                  <span className="text-primary text-xs font-bold mt-3 inline-block group-hover:translate-x-1 transition-transform">
+                    View General Plans →
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCategory('ELITE')}
+                  className="p-5 rounded-2xl border-2 border-amber-200 hover:border-amber-400 bg-amber-50/50 hover:bg-white transition-all text-left group shadow-xs hover:shadow-md cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 text-amber-700 font-bold text-base mb-1">
+                    <span>👑 Elite VIP Plans</span>
+                  </div>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    3 VIP Plans from ₹4,999 to ₹18,999 with dedicated relationship manager.
+                  </p>
+                  <span className="text-amber-700 text-xs font-bold mt-3 inline-block group-hover:translate-x-1 transition-transform">
+                    View Elite VIP Plans →
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap justify-center items-stretch gap-6 max-w-6xl mx-auto w-full animate-fade-in">
+            {activePlans.map((p) => (
               <div
-                key={i}
-                className={`plan-card w-full sm:w-[280px] md:w-[300px] lg:w-[310px] max-w-[340px] flex-1 ${
-                  isPopular ? 'plan-card-popular border-2 border-primary/60 shadow-xl scale-[1.02] z-10' : ''
+                key={p.id}
+                className={`card p-6 flex flex-col justify-between relative transition-all duration-300 rounded-2xl w-full sm:w-[270px] lg:w-[285px] max-w-[320px] flex-1 ${
+                  p.popular
+                    ? 'border-2 border-primary bg-white shadow-2xl scale-[1.03] z-10'
+                    : 'bg-white border border-slate-200 hover:border-primary/30 shadow-sm hover:shadow-md'
                 }`}
               >
-                {isPopular && (
-                  <div className="absolute top-0 inset-x-0 flex justify-center">
-                    <span className="bg-gradient-primary text-white text-xs font-bold px-4 py-1 rounded-b-xl shadow-sm">
-                      Popular
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className={`text-[11px] uppercase px-3 py-1 rounded-full border ${p.badgeBg}`}>
+                      {p.badge}
                     </span>
                   </div>
-                )}
-                <div className={`${isPopular ? 'pt-6' : ''} flex flex-col justify-between h-full`}>
-                  <div>
-                    <h3 className="text-text-primary font-bold text-xl mb-2">{plan.name}</h3>
-                    <div className="flex items-end gap-1 mb-5">
-                      <span className="text-3xl font-extrabold text-gradient">{plan.price}</span>
-                      {plan.period && <span className="text-text-muted text-xs mb-1 font-medium">{plan.period}</span>}
+
+                  <h3 className="font-sans text-xl font-extrabold text-slate-900 mb-1">{p.name}</h3>
+                  <p className="text-text-muted text-xs mb-4 min-h-[32px] leading-relaxed">{p.description}</p>
+
+                  <div className="mb-6 pb-4 border-b border-slate-100">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-sans text-3xl font-black text-slate-900 tracking-tight">{p.price}</span>
+                      <span className="text-text-muted text-xs font-semibold">/ {p.period}</span>
                     </div>
-                    <ul className="space-y-2.5 mb-6">
-                      {plan.features.map((f: any, j: number) => (
-                        <li key={j} className="text-sm text-text-secondary flex gap-2 items-start">
-                          <span className="text-primary font-bold mt-0.5">✓</span>
-                          <span>{typeof f === 'string' ? f : f.text}</span>
-                        </li>
-                      ))}
-                    </ul>
                   </div>
-                  <button className={`btn w-full font-bold py-3 mt-4 ${isPopular ? 'btn-primary shadow-md' : 'btn-secondary'}`}>
-                    Choose {plan.name}
-                  </button>
+
+                  <div className="space-y-3 mb-8">
+                    <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Applicable Features:</p>
+                    {p.features.map((f, i) => (
+                      <div key={i} className="flex items-start gap-2.5 text-xs">
+                        <span className={f.active ? 'text-primary font-bold mt-0.5' : 'text-slate-300 mt-0.5'}>
+                          {f.active ? '✓' : '✕'}
+                        </span>
+                        <span className={f.active ? 'text-slate-800 font-semibold' : 'text-slate-400 line-through opacity-70'}>
+                          {f.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+
+                <Link to={p.ctaLink} className={`btn w-full text-center py-2.5 text-xs ${p.ctaStyle}`}>
+                  {p.ctaText}
+                </Link>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -578,10 +825,10 @@ export const ContactPage = () => {
 
               <div className="pt-4 border-t border-slate-100 space-y-2 text-xs">
                 <p className="flex items-center gap-2 text-slate-800 font-bold">
-                  <span>📞 Helpline:</span> <span className="text-primary font-extrabold">+91 98765 43210</span>
+                  <span>📞 Helpline:</span> <a href="tel:+918438011191" className="text-primary font-extrabold hover:underline">+91 84380 11191</a>
                 </p>
                 <p className="flex items-center gap-2 text-slate-800 font-bold">
-                  <span>✉️ Email:</span> <span className="text-secondary-dark font-bold">support@s2smatrimony.com</span>
+                  <span>✉️ Email:</span> <a href="mailto:s2smdoffice@gmail.com" className="text-secondary-dark font-bold hover:underline">s2smdoffice@gmail.com</a>
                 </p>
               </div>
             </div>

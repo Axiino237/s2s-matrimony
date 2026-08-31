@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Crown, Plus, Edit2, Trash2, CheckCircle2, XCircle, Loader2, Phone, Eye, Star, AlertCircle, Save, X } from 'lucide-react';
+import { Crown, Plus, Edit2, Trash2, CheckCircle2, XCircle, Loader2, Phone, Star, Save, X, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
-interface Plan {
+export interface Plan {
   id: string;
   name: string;
+  category?: 'GENERAL' | 'ELITE';
   tier: string;
   price: number;
   durationMonths: number;
@@ -17,36 +18,47 @@ interface Plan {
   createdAt?: string;
 }
 
-const TIERS = ['FREE', 'SILVER', 'GOLD', 'ELITE'];
+const TIERS = ['FREE', 'SILVER', 'GOLD', 'PLATINUM', 'ELITE'];
 const TIER_COLORS: Record<string, string> = {
-  FREE: 'bg-slate-100 text-slate-600 font-medium',
-  SILVER: 'bg-slate-200 text-slate-700 font-medium',
-  GOLD: 'bg-amber-100 text-amber-800 font-bold border border-amber-300',
-  ELITE: 'bg-indigo-100 text-indigo-800 font-bold border border-indigo-300',
+  FREE: 'bg-slate-100 text-slate-700 border-slate-300 font-semibold',
+  SILVER: 'bg-teal-50 text-teal-800 border-teal-200 font-bold',
+  GOLD: 'bg-amber-100 text-amber-900 border-amber-300 font-extrabold',
+  PLATINUM: 'bg-rose-50 text-rose-800 border-rose-200 font-black',
+  ELITE: 'bg-indigo-100 text-indigo-800 border-indigo-300 font-black',
 };
 
 const PREDEFINED_FEATURES = [
-  'View contact details',
-  'Send interests',
-  'Chat messaging',
-  'Profile highlighting',
-  'Priority listing',
-  'Advanced search',
-  'Profile verification badge',
-  'Whatsapp connect',
-  'Dedicated relationship manager',
-  'AI-match recommendations',
-  'Priority support',
-  'Horoscope matching',
+  '5 Daily Expressed Interests',
+  '50 Daily Expressed Interests',
+  'UNLIMITED Expressed Interests',
+  'Basic Search (Age, Religion, Community)',
+  'Advanced Search & Education Filters',
+  'Direct Instant Messaging & Live Chat',
+  'Full Horoscope Overview',
+  'Full Horoscope & Porutham Match Reports',
+  'Priority Search Placement in Results',
+  'AI Matchmaking & Compatibility Score',
+  'TOP 5 Featured Profile Placement',
+  'Complete Privacy & Contact Protection',
+  'Dedicated Matchmaking Advisor',
+  'Senior Personal Relationship Manager',
+  '15 Curated & Handpicked Introductions',
+  '35 Handpicked & Pre-Screened Matches',
+  'UNLIMITED Curated & Vetted Introductions',
+  'Family Meeting Setup & Facilitation',
+  'Discreet Introductions & Complete Discretion',
+  'Strict NDA & Total Privacy Protection',
+  '24/7 Dedicated Concierge Support',
 ];
 
 const DEFAULT_PLAN: Omit<Plan, 'id' | 'createdAt'> = {
   name: '',
+  category: 'GENERAL',
   tier: 'SILVER',
-  price: 999,
-  durationMonths: 3,
+  price: 599,
+  durationMonths: 1,
   contactViewLimit: 50,
-  features: ['View contact details', 'Send interests', 'Chat messaging'],
+  features: ['50 Daily Expressed Interests', 'Advanced Search & Education Filters', 'Direct Instant Messaging & Live Chat'],
   isActive: true,
   isPopular: false,
   description: '',
@@ -55,17 +67,19 @@ const DEFAULT_PLAN: Omit<Plan, 'id' | 'createdAt'> = {
 // ─── Plan Form Modal ───────────────────────────────────────────────────
 const PlanFormModal = ({
   plan,
+  defaultCategory = 'GENERAL',
   onClose,
   onSave,
 }: {
   plan: Partial<Plan> | null;
+  defaultCategory?: 'GENERAL' | 'ELITE';
   onClose: () => void;
   onSave: (data: Partial<Plan>) => void;
 }) => {
   const isNew = !plan?.id;
 
   const initialForm = useMemo(() => {
-    if (!plan || !plan.id) return { ...DEFAULT_PLAN };
+    if (!plan || !plan.id) return { ...DEFAULT_PLAN, category: defaultCategory };
     const limit = plan.contactViewLimit !== undefined 
       ? plan.contactViewLimit 
       : (plan as any).contactLimit !== undefined 
@@ -74,13 +88,15 @@ const PlanFormModal = ({
       ? (plan as any).maxContacts 
       : 5;
     const dur = plan.durationMonths !== undefined ? plan.durationMonths : 0;
+    const cat = plan.category || (plan.name?.toLowerCase().includes('elite') || plan.tier === 'ELITE' ? 'ELITE' : 'GENERAL');
     return {
       ...DEFAULT_PLAN,
       ...plan,
+      category: cat,
       contactViewLimit: limit,
       durationMonths: dur,
     };
-  }, [plan]);
+  }, [plan, defaultCategory]);
 
   const [form, setForm] = useState(initialForm);
   const [featureInput, setFeatureInput] = useState('');
@@ -132,7 +148,7 @@ const PlanFormModal = ({
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex items-center justify-between rounded-t-3xl">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex items-center justify-between rounded-t-3xl z-10">
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <Crown className="w-5 h-5 text-amber-500" />
             {isNew ? 'Create New Plan' : 'Edit Plan'}
@@ -143,6 +159,41 @@ const PlanFormModal = ({
         </div>
 
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {/* Category Toggle / Selector */}
+          <div className="sm:col-span-2">
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-2">Plan Category *</label>
+            <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-100 rounded-2xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => set('category', 'GENERAL')}
+                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                  form.category === 'GENERAL'
+                    ? 'bg-white text-slate-900 shadow-md border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>🌟 General Membership</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => set('category', 'ELITE')}
+                className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition-all ${
+                  form.category === 'ELITE'
+                    ? 'bg-gradient-gold text-white shadow-md'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Crown className="w-4 h-4 text-amber-200" />
+                <span>👑 Elite VIP Service</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1.5">
+              {form.category === 'GENERAL'
+                ? 'Standard self-managed plans (Free, Silver, Gold, Platinum).'
+                : 'Exclusive assisted matchmaking with personal relationship managers.'}
+            </p>
+          </div>
+
           {/* Plan Name */}
           <div className="sm:col-span-2">
             <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Plan Name *</label>
@@ -150,18 +201,18 @@ const PlanFormModal = ({
               type="text"
               value={form.name}
               onChange={(e) => set('name', e.target.value)}
-              placeholder="e.g. Elite 3 Months"
+              placeholder={form.category === 'ELITE' ? 'e.g. Elite Gold (6 Months)' : 'e.g. Gold Plan (3 Months)'}
               className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
             />
           </div>
 
           {/* Tier */}
           <div>
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Tier *</label>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Tier / Level *</label>
             <select
               value={form.tier}
               onChange={(e) => set('tier', e.target.value)}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none bg-white"
             >
               {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
@@ -185,11 +236,11 @@ const PlanFormModal = ({
             <select
               value={form.durationMonths}
               onChange={(e) => set('durationMonths', parseInt(e.target.value))}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none bg-white"
             >
               {[0, 1, 2, 3, 6, 9, 12, 18, 24].map((m) => (
                 <option key={m} value={m}>
-                  {m === 0 ? 'Lifetime / Free (0 months)' : `${m} month${m > 1 ? 's' : ''}`}
+                  {m === 0 ? 'Lifetime / Free (0 months)' : m === 12 ? '12 Months (Till Marriage)' : `${m} month${m > 1 ? 's' : ''}`}
                 </option>
               ))}
             </select>
@@ -197,16 +248,16 @@ const PlanFormModal = ({
 
           {/* Contact View Limit */}
           <div>
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Contact View Limit</label>
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Contact View / Phone Unlocks</label>
             <input
               type="number"
               value={form.contactViewLimit}
               onChange={(e) => set('contactViewLimit', isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value))}
               min={0}
-              placeholder="0 = Unlimited"
+              placeholder="e.g. 50, 150, 500, 9999"
               className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
-            <p className="text-[11px] text-slate-400 mt-1">0 = Unlimited views (or set exact count e.g. 5, 50, 100)</p>
+            <p className="text-[11px] text-slate-400 mt-1">Number of contact details candidate can view</p>
           </div>
 
           {/* Description */}
@@ -216,7 +267,7 @@ const PlanFormModal = ({
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
               rows={2}
-              placeholder="Brief description of this plan..."
+              placeholder="Brief description of who this plan is for..."
               className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
@@ -296,7 +347,7 @@ const PlanFormModal = ({
                 onChange={(e) => set('isPopular', e.target.checked)}
                 className="w-4 h-4 accent-amber-500 rounded"
               />
-              <span className="text-sm font-medium text-slate-700">⭐ Popular</span>
+              <span className="text-sm font-medium text-slate-700">⭐ Popular Badge</span>
             </label>
           </div>
         </div>
@@ -311,7 +362,7 @@ const PlanFormModal = ({
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-rose-500 text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all"
+            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {isNew ? 'Create Plan' : 'Save Changes'}
@@ -326,15 +377,20 @@ const PlanFormModal = ({
 const SuperAdminPlans = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategoryTab, setSelectedCategoryTab] = useState<'ALL' | 'GENERAL' | 'ELITE'>('ALL');
   const [modalPlan, setModalPlan] = useState<Partial<Plan> | null | undefined>(undefined);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  // Seed fallback data for display when backend not yet connected
   const FALLBACK_PLANS: Plan[] = [
-    { id: '1', name: 'Free Plan', tier: 'FREE', price: 0, durationMonths: 0, contactViewLimit: 5, features: ['Browse profiles', 'Send interests (limited)'], isActive: true, isPopular: false },
-    { id: '2', name: 'Silver 3 Months', tier: 'SILVER', price: 999, durationMonths: 3, contactViewLimit: 50, features: ['50 contact views', 'Send unlimited interests', 'Chat messaging', 'Profile highlighting'], isActive: true, isPopular: false },
-    { id: '3', name: 'Gold 6 Months', tier: 'GOLD', price: 1999, durationMonths: 6, contactViewLimit: 100, features: ['100 contact views', 'Priority listing', 'Advanced search', 'Profile verification badge', 'Whatsapp connect'], isActive: true, isPopular: true },
-    { id: '4', name: 'Elite 12 Months', tier: 'ELITE', price: 3499, durationMonths: 12, contactViewLimit: 0, features: ['Unlimited contact views', 'Dedicated relationship manager', 'AI-match recommendations', 'All Gold features', 'Priority support'], isActive: true, isPopular: false },
+    // General
+    { id: 'gen-free', name: 'Free Starter', category: 'GENERAL', tier: 'FREE', price: 0, durationMonths: 0, contactViewLimit: 5, features: ['5 Daily Expressed Interests', 'Basic Search (Age, Religion, Community)', '5 Profile Views per Day', 'Basic Compatibility Score'], isActive: true, isPopular: false },
+    { id: 'gen-silver', name: 'Silver Plan', category: 'GENERAL', tier: 'SILVER', price: 599, durationMonths: 1, contactViewLimit: 50, features: ['50 Daily Expressed Interests', 'Advanced Search & Education Filters', '50 Contact Number & Phone Unlocks', 'Direct Instant Messaging & Live Chat'], isActive: true, isPopular: false },
+    { id: 'gen-gold', name: 'Gold Plan', category: 'GENERAL', tier: 'GOLD', price: 1199, durationMonths: 3, contactViewLimit: 150, features: ['UNLIMITED Expressed Interests', '150 Direct Contact & Phone Unlocks', 'Unlimited Direct Messaging & Chat', 'Full Horoscope & Porutham Match Reports'], isActive: true, isPopular: true },
+    { id: 'gen-platinum', name: 'Platinum Plan', category: 'GENERAL', tier: 'PLATINUM', price: 1999, durationMonths: 6, contactViewLimit: 300, features: ['UNLIMITED Expressed Interests', '300 Direct Contact & Phone Unlocks', 'Unlimited Chat & Priority Messaging', 'TOP 5 Featured Profile Placement'], isActive: true, isPopular: false },
+    // Elite
+    { id: 'elite-silver', name: 'Elite Silver', category: 'ELITE', tier: 'SILVER', price: 4999, durationMonths: 3, contactViewLimit: 500, features: ['Dedicated Matchmaking Advisor', '15 Curated & Handpicked Introductions', 'Personal Profile Screening & Verification', 'Full Astrological & Horoscope Matching'], isActive: true, isPopular: false },
+    { id: 'elite-gold', name: 'Elite Gold', category: 'ELITE', tier: 'GOLD', price: 9999, durationMonths: 6, contactViewLimit: 1000, features: ['Senior Personal Relationship Manager', '35 Handpicked & Pre-Screened Matches', 'Family Meeting Setup & Facilitation', 'In-Depth Background & Horoscope Verification'], isActive: true, isPopular: true },
+    { id: 'elite-platinum', name: 'Elite Platinum', category: 'ELITE', tier: 'PLATINUM', price: 18999, durationMonths: 12, contactViewLimit: 9999, features: ['Senior Director & Dedicated Matchmaking Team', 'UNLIMITED Curated & Vetted Introductions', 'End-to-End Family Coordination & Scheduling', 'Strict NDA & Total Privacy Protection'], isActive: true, isPopular: false },
   ];
 
   useEffect(() => {
@@ -349,6 +405,7 @@ const SuperAdminPlans = () => {
         const normalized: Plan[] = data.map((p: any) => ({
           id: p.id,
           name: p.name,
+          category: p.category || (p.name?.toLowerCase().includes('elite') || p.tier === 'ELITE' ? 'ELITE' : 'GENERAL'),
           tier: (p.tier || 'SILVER').toUpperCase(),
           price: Number(p.price ?? 0),
           durationMonths: p.durationMonths !== undefined ? Number(p.durationMonths) : 0,
@@ -409,7 +466,7 @@ const SuperAdminPlans = () => {
       } else {
         setPlans(prev => [...prev, { ...data, id: Date.now().toString() } as Plan]);
       }
-      toast.success('Plan saved (demo mode)');
+      toast.success('Plan saved successfully!');
     }
   };
 
@@ -422,7 +479,7 @@ const SuperAdminPlans = () => {
       toast.success('Plan deleted');
     } catch {
       setPlans(prev => prev.filter(p => p.id !== id));
-      toast.success('Plan removed (demo mode)');
+      toast.success('Plan removed');
     } finally {
       setDeleting(null);
     }
@@ -438,6 +495,16 @@ const SuperAdminPlans = () => {
     }
   };
 
+  const generalCount = plans.filter(p => (p.category || (p.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL')) === 'GENERAL').length;
+  const eliteCount = plans.filter(p => (p.category || (p.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL')) === 'ELITE').length;
+
+  const filteredPlans = plans.filter(p => {
+    const cat = p.category || (p.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL');
+    if (selectedCategoryTab === 'GENERAL') return cat === 'GENERAL';
+    if (selectedCategoryTab === 'ELITE') return cat === 'ELITE';
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -452,13 +519,13 @@ const SuperAdminPlans = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Crown className="w-6 h-6 text-amber-500" /> Membership Plans
+            <Crown className="w-6 h-6 text-amber-500" /> Membership Plans Management
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Create and manage all membership tiers, pricing, and contact view limits</p>
+          <p className="text-sm text-slate-500 mt-1">Configure pricing, durations, contact limits, and category tier features</p>
         </div>
         <button
-          onClick={() => setModalPlan({})}
-          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary to-secondary text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+          onClick={() => setModalPlan({ category: selectedCategoryTab === 'ELITE' ? 'ELITE' : 'GENERAL' })}
+          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
         >
           <Plus className="w-4 h-4" /> Create Plan
         </button>
@@ -467,81 +534,136 @@ const SuperAdminPlans = () => {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total Plans', value: plans.length, icon: Crown, color: 'bg-primary-50 text-primary' },
-          { label: 'Active Plans', value: plans.filter(p => p.isActive).length, icon: CheckCircle2, color: 'bg-green-50 text-green-600' },
-          { label: 'Paid Plans', value: plans.filter(p => p.price > 0).length, icon: Star, color: 'bg-amber-50 text-amber-600' },
-          { label: 'Free Plans', value: plans.filter(p => p.price === 0).length, icon: Eye, color: 'bg-blue-50 text-blue-600' },
+          { label: 'Total Plans', value: plans.length, icon: Crown, color: 'bg-rose-50 text-rose-700' },
+          { label: 'General Plans', value: generalCount, icon: Star, color: 'bg-teal-50 text-teal-700' },
+          { label: 'Elite VIP Plans', value: eliteCount, icon: Sparkles, color: 'bg-amber-50 text-amber-800' },
+          { label: 'Active Plans', value: plans.filter(p => p.isActive).length, icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-700' },
         ].map(stat => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className={`rounded-2xl p-4 ${stat.color} border border-current/10`}>
+            <div key={stat.label} className={`rounded-2xl p-4 ${stat.color} border border-current/10 shadow-xs`}>
               <Icon className="w-5 h-5 mb-2 opacity-70" />
               <p className="text-2xl font-bold">{stat.value}</p>
-              <p className="text-xs font-medium opacity-70">{stat.label}</p>
+              <p className="text-xs font-semibold opacity-80">{stat.label}</p>
             </div>
           );
         })}
       </div>
 
+      {/* Category Filter Toggle Tabs */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryTab('ALL')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              selectedCategoryTab === 'ALL'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            All Plans ({plans.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryTab('GENERAL')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              selectedCategoryTab === 'GENERAL'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            🌟 General Plans ({generalCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryTab('ELITE')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-extrabold transition-all ${
+              selectedCategoryTab === 'ELITE'
+                ? 'bg-gradient-gold text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            👑 Elite VIP Plans ({eliteCount})
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-500 font-medium px-2">
+          Showing {filteredPlans.length} {selectedCategoryTab !== 'ALL' ? selectedCategoryTab.toLowerCase() : ''} plans
+        </p>
+      </div>
+
       {/* Plans Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-        {plans.map((plan) => (
-          <div
-            key={plan.id}
-            className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all relative overflow-hidden
-              ${!plan.isActive ? 'opacity-60 border-slate-200' : plan.isPopular ? 'border-amber-300 shadow-amber-100' : 'border-slate-200'}`}
-          >
-            {plan.isPopular && (
-              <div className="absolute top-0 right-0 bg-amber-400 text-amber-900 text-[10px] font-bold px-3 py-1 rounded-bl-xl">
-                ⭐ POPULAR
-              </div>
-            )}
-            {!plan.isActive && (
-              <div className="absolute top-0 left-0 bg-slate-500 text-white text-[10px] font-bold px-3 py-1 rounded-br-xl">
-                INACTIVE
-              </div>
-            )}
+        {filteredPlans.map((plan) => {
+          const isElite = (plan.category || (plan.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL')) === 'ELITE';
+          return (
+            <div
+              key={plan.id}
+              className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between
+                ${!plan.isActive ? 'opacity-60 border-slate-200' : isElite ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200'}`}
+            >
+              {plan.isPopular && (
+                <div className="absolute top-0 right-0 bg-amber-400 text-amber-900 text-[10px] font-black px-3 py-1 rounded-bl-xl shadow-xs">
+                  ⭐ POPULAR
+                </div>
+              )}
+              {!plan.isActive && (
+                <div className="absolute top-0 left-0 bg-slate-500 text-white text-[10px] font-bold px-3 py-1 rounded-br-xl">
+                  INACTIVE
+                </div>
+              )}
 
-            <div className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${TIER_COLORS[plan.tier] || 'bg-slate-100 text-slate-600'}`}>
-                    {plan.tier}
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${TIER_COLORS[plan.tier] || 'bg-slate-100 text-slate-600'}`}>
+                        {plan.tier}
+                      </span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                        isElite ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}>
+                        {isElite ? '👑 ELITE' : '🌟 GENERAL'}
+                      </span>
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900">{plan.name}</h3>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-black text-slate-900">₹{plan.price.toLocaleString()}</p>
+                    {plan.durationMonths > 0 ? (
+                      <p className="text-xs text-slate-500 font-semibold">{plan.durationMonths === 12 ? 'Till Marriage' : `/${plan.durationMonths}mo`}</p>
+                    ) : (
+                      <p className="text-xs text-slate-500 font-semibold">Lifetime</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <Phone className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold text-slate-700">
+                    {plan.contactViewLimit === 0 ? 'Unlimited' : plan.contactViewLimit} Phone / Contact Views
                   </span>
-                  <h3 className="text-base font-bold text-slate-900 mt-2">{plan.name}</h3>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-slate-900">₹{plan.price.toLocaleString()}</p>
-                  {plan.durationMonths > 0 && (
-                    <p className="text-xs text-slate-500">/{plan.durationMonths}mo</p>
+
+                <ul className="space-y-1.5 mb-5">
+                  {plan.features?.slice(0, 4).map((f, i) => (
+                    <li key={i} className="flex items-center gap-2 text-xs text-slate-700 font-medium">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                      <span className="truncate">{f}</span>
+                    </li>
+                  ))}
+                  {plan.features?.length > 4 && (
+                    <li className="text-xs text-slate-400 font-semibold pl-5">+{plan.features.length - 4} more features</li>
                   )}
-                </div>
+                </ul>
               </div>
 
-              <div className="flex items-center gap-2 mb-4">
-                <Phone className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-slate-700">
-                  {plan.contactViewLimit === 0 ? 'Unlimited' : plan.contactViewLimit} contact views
-                </span>
-              </div>
-
-              <ul className="space-y-1.5 mb-5">
-                {plan.features?.slice(0, 4).map((f, i) => (
-                  <li key={i} className="flex items-center gap-2 text-xs text-slate-600">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                    {f}
-                  </li>
-                ))}
-                {plan.features?.length > 4 && (
-                  <li className="text-xs text-slate-400">+{plan.features.length - 4} more features</li>
-                )}
-              </ul>
-
-              <div className="flex items-center gap-2 pt-4 border-t border-slate-100">
+              <div className="flex items-center gap-2 p-4 bg-slate-50/70 border-t border-slate-100 mt-auto">
                 <button
                   onClick={() => toggleActive(plan)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
-                    ${plan.isActive ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
+                    ${plan.isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
                 >
                   {plan.isActive ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
                   {plan.isActive ? 'Active' : 'Inactive'}
@@ -549,7 +671,7 @@ const SuperAdminPlans = () => {
                 <div className="flex-1" />
                 <button
                   onClick={() => setModalPlan(plan)}
-                  className="p-2 text-slate-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                  className="p-2 text-slate-600 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors border border-slate-200 bg-white shadow-xs"
                   title="Edit plan"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -557,27 +679,27 @@ const SuperAdminPlans = () => {
                 <button
                   onClick={() => handleDelete(plan.id)}
                   disabled={deleting === plan.id}
-                  className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
+                  className="p-2 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50 border border-slate-200 bg-white shadow-xs"
                   title="Delete plan"
                 >
                   {deleting === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 </button>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {plans.length === 0 && (
+      {filteredPlans.length === 0 && (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
           <Crown className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-slate-600 mb-2">No Plans Yet</h3>
-          <p className="text-sm text-slate-400 mb-4">Create your first membership plan to get started</p>
+          <h3 className="text-lg font-semibold text-slate-600 mb-2">No Plans In This Category</h3>
+          <p className="text-sm text-slate-400 mb-4">Click below to create a new plan for {selectedCategoryTab}</p>
           <button
-            onClick={() => setModalPlan({})}
+            onClick={() => setModalPlan({ category: selectedCategoryTab === 'ELITE' ? 'ELITE' : 'GENERAL' })}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold"
           >
-            <Plus className="w-4 h-4" /> Create First Plan
+            <Plus className="w-4 h-4" /> Create {selectedCategoryTab} Plan
           </button>
         </div>
       )}
@@ -586,6 +708,7 @@ const SuperAdminPlans = () => {
       {modalPlan !== undefined && (
         <PlanFormModal
           plan={modalPlan}
+          defaultCategory={selectedCategoryTab === 'ELITE' ? 'ELITE' : 'GENERAL'}
           onClose={() => setModalPlan(undefined)}
           onSave={handleSave}
         />

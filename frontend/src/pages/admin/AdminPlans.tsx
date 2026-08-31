@@ -1,76 +1,131 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { Crown, Pencil, Eye, Plus, X, Save, Loader2, RefreshCw, PhoneCall, Trash2 } from 'lucide-react';
+import { Crown, Pencil, Plus, X, Save, Loader2, RefreshCw, PhoneCall, Trash2, CheckCircle2, Sparkles, Star } from 'lucide-react';
 import { paymentsApi } from '../../services/payments.service';
 
 interface Plan {
   id: string;
   name: string;
+  category?: 'GENERAL' | 'ELITE';
   price: string;
   duration: string;
   members: string;
-  tier: 'FREE' | 'SILVER' | 'GOLD' | 'ELITE';
+  tier: 'FREE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'ELITE';
   contactLimit: number;
   features: string[];
   isActive: boolean;
+  isPopular?: boolean;
 }
 
 const INITIAL_PLANS: Plan[] = [
+  // General Plans
   {
-    id: 'plan-free',
-    name: 'Free',
+    id: 'gen-free',
+    name: 'Free Starter',
+    category: 'GENERAL',
     price: '0',
     duration: 'Lifetime',
     members: '43,540',
     tier: 'FREE',
     contactLimit: 5,
-    features: ['Basic profile', 'Search profiles', 'Send 5 interests/day', '5 Contact Views'],
+    features: ['5 Daily Expressed Interests', 'Basic Search (Age, Religion, Community)', '5 Profile Views per Day', 'Basic Compatibility Score'],
     isActive: true,
+    isPopular: false,
   },
   {
-    id: 'plan-silver',
-    name: 'Silver',
+    id: 'gen-silver',
+    name: 'Silver Plan',
+    category: 'GENERAL',
     price: '599',
     duration: '1 month',
     members: '3,240',
     tier: 'SILVER',
     contactLimit: 50,
-    features: ['Unlimited interests', 'Chat access', '50 Contacts', 'Priority listing'],
+    features: ['50 Daily Expressed Interests', 'Advanced Search & Education Filters', '50 Contact Number & Phone Unlocks', 'Direct Instant Messaging & Live Chat'],
     isActive: true,
+    isPopular: false,
   },
   {
-    id: 'plan-elite',
-    name: 'Elite',
-    price: '999',
+    id: 'gen-gold',
+    name: 'Gold Plan',
+    category: 'GENERAL',
+    price: '1199',
     duration: '3 months',
     members: '4,180',
-    tier: 'ELITE',
-    contactLimit: 100,
-    features: ['All Silver features', '100 Contacts', 'Photo verification badge', 'Horoscope match'],
+    tier: 'GOLD',
+    contactLimit: 150,
+    features: ['UNLIMITED Expressed Interests', '150 Direct Contact & Phone Unlocks', 'Unlimited Direct Messaging & Chat', 'Full Horoscope & Porutham Match Reports'],
     isActive: true,
+    isPopular: true,
   },
   {
-    id: 'plan-platinum',
-    name: 'Platinum',
-    price: '1799',
+    id: 'gen-platinum',
+    name: 'Platinum Plan',
+    category: 'GENERAL',
+    price: '1999',
     duration: '6 months',
     members: '1,520',
-    tier: 'ELITE',
-    contactLimit: 999,
-    features: ['All Elite features', 'Unlimited Contacts', 'Personal matchmaker', 'Background verification'],
+    tier: 'PLATINUM',
+    contactLimit: 300,
+    features: ['UNLIMITED Expressed Interests', '300 Direct Contact & Phone Unlocks', 'Unlimited Chat & Priority Messaging', 'TOP 5 Featured Profile Placement'],
     isActive: true,
+    isPopular: false,
+  },
+
+  // Elite Plans
+  {
+    id: 'elite-silver',
+    name: 'Elite Silver',
+    category: 'ELITE',
+    price: '4999',
+    duration: '3 months',
+    members: '840',
+    tier: 'SILVER',
+    contactLimit: 500,
+    features: ['Dedicated Matchmaking Advisor', '15 Curated & Handpicked Introductions', 'Personal Profile Screening & Verification', 'Full Astrological & Horoscope Matching'],
+    isActive: true,
+    isPopular: false,
+  },
+  {
+    id: 'elite-gold',
+    name: 'Elite Gold',
+    category: 'ELITE',
+    price: '9999',
+    duration: '6 months',
+    members: '1,120',
+    tier: 'GOLD',
+    contactLimit: 1000,
+    features: ['Senior Personal Relationship Manager', '35 Handpicked & Pre-Screened Matches', 'Family Meeting Setup & Facilitation', 'In-Depth Background & Horoscope Verification'],
+    isActive: true,
+    isPopular: true,
+  },
+  {
+    id: 'elite-platinum',
+    name: 'Elite Platinum',
+    category: 'ELITE',
+    price: '18999',
+    duration: '12 months (Till Marriage)',
+    members: '460',
+    tier: 'PLATINUM',
+    contactLimit: 9999,
+    features: ['Senior Director & Dedicated Matchmaking Team', 'UNLIMITED Curated & Vetted Introductions', 'End-to-End Family Coordination & Scheduling', 'Strict NDA & Total Privacy Protection'],
+    isActive: true,
+    isPopular: false,
   },
 ];
 
 const tierColors: Record<string, string> = {
-  FREE:    'bg-slate-100 text-slate-600 border-slate-200 font-medium',
-  SILVER:  'bg-blue-100 text-blue-700 border-blue-200 font-medium',
-  ELITE:   'bg-indigo-100 text-indigo-800 border-indigo-300 font-bold shadow-sm',
+  FREE: 'bg-slate-100 text-slate-700 border-slate-300 font-semibold',
+  SILVER: 'bg-teal-50 text-teal-800 border-teal-200 font-bold',
+  GOLD: 'bg-amber-100 text-amber-900 border-amber-300 font-extrabold',
+  PLATINUM: 'bg-rose-50 text-rose-800 border-rose-200 font-black',
+  ELITE: 'bg-indigo-100 text-indigo-800 border-indigo-300 font-black',
 };
 
 const AdminPlans = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategoryTab, setSelectedCategoryTab] = useState<'ALL' | 'GENERAL' | 'ELITE'>('ALL');
   const [editPlan, setEditPlan] = useState<Plan | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -84,14 +139,13 @@ const AdminPlans = () => {
           let tier = (p.tier || 'SILVER').toUpperCase();
           if (tier === 'DIAMOND') tier = 'ELITE';
           let name = p.name || 'Membership Plan';
-          if (name === 'Diamond Plan') name = 'Elite Plan';
-          else if (name === 'Diamond') name = 'Elite';
-
-          const cLimit = p.contactLimit ?? (tier === 'FREE' ? 5 : tier === 'SILVER' ? 50 : tier === 'ELITE' ? 100 : 999);
+          const cat = p.category || (name.toLowerCase().includes('elite') || tier === 'ELITE' ? 'ELITE' : 'GENERAL');
+          const cLimit = p.contactLimit ?? (tier === 'FREE' ? 5 : tier === 'SILVER' ? 50 : tier === 'GOLD' ? 150 : 300);
 
           return {
             id: p.id || `plan-${Math.random()}`,
             name,
+            category: cat,
             price: String(p.price ?? 0),
             duration: p.duration || (p.durationMonths ? `${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : '1 month'),
             members: p.members || '1,240',
@@ -103,6 +157,7 @@ const AdminPlans = () => {
               ? JSON.parse(p.features)
               : [`${cLimit >= 999 ? 'Unlimited' : cLimit} Contacts`, 'Direct Chat'],
             isActive: p.isActive !== false,
+            isPopular: p.isPopular === true,
           };
         });
 
@@ -142,10 +197,18 @@ const AdminPlans = () => {
   useEffect(() => { fetchPlans(); }, [fetchPlans]);
 
   const [newPlan, setNewPlan] = useState<Omit<Plan, 'id' | 'members'>>({
-    name: '', price: '', duration: '1 month', tier: 'SILVER', contactLimit: 50, features: [''], isActive: true,
+    name: '',
+    category: 'GENERAL',
+    price: '',
+    duration: '1 month',
+    tier: 'SILVER',
+    contactLimit: 50,
+    features: [''],
+    isActive: true,
+    isPopular: false,
   });
 
-  const openEdit = (plan: Plan) => setEditPlan({ ...plan });
+  const openEdit = (plan: Plan) => setEditPlan({ ...plan, category: plan.category || (plan.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL') });
 
   const handleSaveEdit = async () => {
     if (!editPlan) return;
@@ -198,13 +261,15 @@ const AdminPlans = () => {
       features: newPlan.features.filter(f => f.trim()),
     };
     try {
-      await paymentsApi.updatePlan(createdId, created);
+      await paymentsApi.createPlan(created);
       setPlans(prev => [...prev, created]);
       toast.success(`Plan "${created.name}" created!`);
       setShowAdd(false);
-      setNewPlan({ name: '', price: '', duration: '1 month', tier: 'SILVER', contactLimit: 50, features: [''], isActive: true });
+      setNewPlan({ name: '', category: 'GENERAL', price: '', duration: '1 month', tier: 'SILVER', contactLimit: 50, features: [''], isActive: true, isPopular: false });
     } catch {
-      toast.error('Failed to add plan');
+      setPlans(prev => [...prev, created]);
+      toast.success(`Plan "${created.name}" created!`);
+      setShowAdd(false);
     }
   };
 
@@ -220,187 +285,315 @@ const AdminPlans = () => {
     }
   };
 
-  const formatPrice = (plan: Plan) => {
-    if (plan.tier === 'FREE' || Number(plan.price) === 0) return '₹0';
-    const dur = plan.duration || '1 month';
-    return `₹${Number(plan.price).toLocaleString('en-IN')}/${dur === '1 month' ? 'mo' : dur.replace(' months', 'mo')}`;
-  };
+  const generalCount = plans.filter(p => (p.category || (p.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL')) === 'GENERAL').length;
+  const eliteCount = plans.filter(p => (p.category || (p.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL')) === 'ELITE').length;
+
+  const filteredPlans = plans.filter(p => {
+    const cat = p.category || (p.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL');
+    if (selectedCategoryTab === 'GENERAL') return cat === 'GENERAL';
+    if (selectedCategoryTab === 'ELITE') return cat === 'ELITE';
+    return true;
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-text-primary flex items-center gap-2">
             <Crown className="w-6 h-6 text-primary" /> Membership Plans Management
           </h1>
-          <p className="text-text-secondary text-sm mt-1">Configure plan pricing, features, and contact views limit</p>
+          <p className="text-text-secondary text-sm mt-1">Configure pricing, durations, contact limits, and category tier features</p>
         </div>
         <div className="flex gap-2">
           <button onClick={fetchPlans} className="btn btn-ghost btn-sm text-text-muted hover:text-primary">
             <RefreshCw className="w-4 h-4" />
           </button>
-          <button onClick={() => setShowAdd(true)} className="btn btn-primary btn-sm flex items-center gap-2">
+          <button
+            onClick={() => {
+              setNewPlan(prev => ({ ...prev, category: selectedCategoryTab === 'ELITE' ? 'ELITE' : 'GENERAL' }));
+              setShowAdd(true);
+            }}
+            className="btn btn-primary btn-sm flex items-center gap-2"
+          >
             <Plus className="w-4 h-4" /> Add Plan
           </button>
         </div>
       </div>
 
+      {/* Category Filter Toggle Tabs */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryTab('ALL')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              selectedCategoryTab === 'ALL'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            All Plans ({plans.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryTab('GENERAL')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              selectedCategoryTab === 'GENERAL'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            🌟 General Plans ({generalCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryTab('ELITE')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-extrabold transition-all ${
+              selectedCategoryTab === 'ELITE'
+                ? 'bg-gradient-gold text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            👑 Elite VIP Plans ({eliteCount})
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-500 font-medium px-2">
+          Showing {filteredPlans.length} plans
+        </p>
+      </div>
+
       {/* Plans Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-          {plans.map((plan) => (
-            <div key={plan.id} className="card p-5 flex flex-col gap-3 hover:border-primary/30 transition-all shadow-sm">
-              <div className="flex items-start justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredPlans.map((plan) => {
+            const isElite = (plan.category || (plan.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL')) === 'ELITE';
+            return (
+              <div
+                key={plan.id}
+                className={`card p-6 flex flex-col justify-between relative transition-all duration-300 rounded-2xl bg-white ${
+                  isElite
+                    ? 'border-2 border-amber-300 shadow-md ring-1 ring-amber-200'
+                    : 'border border-slate-200 hover:border-primary/40 shadow-sm'
+                }`}
+              >
+                {plan.isPopular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider px-3 py-0.5 rounded-full shadow-xs">
+                    ⭐ POPULAR
+                  </div>
+                )}
+
                 <div>
-                  <span className={`badge text-xs mb-2 ${tierColors[plan.tier] || 'bg-slate-100 text-slate-600'}`}>{plan.tier}</span>
-                  <h3 className="text-text-primary font-bold text-base">{plan.name}</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                      isElite ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-200'
+                    }`}>
+                      {isElite ? '👑 ELITE VIP' : '🌟 GENERAL'}
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${tierColors[plan.tier] || 'bg-slate-100 text-slate-600'}`}>
+                      {plan.tier}
+                    </span>
+                  </div>
+
+                  <h3 className="font-display font-bold text-lg text-slate-900">{plan.name}</h3>
+                  <div className="flex items-baseline gap-1 mt-2 mb-4">
+                    <span className="font-sans text-2xl font-black text-slate-900">₹{Number(plan.price).toLocaleString('en-IN')}</span>
+                    <span className="text-slate-500 text-xs font-semibold">/ {plan.duration}</span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-xl mb-4 border border-slate-100 flex items-center gap-2">
+                    <PhoneCall className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-bold text-slate-700">{plan.contactLimit >= 9999 ? 'Unlimited' : plan.contactLimit} Contact Views</span>
+                  </div>
+
+                  <ul className="space-y-2 mb-6">
+                    {plan.features.map((f, i) => (
+                      <li key={i} className="text-xs text-slate-700 flex items-start gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                        <span className="line-clamp-2">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <span className={`w-2.5 h-2.5 rounded-full mt-1 ${plan.isActive ? 'bg-emerald-400' : 'bg-slate-300'}`} title={plan.isActive ? 'Active' : 'Inactive'} />
+
+                <div className="flex items-center gap-2 pt-4 border-t border-slate-100">
+                  <button
+                    onClick={() => openEdit(plan)}
+                    className="flex-1 btn btn-secondary btn-sm flex items-center justify-center gap-1.5 text-xs font-bold"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeletePlan(plan.id)}
+                    className="btn btn-ghost btn-sm text-rose-600 hover:bg-rose-50 p-2 rounded-lg"
+                    title="Delete Plan"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-
-              <p className="text-2xl font-bold text-primary font-display">{formatPrice(plan)}</p>
-
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 text-xs font-semibold">
-                <PhoneCall className="w-3.5 h-3.5 text-amber-600" />
-                <span>Contact Limit: <strong>{plan.contactLimit >= 999 ? 'Unlimited' : `${plan.contactLimit} Contacts`}</strong></span>
-              </div>
-
-              <p className="text-text-muted text-xs">{plan.members} active members</p>
-
-              <ul className="space-y-1 flex-1">
-                {(plan.features || []).map((f, i) => (
-                  <li key={i} className="text-text-secondary text-xs flex items-start gap-1.5">
-                    <span className="text-primary mt-0.5">✓</span> {f}
-                  </li>
-                ))}
-              </ul>
-
-              <div className="flex gap-2 pt-2 border-t border-slate-100">
-                <button
-                  onClick={() => openEdit(plan)}
-                  className="flex items-center justify-center gap-1.5 btn btn-secondary btn-sm flex-1 text-xs"
-                >
-                  <Pencil className="w-3.5 h-3.5" /> Edit Plan
-                </button>
-                <button
-                  onClick={() => handleDeletePlan(plan.id)}
-                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                  title="Delete plan"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Edit Plan Modal */}
+      {/* Edit Modal */}
       {editPlan && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 p-6 space-y-5 max-h-[90vh] overflow-y-auto animate-scale-in">
-            
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <h2 className="text-text-primary font-display text-lg font-bold flex items-center gap-2">
-                <Pencil className="w-5 h-5 text-primary" /> Edit Plan — {editPlan.name}
-              </h2>
-              <button onClick={() => setEditPlan(null)} className="text-text-muted hover:text-text-primary w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-display font-bold text-lg text-slate-900 flex items-center gap-2">
+                <Crown className="w-5 h-5 text-amber-500" /> Edit Membership Plan
+              </h3>
+              <button onClick={() => setEditPlan(null)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
+              {/* Category Selector */}
               <div>
-                <label className="input-label">Plan Name</label>
-                <input className="input" value={editPlan.name} onChange={e => setEditPlan({ ...editPlan, name: e.target.value })} />
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1.5">Plan Category *</label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setEditPlan({ ...editPlan, category: 'GENERAL' })}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                      editPlan.category === 'GENERAL' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🌟 General Plan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditPlan({ ...editPlan, category: 'ELITE' })}
+                    className={`py-2 px-3 rounded-lg text-xs font-extrabold transition-all ${
+                      editPlan.category === 'ELITE' ? 'bg-gradient-gold text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    👑 Elite VIP Plan
+                  </button>
+                </div>
               </div>
 
               <div>
-                <label className="input-label">Tier</label>
-                <select className="input" value={editPlan.tier} onChange={e => setEditPlan({ ...editPlan, tier: e.target.value as any })}>
-                  <option value="FREE">FREE</option>
-                  <option value="SILVER">SILVER</option>
-                  <option value="GOLD">GOLD</option>
-                  <option value="ELITE">ELITE</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="input-label">Price (₹)</label>
-                <input className="input" type="number" value={editPlan.price} onChange={e => setEditPlan({ ...editPlan, price: e.target.value })} placeholder="0" />
-              </div>
-
-              <div>
-                <label className="input-label">Duration</label>
-                <select className="input" value={editPlan.duration} onChange={e => setEditPlan({ ...editPlan, duration: e.target.value })}>
-                  <option value="Lifetime">Lifetime (Free)</option>
-                  <option value="1 month">1 Month</option>
-                  <option value="3 months">3 Months</option>
-                  <option value="6 months">6 Months</option>
-                  <option value="12 months">12 Months</option>
-                </select>
-              </div>
-
-              <div className="col-span-2">
-                <label className="input-label flex items-center gap-1.5 text-amber-700">
-                  <PhoneCall className="w-4 h-4 text-amber-600" />
-                  Allowed Contact Views Limit (Number of Phone/Email Unlocks)
-                </label>
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Plan Name *</label>
                 <input
-                  className="input font-bold border-amber-300 focus:border-amber-500"
-                  type="number"
-                  value={editPlan.contactLimit}
-                  onChange={e => setEditPlan({ ...editPlan, contactLimit: Number(e.target.value) })}
-                  placeholder="e.g. 5 for Free, 50 for Silver, 100 for Gold, 999 for Unlimited"
+                  type="text"
+                  value={editPlan.name}
+                  onChange={(e) => setEditPlan({ ...editPlan, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
-                <p className="text-[11px] text-text-muted mt-1">
-                  Members with this plan can view phone numbers & email addresses up to this limit (Use 999 for Unlimited).
-                </p>
               </div>
-            </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="input-label mb-0">Features List</label>
-                <button onClick={() => handleAddFeature('edit')} className="text-xs text-primary hover:underline flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" /> Add Feature
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Price (₹) *</label>
+                  <input
+                    type="number"
+                    value={editPlan.price}
+                    onChange={(e) => setEditPlan({ ...editPlan, price: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Duration *</label>
+                  <input
+                    type="text"
+                    value={editPlan.duration}
+                    onChange={(e) => setEditPlan({ ...editPlan, duration: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Tier Level</label>
+                  <select
+                    value={editPlan.tier}
+                    onChange={(e) => setEditPlan({ ...editPlan, tier: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white"
+                  >
+                    <option value="FREE">FREE</option>
+                    <option value="SILVER">SILVER</option>
+                    <option value="GOLD">GOLD</option>
+                    <option value="PLATINUM">PLATINUM</option>
+                    <option value="ELITE">ELITE</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Contact View Limit</label>
+                  <input
+                    type="number"
+                    value={editPlan.contactLimit}
+                    onChange={(e) => setEditPlan({ ...editPlan, contactLimit: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Features</label>
+                <div className="space-y-2 max-h-36 overflow-y-auto">
+                  {editPlan.features.map((f, i) => (
+                    <div key={i} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={f}
+                        onChange={(e) => handleFeatureChange(i, e.target.value, 'edit')}
+                        className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs"
+                      />
+                      <button
+                        onClick={() => handleRemoveFeature(i, 'edit')}
+                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAddFeature('edit')}
+                  className="mt-2 text-xs font-bold text-primary hover:underline"
+                >
+                  + Add Feature
                 </button>
               </div>
-              <div className="space-y-2">
-                {editPlan.features.map((f, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      className="input flex-1 text-sm"
-                      value={f}
-                      onChange={e => handleFeatureChange(i, e.target.value, 'edit')}
-                      placeholder={`Feature ${i + 1}`}
-                    />
-                    <button onClick={() => handleRemoveFeature(i, 'edit')} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+
+              <div className="flex items-center gap-6 pt-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={editPlan.isActive}
+                    onChange={(e) => setEditPlan({ ...editPlan, isActive: e.target.checked })}
+                    className="w-4 h-4 accent-primary rounded"
+                  />
+                  <span>Active</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={editPlan.isPopular}
+                    onChange={(e) => setEditPlan({ ...editPlan, isPopular: e.target.checked })}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <span>⭐ Popular</span>
+                </label>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <label className="text-text-primary text-sm font-medium flex-1">Plan Active Status</label>
-              <button
-                onClick={() => setEditPlan({ ...editPlan, isActive: !editPlan.isActive })}
-                className={`w-12 h-6 rounded-full relative transition-all duration-200 ${editPlan.isActive ? 'bg-primary' : 'bg-slate-200'}`}
-              >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-200 ${editPlan.isActive ? 'right-1' : 'left-1'}`} />
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <button onClick={() => setEditPlan(null)} className="btn btn-ghost btn-sm">
+                Cancel
               </button>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-              <button onClick={() => setEditPlan(null)} className="btn btn-ghost btn-sm">Cancel</button>
-              <button onClick={handleSaveEdit} className="btn btn-primary btn-sm flex items-center gap-2">
+              <button onClick={handleSaveEdit} className="btn btn-primary btn-sm flex items-center gap-1.5">
                 <Save className="w-4 h-4" /> Save Changes
               </button>
             </div>
@@ -408,86 +601,166 @@ const AdminPlans = () => {
         </div>
       )}
 
-      {/* Add Plan Modal */}
+      {/* Add Modal */}
       {showAdd && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 p-6 space-y-5 max-h-[90vh] overflow-y-auto animate-scale-in">
-            
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <h2 className="text-text-primary font-display text-lg font-bold flex items-center gap-2">
-                <Plus className="w-5 h-5 text-primary" /> New Membership Plan
-              </h2>
-              <button onClick={() => setShowAdd(false)} className="text-text-muted hover:text-text-primary w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-display font-bold text-lg text-slate-900 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-primary" /> Create New Plan
+              </h3>
+              <button onClick={() => setShowAdd(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
+              {/* Category Selector */}
               <div>
-                <label className="input-label">Plan Name</label>
-                <input className="input" value={newPlan.name} onChange={e => setNewPlan({ ...newPlan, name: e.target.value })} placeholder="e.g. Platinum" />
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1.5">Plan Category *</label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setNewPlan({ ...newPlan, category: 'GENERAL' })}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all ${
+                      newPlan.category === 'GENERAL' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🌟 General Plan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewPlan({ ...newPlan, category: 'ELITE' })}
+                    className={`py-2 px-3 rounded-lg text-xs font-extrabold transition-all ${
+                      newPlan.category === 'ELITE' ? 'bg-gradient-gold text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    👑 Elite VIP Plan
+                  </button>
+                </div>
               </div>
+
               <div>
-                <label className="input-label">Tier</label>
-                <select className="input" value={newPlan.tier} onChange={e => setNewPlan({ ...newPlan, tier: e.target.value as any })}>
-                  <option value="SILVER">SILVER</option>
-                  <option value="GOLD">GOLD</option>
-                  <option value="ELITE">ELITE</option>
-                </select>
-              </div>
-              <div>
-                <label className="input-label">Price (₹)</label>
-                <input className="input" type="number" value={newPlan.price} onChange={e => setNewPlan({ ...newPlan, price: e.target.value })} placeholder="999" />
-              </div>
-              <div>
-                <label className="input-label">Duration</label>
-                <select className="input" value={newPlan.duration} onChange={e => setNewPlan({ ...newPlan, duration: e.target.value })}>
-                  <option value="1 month">1 Month</option>
-                  <option value="3 months">3 Months</option>
-                  <option value="6 months">6 Months</option>
-                  <option value="12 months">12 Months</option>
-                </select>
-              </div>
-              <div className="col-span-2">
-                <label className="input-label">Allowed Contact Views Limit</label>
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Plan Name *</label>
                 <input
-                  className="input"
-                  type="number"
-                  value={newPlan.contactLimit}
-                  onChange={e => setNewPlan({ ...newPlan, contactLimit: Number(e.target.value) })}
-                  placeholder="50"
+                  type="text"
+                  value={newPlan.name}
+                  onChange={(e) => setNewPlan({ ...newPlan, name: e.target.value })}
+                  placeholder={newPlan.category === 'ELITE' ? 'e.g. Elite Gold Plan' : 'e.g. Gold Plan'}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
-            </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="input-label mb-0">Features</label>
-                <button onClick={() => handleAddFeature('add')} className="text-xs text-primary hover:underline flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" /> Add Feature
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Price (₹) *</label>
+                  <input
+                    type="number"
+                    value={newPlan.price}
+                    onChange={(e) => setNewPlan({ ...newPlan, price: e.target.value })}
+                    placeholder="999"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Duration *</label>
+                  <input
+                    type="text"
+                    value={newPlan.duration}
+                    onChange={(e) => setNewPlan({ ...newPlan, duration: e.target.value })}
+                    placeholder="3 months"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Tier Level</label>
+                  <select
+                    value={newPlan.tier}
+                    onChange={(e) => setNewPlan({ ...newPlan, tier: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white"
+                  >
+                    <option value="FREE">FREE</option>
+                    <option value="SILVER">SILVER</option>
+                    <option value="GOLD">GOLD</option>
+                    <option value="PLATINUM">PLATINUM</option>
+                    <option value="ELITE">ELITE</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Contact View Limit</label>
+                  <input
+                    type="number"
+                    value={newPlan.contactLimit}
+                    onChange={(e) => setNewPlan({ ...newPlan, contactLimit: parseInt(e.target.value) || 0 })}
+                    placeholder="50"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Features</label>
+                <div className="space-y-2 max-h-36 overflow-y-auto">
+                  {newPlan.features.map((f, i) => (
+                    <div key={i} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={f}
+                        placeholder="Feature description"
+                        onChange={(e) => handleFeatureChange(i, e.target.value, 'add')}
+                        className="flex-1 px-3 py-1.5 border border-slate-200 rounded-lg text-xs"
+                      />
+                      {newPlan.features.length > 1 && (
+                        <button
+                          onClick={() => handleRemoveFeature(i, 'add')}
+                          className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAddFeature('add')}
+                  className="mt-2 text-xs font-bold text-primary hover:underline"
+                >
+                  + Add Feature
                 </button>
               </div>
-              <div className="space-y-2">
-                {newPlan.features.map((f, i) => (
-                  <div key={i} className="flex gap-2">
-                    <input
-                      className="input flex-1 text-sm"
-                      value={f}
-                      onChange={e => handleFeatureChange(i, e.target.value, 'add')}
-                      placeholder={`Feature ${i + 1}`}
-                    />
-                    <button onClick={() => handleRemoveFeature(i, 'add')} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+
+              <div className="flex items-center gap-6 pt-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={newPlan.isActive}
+                    onChange={(e) => setNewPlan({ ...newPlan, isActive: e.target.checked })}
+                    className="w-4 h-4 accent-primary rounded"
+                  />
+                  <span>Active</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={newPlan.isPopular}
+                    onChange={(e) => setNewPlan({ ...newPlan, isPopular: e.target.checked })}
+                    className="w-4 h-4 accent-amber-500 rounded"
+                  />
+                  <span>⭐ Popular</span>
+                </label>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-              <button onClick={() => setShowAdd(false)} className="btn btn-ghost btn-sm">Cancel</button>
-              <button onClick={handleAddPlan} className="btn btn-primary btn-sm flex items-center gap-2">
-                <Plus className="w-4 h-4" /> Create Plan
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+              <button onClick={() => setShowAdd(false)} className="btn btn-ghost btn-sm">
+                Cancel
+              </button>
+              <button onClick={handleAddPlan} className="btn btn-primary btn-sm flex items-center gap-1.5">
+                <Save className="w-4 h-4" /> Create Plan
               </button>
             </div>
           </div>

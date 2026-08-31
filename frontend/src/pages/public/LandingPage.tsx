@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Search, Sparkles, Heart, ShieldCheck, UserCheck, ArrowRight, Star, 
-  Users, CheckCircle2, Award, Zap, Phone, Lock, MessageSquare, Globe, X, Loader2
+import {
+  Search, Sparkles, Heart, ShieldCheck, UserCheck, ArrowRight, Star,
+  Users, CheckCircle2, Award, Zap, Phone, Lock, MessageSquare, Globe, X, Loader2,
+  ChevronDown, HelpCircle
 } from 'lucide-react';
 import { adminApi } from '../../services/admin.service';
 import { communitiesApi, CommunityData } from '../../services/communities.service';
@@ -24,7 +25,7 @@ const HeroSection = () => {
       if (Array.isArray(items) && items.length > 0) {
         setDbProfiles(items);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const handleQuickSearch = (e?: React.FormEvent) => {
@@ -70,8 +71,7 @@ const HeroSection = () => {
             </h1>
 
             <p className="text-text-secondary text-base md:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed font-normal">
-              S2S Matrimony connects you with verified profiles from 200+ communities. 
-              Enjoy AI-powered matchmaking, 100% privacy control, and real-time interaction.
+              Personalized matchmaking,  intelligent compatibility assessment,  curated introductions and complete confidentiality
             </p>
 
             {/* Quick Search Widget */}
@@ -80,11 +80,10 @@ const HeroSection = () => {
                 <button
                   type="button"
                   onClick={() => setActiveGender('BRIDE')}
-                  className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 border ${
-                    activeGender === 'BRIDE'
+                  className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 border ${activeGender === 'BRIDE'
                       ? 'bg-gradient-primary text-white border-primary-light shadow-md'
                       : 'bg-slate-50 text-text-secondary border-slate-200 hover:text-text-primary hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   <Heart className={`w-4 h-4 ${activeGender === 'BRIDE' ? 'fill-current' : ''}`} />
                   <span>Looking for Bride</span>
@@ -93,11 +92,10 @@ const HeroSection = () => {
                 <button
                   type="button"
                   onClick={() => setActiveGender('GROOM')}
-                  className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 border ${
-                    activeGender === 'GROOM'
+                  className={`flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 border ${activeGender === 'GROOM'
                       ? 'bg-gradient-primary text-white border-primary-light shadow-md'
                       : 'bg-slate-50 text-text-secondary border-slate-200 hover:text-text-primary hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   <UserCheck className="w-4 h-4" />
                   <span>Looking for Groom</span>
@@ -107,7 +105,7 @@ const HeroSection = () => {
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
                   <label className="input-label">Age Preference</label>
-                  <select 
+                  <select
                     className="input text-xs py-2.5 font-medium"
                     value={ageRange}
                     onChange={(e) => setAgeRange(e.target.value)}
@@ -122,7 +120,7 @@ const HeroSection = () => {
                 </div>
                 <div>
                   <label className="input-label">Religion / Caste</label>
-                  <select 
+                  <select
                     className="input text-xs py-2.5 font-medium"
                     value={religion}
                     onChange={(e) => setReligion(e.target.value)}
@@ -244,34 +242,40 @@ const HeroSection = () => {
   );
 };
 
-// ── How It Works Section ──────────────────────────────────────────
+// ── A More Personal Way to Find Your Life Partner ───────────────────
 const HowItWorksSection = () => {
   const steps = [
-    { num: '01', icon: UserCheck, title: 'Register Free', desc: 'Create your profile in minutes. Add photos, family details, and partner preferences.' },
-    { num: '02', icon: Search, title: 'Search & Browse', desc: 'Use 25+ filters to find matches by community, location, education, and horoscope.' },
-    { num: '03', icon: Heart, title: 'Send Interest', desc: 'Connect with profiles you like. Accept or decline received interests privately.' },
-    { num: '04', icon: Sparkles, title: 'Get Married', desc: 'Chat securely, view verified contacts, and begin your beautiful journey together.' },
+    { num: '01', icon: MessageSquare, title: 'Tell Us Your Story', desc: 'Begin with a private consultation. We learn about your background, personality, aspirations, family values, and expectations.' },
+    { num: '02', icon: Search, title: 'Understand Preferences', desc: 'We identify the qualities, lifestyle, and compatibility factors that matter most to you in a life partner.' },
+    { num: '03', icon: Sparkles, title: 'Curated Match Selection', desc: 'Our matchmaking team carefully identifies potential matches aligned with your requirements and relationship goals.' },
+    { num: '04', icon: Heart, title: 'Personalised Introductions', desc: 'We facilitate introductions in a respectful, comfortable, and completely confidential manner.' },
+    { num: '05', icon: Award, title: 'Support When It Matters', desc: 'From the first introduction through the relationship journey, our team remains available to provide guidance and support.' },
   ];
 
   return (
-    <section className="section bg-slate-50">
+    <section className="section bg-slate-50 border-t border-slate-100">
       <div className="container mx-auto px-4 md:px-8">
         <div className="text-center mb-14">
-          <h2 className="section-title">How It <span className="text-gradient">Works</span></h2>
-          <p className="section-subtitle">Find your compatible life partner in 4 simple steps</p>
+          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-primary text-xs font-bold uppercase tracking-wider mb-3">
+            <Sparkles className="w-3.5 h-3.5" /> Our Matchmaking Process
+          </div>
+          <h2 className="section-title">A More Personal Way to <span className="text-gradient">Find Your Life Partner</span></h2>
+          <p className="section-subtitle max-w-2xl mx-auto">Thoughtfully guided from initial consultation through your wedding day</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           {steps.map((step, i) => {
             const IconComponent = step.icon;
             return (
-              <div key={i} className="card p-6 text-center hover:border-primary/40 hover:-translate-y-1 transition-all duration-300 group bg-white">
-                <div className="w-14 h-14 rounded-2xl bg-primary/10 text-primary border border-primary/20 mx-auto mb-4 flex items-center justify-center transition-transform group-hover:scale-110 shadow-md">
-                  <IconComponent className="w-7 h-7" />
+              <div key={i} className="card p-6 text-center hover:border-primary/40 hover:-translate-y-1 transition-all duration-300 group bg-white shadow-sm hover:shadow-md flex flex-col justify-between">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary border border-primary/20 mx-auto mb-4 flex items-center justify-center transition-transform group-hover:scale-110 shadow-sm">
+                    <IconComponent className="w-6 h-6" />
+                  </div>
+                  <span className="text-gradient font-display font-black text-2xl block mb-2">{step.num}</span>
+                  <h3 className="text-text-primary font-bold text-base mb-2">{step.title}</h3>
+                  <p className="text-text-secondary text-xs leading-relaxed">{step.desc}</p>
                 </div>
-                <span className="text-gradient-gold font-display font-bold text-3xl block mb-2">{step.num}</span>
-                <h3 className="text-text-primary font-semibold text-lg mb-2">{step.title}</h3>
-                <p className="text-text-secondary text-sm leading-relaxed">{step.desc}</p>
               </div>
             );
           })}
@@ -281,56 +285,194 @@ const HowItWorksSection = () => {
   );
 };
 
-// ── Features Section (Split Layout with Hand Image) ────────────────
+// ── Why Choose S2S Matrimony ───────────────────────────────────────
 const FeaturesSection = () => {
   const features = [
-    { icon: Sparkles, title: 'AI Compatibility Score', desc: 'Our AI engine analyzes 25+ compatibility factors to give you a match score.' },
-    { icon: ShieldCheck, title: '100% Verified Profiles', desc: 'Every profile undergoes photo and ID verification to eliminate fake accounts.' },
-    { icon: Lock, title: 'Privacy & Contact Protection', desc: 'Control who sees your phone number, email, photos, and horoscope.' },
-    { icon: MessageSquare, title: 'Real-Time Secure Messaging', desc: 'Chat safely with matched profiles before exchanging family contacts.' },
+    { icon: Sparkles, title: 'Curated, Not Crowded', desc: 'We focus on quality over quantity. Every introduction is thoughtfully considered based on your preferences, personality, values, and family expectations.' },
+    { icon: UserCheck, title: 'Personalised Matchmaking', desc: 'Your journey is guided by a dedicated matchmaking expert who takes the time to understand you beyond an online profile.' },
+    { icon: Lock, title: 'Privacy & Discretion', desc: 'Your personal information and matrimonial journey are handled with the highest level of confidentiality and professionalism.' },
+    { icon: Heart, title: 'Meaningful Compatibility', desc: 'We look beyond education and appearance to understand lifestyle, values, family vision, personality, and relationship expectations.' },
+    { icon: ShieldCheck, title: 'Trusted Network', desc: 'Access a carefully curated network of eligible individuals and families who are genuinely seeking a committed relationship.' },
+    { icon: Award, title: 'Relationship With Purpose', desc: 'Our goal isn’t simply to find you a match. It is to help you discover a partner with whom you can build a fulfilling life.' },
   ];
 
   return (
-    <section className="section bg-white">
+    <section className="section bg-white border-t border-slate-100">
       <div className="container mx-auto px-4 md:px-8">
-        <div className="grid lg:grid-cols-12 gap-12 items-center">
-          {/* Left Text Features */}
-          <div className="lg:col-span-7 space-y-8">
-            <div>
-              <h2 className="section-title text-left">Why <span className="text-gradient">S2S Matrimony?</span></h2>
-              <p className="text-text-secondary text-base max-w-xl mt-3">Premium features designed for safe, community-focused matrimony</p>
-            </div>
-            
-            <div className="grid sm:grid-cols-2 gap-6">
-              {features.map((f, i) => {
-                const IconComp = f.icon;
-                return (
-                  <div key={i} className="card p-5 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-200 group bg-slate-50/50">
-                    <div className="w-10 h-10 rounded-xl bg-secondary/10 text-secondary border border-secondary/20 mb-3 flex items-center justify-center transition-transform group-hover:scale-105">
-                      <IconComp className="w-5 h-5" />
-                    </div>
-                    <h3 className="text-text-primary font-bold text-base mb-1">{f.title}</h3>
-                    <p className="text-text-secondary text-xs leading-relaxed">{f.desc}</p>
-                  </div>
-                );
-              })}
-            </div>
+        <div className="text-center max-w-2xl mx-auto mb-12">
+          <div className="inline-flex items-center gap-2 bg-secondary/10 border border-secondary/20 rounded-full px-4 py-1.5 text-secondary text-xs font-bold uppercase tracking-wider mb-3">
+            <Award className="w-3.5 h-3.5" /> The S2S Distinction
           </div>
+          <h2 className="section-title">Why Choose <span className="text-gradient">S2S Matrimony</span></h2>
+          <p className="section-subtitle">Excellence, discretion, and meaningful connections tailored to you</p>
+        </div>
 
-          {/* Right Banner Image */}
-          <div className="lg:col-span-5 relative">
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent rounded-3xl blur-2xl" />
-            <div className="relative border border-slate-200 p-2 bg-white rounded-3xl shadow-2xl transform rotate-1 hover:rotate-0 transition-transform duration-300">
-              <img 
-                src="/images/hands.png" 
-                alt="South Indian Matrimony Hands" 
-                className="w-full h-80 object-cover rounded-2xl"
-              />
-              <div className="absolute bottom-6 left-6 right-6 bg-white/95 backdrop-blur border border-slate-200 p-4 rounded-2xl shadow-lg">
-                <p className="text-text-primary font-bold text-sm">Trust & Tradition</p>
-                <p className="text-text-secondary text-xs mt-0.5">Connecting families with traditional values and modern verification.</p>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {features.map((f, i) => {
+            const IconComp = f.icon;
+            return (
+              <div key={i} className="card p-6 hover:border-primary/40 hover:-translate-y-1 transition-all duration-200 group bg-slate-50/60 hover:bg-white shadow-sm hover:shadow-md">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary border border-primary/20 mb-4 flex items-center justify-center transition-transform group-hover:scale-105">
+                  <IconComp className="w-6 h-6" />
+                </div>
+                <h3 className="text-text-primary font-bold text-lg mb-2">{f.title}</h3>
+                <p className="text-text-secondary text-sm leading-relaxed">{f.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ── Beyond Profiles. Beyond Algorithms. ────────────────────────────
+const PhilosophySection = () => {
+  const pillars = [
+    { title: 'Shared Values', icon: Heart, desc: 'Deep-rooted cultural & moral harmony' },
+    { title: 'Emotional Compatibility', icon: Sparkles, desc: 'Mutual empathy & emotional resonance' },
+    { title: 'Family Harmony', icon: Users, desc: 'Aligning family traditions & vision' },
+    { title: 'Life Aspirations', icon: Award, desc: 'Shared ambitions & personal growth' },
+    { title: 'Mutual Respect', icon: ShieldCheck, desc: 'A foundation of equality & dignity' },
+    { title: 'Shared Vision for Future', icon: Globe, desc: 'Building a fulfilling life together' },
+  ];
+
+  return (
+    <section className="section bg-white border-t border-slate-100">
+      <div className="container mx-auto px-4 md:px-8">
+        <div className="max-w-3xl mx-auto text-center mb-12 space-y-3">
+          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-primary text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5" /> Our Matching Philosophy
+          </div>
+          <h2 className="section-title">
+            Beyond Profiles. <span className="text-gradient">Beyond Algorithms.</span>
+          </h2>
+          <p className="section-subtitle max-w-2xl mx-auto">
+            A successful marriage is built on more than a checklist. That's why our matchmaking process looks at the complete picture.
+          </p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
+          {pillars.map((p, idx) => {
+            const Icon = p.icon;
+            return (
+              <div
+                key={idx}
+                className="p-5 rounded-2xl bg-slate-50/70 border border-slate-200/80 hover:bg-white hover:border-primary/40 shadow-sm hover:shadow-md transition-all duration-300 flex items-start gap-4 group"
+              >
+                <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 border border-primary/20 group-hover:scale-105 transition-transform">
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-slate-900 font-bold text-base mb-1">{p.title}</h4>
+                  <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">{p.desc}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ── For Individuals & For Families ─────────────────────────────────
+const AudienceSection = () => {
+  const audiences = [
+    {
+      title: 'Accomplished Individuals',
+      tag: 'Professionals & Entrepreneurs',
+      desc: 'Seeking a meaningful, intellectually and culturally aligned relationship with an equal partner who shares your aspirations.',
+      badge: 'Personal Discretion',
+    },
+    {
+      title: 'Well-Matched Families',
+      tag: 'Family Alliances',
+      desc: 'Looking for a compatible alliance built on shared tradition, background, integrity, and mutual respect with total peace of mind.',
+      badge: 'Family Harmony',
+    },
+    {
+      title: 'Global NRIs',
+      tag: 'Global Connections',
+      desc: 'Seeking trusted matrimony bridging international lifestyles with rich cultural heritage and seamless family connections.',
+      badge: 'Global Outreach',
+    },
+  ];
+
+  return (
+    <section className="section bg-slate-50 border-t border-slate-100">
+      <div className="container mx-auto px-4 md:px-8">
+        <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
+          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-primary text-xs font-bold uppercase tracking-wider">
+            <Users className="w-3.5 h-3.5" /> Tailored Matchmaking
+          </div>
+          <h2 className="section-title">For Individuals <span className="text-gradient">& For Families</span></h2>
+          <p className="section-subtitle">
+            We understand that finding a life partner is a deeply personal journey—and often a family decision. We provide a discreet and professional experience balancing personal preferences with family values.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {audiences.map((a, i) => (
+            <div key={i} className="card p-6 bg-white border border-slate-200 hover:border-primary/40 hover:shadow-lg transition-all duration-300 flex flex-col justify-between">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-1 rounded-full border border-primary/20 inline-block mb-3">
+                  {a.badge}
+                </span>
+                <h3 className="text-text-primary font-bold text-lg mb-1">{a.title}</h3>
+                <p className="text-xs font-semibold text-text-muted mb-3">{a.tag}</p>
+                <p className="text-text-secondary text-sm leading-relaxed">{a.desc}</p>
+              </div>
+              <div className="pt-4 mt-4 border-t border-slate-100 flex items-center text-primary text-xs font-bold gap-1">
+                <span>Tailored private matchmaking</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+// ── Your Privacy Is Our Priority ───────────────────────────────────
+const PrivacySection = () => {
+  const privacyPoints = [
+    { title: 'Confidential Consultations', icon: Lock, desc: 'Private one-on-one sessions with our senior matchmaking team.' },
+    { title: 'Carefully Managed Profiles', icon: ShieldCheck, desc: 'Complete control over who views your photos, contact, and details.' },
+    { title: 'Discreet Introductions', icon: Heart, desc: 'Introductions facilitated only upon mutual consent and verified interest.' },
+    { title: 'Professional Matchmaking Support', icon: UserCheck, desc: 'Dedicated advisors upholding complete discretion at every step.' },
+  ];
+
+  return (
+    <section className="section bg-slate-50 border-t border-slate-100">
+      <div className="container mx-auto px-4 md:px-8">
+        <div className="max-w-4xl mx-auto bg-gradient-to-br from-white to-primary/5 rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-xl">
+          <div className="text-center space-y-3 mb-10">
+            <div className="inline-flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-4 py-1.5 text-emerald-700 text-xs font-bold uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" /> 100% Confidentiality Guarantee
+            </div>
+            <h2 className="section-title">Your Privacy Is Our <span className="text-gradient">Priority</span></h2>
+            <p className="text-text-secondary text-base max-w-2xl mx-auto">
+              Your personal life deserves complete discretion. We maintain a confidential matchmaking environment designed for individuals and families who prefer a private, professional approach.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-5">
+            {privacyPoints.map((item, idx) => {
+              const Icon = item.icon;
+              return (
+                <div key={idx} className="p-4 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 border border-primary/20">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-text-primary font-bold text-sm mb-1">{item.title}</h4>
+                    <p className="text-text-secondary text-xs leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -348,7 +490,7 @@ const SuccessStoriesSection = () => {
       if (Array.isArray(data) && data.length > 0) {
         setDbStories(data);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const defaultStories = [
@@ -434,7 +576,7 @@ const CommunitiesSection = () => {
       if (Array.isArray(comms) && comms.length > 0) {
         setDbCommunities(comms.filter((c) => !c.parentId).slice(0, 12));
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   return (
@@ -471,8 +613,9 @@ const CommunitiesSection = () => {
   );
 };
 
-// ── Pricing & Plans Section ──────────────────────────────────
+// ── Pricing & Plans Section (2 Categories: General & Elite) ────────
 const PricingPlansSection = () => {
+  const [category, setCategory] = useState<'GENERAL' | 'ELITE' | null>(null);
   const [dbPlans, setDbPlans] = useState<any[]>([]);
 
   useEffect(() => {
@@ -481,12 +624,12 @@ const PricingPlansSection = () => {
       if (Array.isArray(data) && data.length > 0) {
         setDbPlans(data);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
-  const defaultPlans = [
+  const generalPlans = [
     {
-      id: 'free',
+      id: 'gen-free',
       name: 'Free Starter',
       price: '₹0',
       period: 'Lifetime Free',
@@ -497,146 +640,173 @@ const PricingPlansSection = () => {
       description: 'Ideal for exploring verified profiles and getting started',
       features: [
         { text: '5 Daily Expressed Interests', active: true },
-        { text: 'Basic Search Filters (Age, Religion, Community)', active: true },
+        { text: 'Basic Search (Age, Religion, Community)', active: true },
         { text: '5 Profile Views per Day', active: true },
         { text: 'Basic Compatibility Score', active: true },
+        { text: 'Verified Member Badge', active: true },
         { text: 'Contact Numbers & Email Unlocks', active: false },
         { text: 'Direct Instant Messaging & Live Chat', active: false },
         { text: 'Priority Search Ranking in Results', active: false },
-        { text: 'Dedicated Matchmaking Manager', active: false },
       ],
       ctaText: 'Register Free',
       ctaLink: '/register',
       ctaStyle: 'btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300',
     },
     {
-      id: 'silver',
+      id: 'gen-silver',
       name: 'Silver Plan',
       price: '₹599',
-      period: 'per month',
+      period: '1 month',
       popular: false,
-      badge: 'Popular Choice',
-      badgeBg: 'bg-teal-50 text-secondary-dark border-secondary/30 font-bold',
-      checkColor: 'text-secondary',
-      description: 'Unlock contact details & start connecting with matches',
+      badge: 'Standard Access',
+      badgeBg: 'bg-teal-50 text-teal-800 border-teal-200 font-bold',
+      checkColor: 'text-teal-600',
+      description: 'Unlock contact details & start connecting directly with matches',
       features: [
         { text: '50 Daily Expressed Interests', active: true },
         { text: 'Advanced Search & Education Filters', active: true },
-        { text: '50 Contact Number & Email Unlocks', active: true },
+        { text: '50 Contact Number & Phone Unlocks', active: true },
         { text: 'Direct Instant Messaging & Live Chat', active: true },
-        { text: 'Verified Badge Priority on Search', active: true },
         { text: 'Full Horoscope Overview', active: true },
-        { text: 'Priority Search Ranking in Results', active: false },
-        { text: 'Dedicated Matchmaking Manager', active: false },
+        { text: 'Verified Search Badge Priority', active: true },
+        { text: 'Top 10 Search Placement', active: false },
+        { text: 'Dedicated Matchmaking Advisor', active: false },
       ],
       ctaText: 'Choose Silver',
       ctaLink: '/register',
-      ctaStyle: 'btn bg-gradient-secondary text-white font-bold shadow-md hover:opacity-95 border-0',
+      ctaStyle: 'btn bg-teal-600 hover:bg-teal-700 text-white font-bold border-0 shadow-md',
     },
     {
-      id: 'elite',
-      name: 'Elite Plan',
-      price: '₹999',
-      period: 'for 3 months',
+      id: 'gen-gold',
+      name: 'Gold Plan',
+      price: '₹1,199',
+      period: '3 months',
       popular: true,
-      badge: 'Most Popular ⭐',
-      badgeBg: 'bg-indigo-100 text-indigo-900 border-indigo-300 font-extrabold',
-      checkColor: 'text-indigo-700',
-      description: 'Maximum visibility & unlimited connection privileges',
+      badge: 'Best Value ⭐',
+      badgeBg: 'bg-amber-100 text-amber-900 border-amber-300 font-extrabold',
+      checkColor: 'text-amber-600',
+      description: 'High visibility, faster responses & full horoscope match reports',
       features: [
         { text: 'UNLIMITED Expressed Interests', active: true },
-        { text: 'Full Horoscope & Porutham Match Reports', active: true },
-        { text: '100 Direct Contact & Phone Unlocks', active: true },
+        { text: '150 Direct Contact & Phone Unlocks', active: true },
         { text: 'Unlimited Direct Messaging & Chat', active: true },
-        { text: 'TOP 10 Priority Ranking in Search', active: true },
+        { text: 'Full Horoscope & Porutham Match Reports', active: true },
+        { text: 'Priority Search Placement in Results', active: true },
         { text: 'AI Matchmaking & Compatibility Score', active: true },
-        { text: 'Privacy Shield & Photo Lock Control', active: true },
-        { text: 'Dedicated Matchmaking Manager', active: false },
+        { text: 'Privacy Shield & Photo Lock Controls', active: true },
+        { text: 'Dedicated Relationship Manager', active: false },
       ],
-      ctaText: 'Get Elite Plan',
+      ctaText: 'Choose Gold',
       ctaLink: '/register',
-      ctaStyle: 'btn bg-indigo-600 text-white font-extrabold shadow-lg hover:bg-indigo-700 border-0',
+      ctaStyle: 'btn bg-gradient-gold text-white font-extrabold shadow-lg hover:brightness-105 border-0',
     },
     {
-      id: 'platinum',
-      name: 'Platinum VIP',
-      price: '₹1,799',
-      period: 'for 6 months',
+      id: 'gen-platinum',
+      name: 'Platinum Plan',
+      price: '₹1,999',
+      period: '6 months',
       popular: false,
-      badge: 'Royal VIP Service',
-      badgeBg: 'bg-cyan-100 text-cyan-900 border-cyan-300 font-extrabold',
-      checkColor: 'text-cyan-700',
-      description: 'Dedicated personal manager and full VIP privileges',
+      badge: 'Maximum Access',
+      badgeBg: 'bg-primary/10 text-primary-dark border-primary/30 font-extrabold',
+      checkColor: 'text-primary',
+      description: 'Maximum connection limits, top tier ranking & premium badges',
       features: [
         { text: 'UNLIMITED Expressed Interests', active: true },
-        { text: 'Full Horoscope & Koota Analysis', active: true },
-        { text: 'UNLIMITED Direct Contact Unlocks', active: true },
-        { text: 'Unlimited Direct Messaging & Video Call', active: true },
-        { text: 'DEDICATED Personal Match Manager', active: true },
-        { text: 'Elite Badge Highlighted Profile Card', active: true },
-        { text: 'VIP 24/7 Priority Concierge Support', active: true },
-        { text: 'Custom Verified Background Check', active: true },
+        { text: '300 Direct Contact & Phone Unlocks', active: true },
+        { text: 'Unlimited Chat & Priority Messaging', active: true },
+        { text: 'Full Horoscope & 10 Porutham Reports', active: true },
+        { text: 'TOP 5 Featured Profile Placement', active: true },
+        { text: 'Highlighted Platinum Badge on Profile', active: true },
+        { text: 'Complete Privacy & Contact Protection', active: true },
+        { text: 'Priority Email & WhatsApp Support', active: true },
       ],
-      ctaText: 'Join Platinum VIP',
+      ctaText: 'Choose Platinum',
       ctaLink: '/register',
-      ctaStyle: 'btn bg-cyan-600 text-white font-black shadow-xl hover:bg-cyan-700 border-0',
+      ctaStyle: 'btn bg-gradient-primary text-white font-black shadow-xl hover:opacity-95 border-0',
     },
   ];
 
-  const rawPlans = dbPlans.length > 0 ? dbPlans : defaultPlans;
+  const elitePlans = [
+    {
+      id: 'elite-silver',
+      name: 'Elite Silver',
+      price: '₹4,999',
+      period: '3 months',
+      popular: false,
+      badge: 'Curated Matchmaking',
+      badgeBg: 'bg-slate-100 text-slate-800 border-slate-300 font-bold',
+      checkColor: 'text-slate-700',
+      description: 'Assisted matchmaking with handpicked matches & dedicated guidance',
+      features: [
+        { text: 'Dedicated Matchmaking Advisor', active: true },
+        { text: '15 Curated & Handpicked Introductions', active: true },
+        { text: 'Personal Profile Screening & Verification', active: true },
+        { text: 'Confidential Contact Information Sharing', active: true },
+        { text: 'Full Astrological & Horoscope Matching', active: true },
+        { text: 'Unlimited Profile Views on Portal', active: true },
+        { text: 'Direct Communication Support', active: true },
+        { text: 'Family Meeting Coordination', active: false },
+      ],
+      ctaText: 'Get Elite Silver',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-slate-800 hover:bg-slate-900 text-white font-bold border-0 shadow-md',
+    },
+    {
+      id: 'elite-gold',
+      name: 'Elite Gold',
+      price: '₹9,999',
+      period: '6 months',
+      popular: true,
+      badge: 'Most Preferred VIP ⭐',
+      badgeBg: 'bg-amber-100 text-amber-900 border-amber-400 font-extrabold',
+      checkColor: 'text-amber-600',
+      description: 'Complete personalized matchmaking with senior relationship manager',
+      features: [
+        { text: 'Senior Personal Relationship Manager', active: true },
+        { text: '35 Handpicked & Pre-Screened Matches', active: true },
+        { text: 'Family Meeting Setup & Facilitation', active: true },
+        { text: 'Discreet Introductions & Complete Discretion', active: true },
+        { text: 'In-Depth Background & Horoscope Verification', active: true },
+        { text: 'Priority Search & Direct Family Connect', active: true },
+        { text: 'VIP Concierge & Weekly Progress Calls', active: true },
+        { text: 'Till Marriage Commitment Guarantee', active: false },
+      ],
+      ctaText: 'Get Elite Gold',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-gradient-gold text-white font-extrabold shadow-xl hover:brightness-105 border-0',
+    },
+    {
+      id: 'elite-platinum',
+      name: 'Elite Platinum',
+      price: '₹18,999',
+      period: 'Till Marriage (12M)',
+      popular: false,
+      badge: 'Royal Bespoke VIP',
+      badgeBg: 'bg-primary/10 text-primary-dark border-primary/30 font-black',
+      checkColor: 'text-primary',
+      description: 'Bespoke executive matchmaking for accomplished individuals & families',
+      features: [
+        { text: 'Senior Director & Dedicated Matchmaking Team', active: true },
+        { text: 'UNLIMITED Curated & Vetted Introductions', active: true },
+        { text: 'End-to-End Family Coordination & Scheduling', active: true },
+        { text: 'Strict NDA & Total Privacy Protection', active: true },
+        { text: 'Comprehensive Background & Kundali Verification', active: true },
+        { text: '24/7 Dedicated Concierge & Relationship Support', active: true },
+        { text: 'Exclusive Cross-Community & NRI Match Network', active: true },
+        { text: 'Active Matchmaking Support Until Marriage', active: true },
+      ],
+      ctaText: 'Join Elite Platinum',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-gradient-primary text-white font-black shadow-2xl hover:opacity-95 border-0',
+    },
+  ];
 
-  const getPlanRank = (plan: any): number => {
-    const tier = (plan.tier || '').toUpperCase();
-    const name = (plan.name || '').toLowerCase();
-
-    if (tier === 'FREE' || name.includes('free')) return 1;
-    if (tier === 'SILVER' || name.includes('silver')) return 2;
-    if (tier === 'GOLD' || name.includes('gold')) return 3;
-    if (tier === 'ELITE' || name.includes('elite')) return 4;
-    if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
-    if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
-    return 100;
-  };
-
-  const sortedPlans = [...rawPlans].sort((a, b) => {
-    const rankA = getPlanRank(a);
-    const rankB = getPlanRank(b);
-    if (rankA !== rankB) return rankA - rankB;
-    const priceA = parseFloat(String(a.price).replace(/[^\d.]/g, '') || '0');
-    const priceB = parseFloat(String(b.price).replace(/[^\d.]/g, '') || '0');
-    return priceA - priceB;
-  });
-
-  const plansToRender = sortedPlans.map((p) => {
-    let name = p.name || 'Membership Plan';
-    if (name === 'Diamond Plan' || name === 'Diamond') name = 'Elite Plan';
-    const isPopular = p.isPopular || p.tier === 'ELITE' || p.tier === 'ELITE_PLAN';
-    const featuresList = Array.isArray(p.features)
-      ? p.features.map((f: any) => ({ text: typeof f === 'string' ? f : f.text, active: true }))
-      : typeof p.features === 'string'
-      ? JSON.parse(p.features).map((f: any) => ({ text: typeof f === 'string' ? f : f.text, active: true }))
-      : [{ text: 'Unlimited Profile Access', active: true }, { text: 'Direct Chat', active: true }];
-    return {
-      id: p.id,
-      name,
-      price: typeof p.price === 'string' && p.price.startsWith('₹') ? p.price : `₹${p.price ?? 0}`,
-      period: p.period || p.duration || (p.durationMonths ? `for ${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : 'Lifetime'),
-      popular: isPopular,
-      badge: isPopular ? 'Most Popular ⭐' : (p.badge || p.tier || 'MEMBER'),
-      badgeBg: isPopular ? 'bg-primary/10 text-primary-dark border-primary/30 font-extrabold' : (p.badgeBg || 'bg-slate-100 text-slate-700 border-slate-300 font-semibold'),
-      checkColor: isPopular ? 'text-primary' : (p.checkColor || 'text-slate-500'),
-      description: p.description || 'Unlock contact details & start connecting with matches',
-      features: featuresList,
-      ctaText: p.ctaText || `Choose ${name}`,
-      ctaLink: p.ctaLink || '/register',
-      ctaStyle: p.ctaStyle || (isPopular ? 'btn bg-gradient-primary text-white font-extrabold shadow-lg hover:opacity-95 border-0' : 'btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border border-slate-300'),
-    };
-  });
+  const activePlans = category === 'GENERAL' ? generalPlans : category === 'ELITE' ? elitePlans : [];
 
   return (
-    <section className="section bg-slate-100/60 relative overflow-hidden" id="membership-plans">
+    <section className="section bg-slate-50/70 border-t border-slate-100 relative overflow-hidden" id="membership-plans">
       <div className="container mx-auto px-4 md:px-8">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-primary-dark text-xs font-bold uppercase tracking-wider mb-3">
             <Sparkles className="w-3.5 h-3.5 text-primary" /> Transparent Pricing & Benefits
           </div>
@@ -644,60 +814,249 @@ const PricingPlansSection = () => {
             Choose Your <span className="text-gradient">Membership Plan</span>
           </h2>
           <p className="section-subtitle max-w-2xl mx-auto">
-            Select the plan that fits your search goals. Upgrade anytime to unlock phone numbers, direct messages, and priority search rankings.
+            Click on a plan category below to explore self-managed General plans or personalized Elite VIP assisted matchmaking.
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center items-stretch gap-6 pt-2 max-w-6xl mx-auto">
-          {plansToRender.map((p) => (
-            <div
-              key={p.id}
-              className={`card p-6 flex flex-col justify-between relative transition-all duration-300 rounded-2xl w-full sm:w-[270px] lg:w-[290px] max-w-[320px] flex-1 ${
-                p.popular
-                  ? 'border-2 border-primary bg-white shadow-2xl scale-[1.04] z-10'
-                  : 'bg-white border border-slate-200 hover:border-primary/30 shadow-sm hover:shadow-md'
+        {/* Category Toggle (General vs Elite) - Default is null */}
+        <div className="flex flex-col items-center justify-center mb-10">
+          <div className="bg-slate-200/90 p-1.5 rounded-2xl flex items-center gap-2 shadow-inner border border-slate-300 max-w-lg w-full">
+            <button
+              type="button"
+              onClick={() => setCategory(category === 'GENERAL' ? null : 'GENERAL')}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-extrabold transition-all duration-300 cursor-pointer ${
+                category === 'GENERAL'
+                  ? 'bg-white text-slate-900 shadow-lg ring-2 ring-primary/20 scale-[1.02]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <span className={`text-[11px] uppercase px-3 py-1 rounded-full border ${p.badgeBg}`}>
-                    {p.badge}
+              <Users className="w-4 h-4 text-primary" />
+              <span>🌟 General Plans</span>
+              <span className={`text-[10px] py-0.5 px-2 rounded-full font-bold ml-1 ${category === 'GENERAL' ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-600'}`}>
+                4 Plans
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategory(category === 'ELITE' ? null : 'ELITE')}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-extrabold transition-all duration-300 cursor-pointer ${
+                category === 'ELITE'
+                  ? 'bg-gradient-gold text-white shadow-lg ring-2 ring-amber-400/40 scale-[1.02]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              }`}
+            >
+              <Award className="w-4 h-4 text-amber-200" />
+              <span>👑 Elite VIP Plans</span>
+              <span className={`text-[10px] py-0.5 px-2 rounded-full font-bold ml-1 ${category === 'ELITE' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                3 Plans
+              </span>
+            </button>
+          </div>
+
+          {category && (
+            <p className="text-xs sm:text-sm font-semibold text-slate-600 mt-4 text-center animate-fade-in">
+              {category === 'GENERAL'
+                ? '✨ General Plans: Self-managed search, instant direct chat, verified profiles & horoscope porutham reports.'
+                : '👑 Elite VIP Service: Dedicated senior matchmaking manager, handpicked introductions & complete confidentiality.'}
+            </p>
+          )}
+        </div>
+
+        {/* When Category is Null: Show Interactive Prompt Cards */}
+        {category === null ? (
+          <div className="max-w-3xl mx-auto py-8 px-4 text-center animate-fade-in">
+            <div className="bg-white border-2 border-dashed border-slate-300 rounded-3xl p-8 sm:p-12 shadow-sm space-y-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary mb-2 shadow-inner">
+                <Sparkles className="w-8 h-8 animate-bounce" />
+              </div>
+              <h3 className="font-sans text-2xl font-black text-slate-900">
+                Please Select a Plan Category to View Packages
+              </h3>
+              <p className="text-slate-500 text-sm max-w-md mx-auto">
+                Choose between self-managed membership packages or our assisted luxury matchmaking service.
+              </p>
+
+              <div className="grid sm:grid-cols-2 gap-4 max-w-md mx-auto pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCategory('GENERAL')}
+                  className="p-5 rounded-2xl border-2 border-slate-200 hover:border-primary bg-slate-50 hover:bg-white transition-all text-left group shadow-xs hover:shadow-md cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 text-primary font-bold text-base mb-1">
+                    <span>🌟 General Plans</span>
+                  </div>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    4 Plans from ₹0 to ₹1,999. Includes Free Starter, Silver, Gold & Platinum.
+                  </p>
+                  <span className="text-primary text-xs font-bold mt-3 inline-block group-hover:translate-x-1 transition-transform">
+                    View General Plans →
                   </span>
-                </div>
+                </button>
 
-                <h3 className="font-sans text-xl font-extrabold text-slate-900 mb-1">{p.name}</h3>
-                <p className="text-text-muted text-xs mb-4 min-h-[32px] leading-relaxed">{p.description}</p>
+                <button
+                  type="button"
+                  onClick={() => setCategory('ELITE')}
+                  className="p-5 rounded-2xl border-2 border-amber-200 hover:border-amber-400 bg-amber-50/50 hover:bg-white transition-all text-left group shadow-xs hover:shadow-md cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 text-amber-700 font-bold text-base mb-1">
+                    <span>👑 Elite VIP Plans</span>
+                  </div>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    3 VIP Plans from ₹4,999 to ₹18,999 with dedicated relationship manager.
+                  </p>
+                  <span className="text-amber-700 text-xs font-bold mt-3 inline-block group-hover:translate-x-1 transition-transform">
+                    View Elite VIP Plans →
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Plans Grid */
+          <div className="flex flex-wrap justify-center items-stretch gap-6 pt-2 max-w-6xl mx-auto animate-fade-in">
+            {activePlans.map((p) => (
+              <div
+                key={p.id}
+                className={`card p-6 flex flex-col justify-between relative transition-all duration-300 rounded-2xl w-full sm:w-[270px] lg:w-[285px] max-w-[320px] flex-1 ${
+                  p.popular
+                    ? 'border-2 border-primary bg-white shadow-2xl scale-[1.03] z-10'
+                    : 'bg-white border border-slate-200 hover:border-primary/30 shadow-sm hover:shadow-md'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <span className={`text-[11px] uppercase px-3 py-1 rounded-full border ${p.badgeBg}`}>
+                      {p.badge}
+                    </span>
+                  </div>
 
-                <div className="mb-6 pb-4 border-b border-slate-100">
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="font-sans text-3xl font-black text-slate-900 tracking-tight">{p.price}</span>
-                    <span className="text-text-muted text-xs font-semibold">/ {p.period}</span>
+                  <h3 className="font-sans text-xl font-extrabold text-slate-900 mb-1">{p.name}</h3>
+                  <p className="text-text-muted text-xs mb-4 min-h-[32px] leading-relaxed">{p.description}</p>
+
+                  <div className="mb-6 pb-4 border-b border-slate-100">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-sans text-3xl font-black text-slate-900 tracking-tight">{p.price}</span>
+                      <span className="text-text-muted text-xs font-semibold">/ {p.period}</span>
+                    </div>
+                  </div>
+
+                  {/* Features List */}
+                  <div className="space-y-3 mb-8">
+                    <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Applicable Features:</p>
+                    {p.features.map((f, i) => (
+                      <div key={i} className="flex items-start gap-2.5 text-xs">
+                        {f.active ? (
+                          <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${p.checkColor}`} />
+                        ) : (
+                          <X className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
+                        )}
+                        <span className={f.active ? 'text-slate-800 font-semibold' : 'text-slate-400 line-through opacity-70'}>
+                          {f.text}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Features List */}
-                <div className="space-y-3 mb-8">
-                  <p className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Applicable Features:</p>
-                  {p.features.map((f, i) => (
-                    <div key={i} className="flex items-start gap-2.5 text-xs">
-                      {f.active ? (
-                        <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${p.checkColor}`} />
-                      ) : (
-                        <X className="w-4 h-4 text-slate-300 flex-shrink-0 mt-0.5" />
-                      )}
-                      <span className={f.active ? 'text-slate-800 font-semibold' : 'text-slate-400 line-through opacity-70'}>
-                        {f.text}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <Link to={p.ctaLink} className={`btn w-full text-center py-2.5 text-xs ${p.ctaStyle}`}>
+                  {p.ctaText}
+                </Link>
               </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
 
-              <Link to={p.ctaLink} className={`btn w-full text-center py-2.5 text-xs ${p.ctaStyle}`}>
-                {p.ctaText}
-              </Link>
-            </div>
-          ))}
+
+
+// ── Frequently Asked Questions ──────────────────────────────
+const FAQSection = () => {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+
+  const faqs = [
+    {
+      question: 'Is your matchmaking service completely confidential?',
+      answer: 'Yes. We place strong emphasis on privacy and discretion throughout the matchmaking process.',
+    },
+    {
+      question: 'Do you personally curate the matches?',
+      answer: 'Yes. Our approach is personalised, with potential matches selected according to your requirements and compatibility factors.',
+    },
+    {
+      question: 'Who is your service designed for?',
+      answer: 'Our service is designed for individuals and families seeking a premium, personalised approach to matrimonial matchmaking, including professionals, entrepreneurs, business families, NRIs, and accomplished individuals.',
+    },
+    {
+      question: 'Can families participate in the matchmaking process?',
+      answer: 'Absolutely. Where appropriate, we work closely with families while respecting the individual\'s preferences and expectations.',
+    },
+    {
+      question: 'How do I get started?',
+      answer: 'Simply request a private consultation. Our team will understand your requirements and explain the matchmaking process suited to you.',
+    },
+  ];
+
+  const toggleFaq = (index: number) => {
+    setOpenIndex(openIndex === index ? null : index);
+  };
+
+  return (
+    <section className="section bg-slate-50/70 border-t border-slate-100 py-16">
+      <div className="container mx-auto px-4 md:px-8 max-w-4xl">
+        <div className="text-center space-y-3 mb-12 animate-fade-in">
+          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-1.5 text-primary text-xs font-bold uppercase tracking-wider">
+            <HelpCircle className="w-3.5 h-3.5" />
+            Frequently Asked Questions
+          </div>
+          <h2 className="section-title">
+            Frequently Asked <span className="text-gradient">Questions</span>
+          </h2>
+          <p className="section-subtitle max-w-2xl mx-auto">
+            Everything you need to know about our personalized matchmaking and privacy standards.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {faqs.map((faq, index) => {
+            const isOpen = openIndex === index;
+            return (
+              <div
+                key={index}
+                className={`transition-all duration-300 rounded-2xl border bg-white overflow-hidden ${
+                  isOpen
+                    ? 'border-primary/40 shadow-md ring-1 ring-primary/20'
+                    : 'border-slate-200/80 hover:border-slate-300 shadow-sm'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleFaq(index)}
+                  className="w-full p-5 sm:p-6 text-left flex items-center justify-between gap-4 focus:outline-none transition-colors"
+                >
+                  <span className={`text-base sm:text-lg font-bold tracking-tight ${
+                    isOpen ? 'text-primary' : 'text-slate-900'
+                  }`}>
+                    {faq.question}
+                  </span>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-300 ${
+                    isOpen ? 'bg-primary/10 text-primary rotate-180' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    <ChevronDown className="w-4 h-4" />
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div className="px-5 sm:px-6 pb-6 pt-1 text-slate-600 text-sm sm:text-base leading-relaxed border-t border-slate-100 animate-fade-in">
+                    {faq.answer}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
@@ -708,20 +1067,23 @@ const PricingPlansSection = () => {
 
 // ── CTA Banner ──────────────────────────────────────────
 const CTASection = () => (
-  <section className="section bg-white">
+  <section className="section bg-white border-t border-slate-100">
     <div className="container mx-auto px-4 md:px-8">
-      <div 
-        className="relative overflow-hidden rounded-3xl p-12 text-center shadow-2xl border border-slate-700 bg-cover bg-center text-white" 
+      <div
+        className="relative overflow-hidden rounded-3xl p-10 sm:p-14 text-center shadow-2xl border border-slate-700 bg-cover bg-center text-white"
         style={{ backgroundImage: "linear-gradient(rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.88)), url('/images/ceremony.png')" }}
       >
-        <div className="relative z-10 space-y-6 max-w-2xl mx-auto text-white">
+        <div className="relative z-10 space-y-6 max-w-3xl mx-auto text-white">
+          <div className="inline-flex items-center gap-2 bg-gold/20 border border-gold/40 rounded-full px-4 py-1.5 text-gold text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-3.5 h-3.5" /> Start Your Journey Today
+          </div>
           <h2 className="font-display text-3xl md:text-4xl lg:text-5xl font-extrabold text-white leading-tight drop-shadow-xl" style={{ color: '#ffffff', textShadow: '0 2px 10px rgba(0,0,0,0.7)' }}>
-            Ready to Find Your Life Partner?
+            The Beginning of <span className="text-gold">Something Extraordinary</span>
           </h2>
-          <p className="text-white text-base md:text-lg leading-relaxed font-medium drop-shadow-md" style={{ color: '#ffffff', textShadow: '0 1px 5px rgba(0,0,0,0.7)' }}>
-            Join 50,000+ members who found happiness through S2S Matrimony. Register free in under 2 minutes!
+          <p className="text-slate-200 text-base md:text-lg leading-relaxed font-normal max-w-2xl mx-auto">
+            You have built a remarkable life. Now find someone with whom you can share it. Take the first step toward a relationship founded on <strong className="text-white">compatibility, trust, respect, and shared aspirations</strong>.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-3">
             <Link to="/register" className="btn btn-gold btn-lg text-sm font-bold shadow-xl">
               Register Free Now
             </Link>
@@ -743,12 +1105,17 @@ const LandingPage = () => (
     <HeroSection />
     <HowItWorksSection />
     <FeaturesSection />
+    <PhilosophySection />
+    <AudienceSection />
+    <PrivacySection />
     <PricingPlansSection />
     <SuccessStoriesSection />
     <CommunitiesSection />
+    <FAQSection />
     <CTASection />
   </div>
 );
 
 export default LandingPage;
+
 

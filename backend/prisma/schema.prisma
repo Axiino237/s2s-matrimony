@@ -31,6 +31,7 @@ enum MembershipTier {
   SILVER
   GOLD
   ELITE
+  PLATINUM
 }
 
 enum ProfileStatus {

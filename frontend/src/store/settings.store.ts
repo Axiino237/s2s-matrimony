@@ -28,8 +28,8 @@ export const useSettingsStore = create<SystemSettingsState>()(
       tagline: 'Find Your Perfect Match',
       primaryColor: '#E11D48',
       secondaryColor: '#0D9488',
-      supportEmail: 'support@s2smatrimony.com',
-      supportPhone: '+91 98765 43210',
+      supportEmail: 's2smdoffice@gmail.com',
+      supportPhone: '+91 84380 11191',
       enableBiodataForm: true,
 
       setSettings: (newSettings) => set((state) => ({ ...state, ...newSettings })),

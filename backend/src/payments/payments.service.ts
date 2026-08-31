@@ -104,6 +104,7 @@ export class PaymentsService {
     const name = data.name || 'New Membership Plan';
     let tier = (data.tier || 'SILVER').toUpperCase();
     if (tier === 'DIAMOND') tier = 'ELITE';
+    const category = (data.category || (tier === 'ELITE' || name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL')).toUpperCase() as 'GENERAL' | 'ELITE';
     const price = String(data.price ?? 999);
     const durationMonths = Number(data.durationMonths || 3);
     const contactLimit = Number(data.contactViewLimit ?? data.contactLimit ?? 50);
@@ -129,6 +130,7 @@ export class PaymentsService {
       const devItem: DevPlan = {
         id: created.id,
         name: created.name,
+        category,
         tier: tier as any,
         price: String(created.price),
         duration: `${created.durationMonths} months`,
@@ -141,6 +143,7 @@ export class PaymentsService {
 
       return {
         ...created,
+        category,
         durationMonths,
         contactLimit,
         contactViewLimit: contactLimit,
@@ -152,6 +155,7 @@ export class PaymentsService {
     const devItem: DevPlan = {
       id: planId,
       name,
+      category,
       tier: tier as any,
       price,
       duration: `${durationMonths} months`,
@@ -165,6 +169,7 @@ export class PaymentsService {
     return {
       id: planId,
       name,
+      category,
       tier,
       price: Number(price),
       durationMonths,
@@ -180,6 +185,7 @@ export class PaymentsService {
     const name = patch.name;
     let tier = patch.tier ? String(patch.tier).toUpperCase() : undefined;
     if (tier === 'DIAMOND') tier = 'ELITE';
+    const category = patch.category ? (String(patch.category).toUpperCase() as 'GENERAL' | 'ELITE') : undefined;
     const price = patch.price !== undefined ? Number(patch.price) : undefined;
     const durationMonths = patch.durationMonths !== undefined ? Number(patch.durationMonths) : undefined;
     const contactLimit = patch.contactViewLimit !== undefined ? Number(patch.contactViewLimit) : patch.contactLimit !== undefined ? Number(patch.contactLimit) : undefined;
@@ -204,14 +210,17 @@ export class PaymentsService {
           },
         });
 
-        const idx = devPlansStore.findIndex((p) => p.id === planId);
-        if (idx >= 0) {
-          devPlansStore[idx] = {
-            ...devPlansStore[idx],
+        const storeIdx = devPlansStore.findIndex((p) => p.id === planId);
+        if (storeIdx !== -1) {
+          devPlansStore[storeIdx] = {
+            ...devPlansStore[storeIdx],
             name: updated.name,
             tier: updated.tier as any,
+            category: category || (devPlansStore[storeIdx] as any).category || 'GENERAL',
             price: String(updated.price),
+            duration: `${updated.durationMonths} months`,
             contactLimit: updated.maxContacts,
+            features: updated.features as string[],
             isActive: updated.isActive,
             isPopular: updated.isPopular,
           };
@@ -219,34 +228,37 @@ export class PaymentsService {
 
         return {
           ...updated,
+          category: category || (updated.tier === 'ELITE' || updated.name.toLowerCase().includes('elite') ? 'ELITE' : 'GENERAL'),
           contactLimit: updated.maxContacts,
           contactViewLimit: updated.maxContacts,
         };
       }
-    } catch {
-      // Fallback
-    }
+    } catch {}
 
-    const idx = devPlansStore.findIndex((p) => p.id === planId);
-    if (idx >= 0) {
-      devPlansStore[idx] = {
-        ...devPlansStore[idx],
-        ...(name && { name }),
-        ...(tier && { tier: tier as any }),
-        ...(price !== undefined && { price: String(price) }),
-        ...(contactLimit !== undefined && { contactLimit }),
-        ...(features && { features }),
-        ...(isActive !== undefined && { isActive }),
-        ...(isPopular !== undefined && { isPopular }),
+    const storeIdx = devPlansStore.findIndex((p) => p.id === planId);
+    if (storeIdx !== -1) {
+      const cur = devPlansStore[storeIdx];
+      const updatedItem: DevPlan = {
+        ...cur,
+        name: name !== undefined ? name : cur.name,
+        tier: tier !== undefined ? (tier as any) : cur.tier,
+        category: category !== undefined ? category : cur.category,
+        price: price !== undefined ? String(price) : cur.price,
+        duration: durationMonths !== undefined ? `${durationMonths} months` : cur.duration,
+        contactLimit: contactLimit !== undefined ? contactLimit : cur.contactLimit,
+        features: features !== undefined ? features : cur.features,
+        isActive: isActive !== undefined ? isActive : cur.isActive,
+        isPopular: isPopular !== undefined ? isPopular : cur.isPopular,
       };
+      devPlansStore[storeIdx] = updatedItem;
       return {
-        ...devPlansStore[idx],
-        contactViewLimit: devPlansStore[idx].contactLimit,
-        price: Number(devPlansStore[idx].price),
+        ...updatedItem,
+        contactViewLimit: updatedItem.contactLimit,
+        price: Number(updatedItem.price),
       };
     }
 
-    return this.createPlan({ id: planId, ...patch });
+    return { id: planId, ...patch };
   }
 
   async deletePlan(planId: string) {

@@ -63,7 +63,8 @@ export interface DevUser {
 export interface DevPlan {
   id: string;
   name: string;
-  tier: 'FREE' | 'SILVER' | 'GOLD' | 'ELITE';
+  category?: 'GENERAL' | 'ELITE';
+  tier: 'FREE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'ELITE';
   price: string;
   duration: string;
   contactLimit: number;
@@ -85,8 +86,8 @@ class DevStore {
 
     const superAdmin: DevUser = {
       id: 'super-admin-001',
-      email: 'superadmin@s2smatrimony.com',
-      phone: '+919999999999',
+      email: 's2smdoffice@gmail.com',
+      phone: '+918438011191',
       firstName: 'Super',
       lastName: 'Admin',
       gender: 'MALE',
@@ -98,34 +99,48 @@ class DevStore {
       id: 'admin-001',
       email: 'admin@s2smatrimony.com',
       phone: '+918888888888',
-      firstName: 'System',
+      firstName: 'Community',
       lastName: 'Admin',
       gender: 'MALE',
       roles: ['ADMIN', 'MEMBER'],
       membershipTier: 'GOLD',
     };
 
-    this.set(superAdmin.id, superAdmin);
-    this.set(admin.id, admin);
-    // Note: regular members are created only via the register API
-  }
+    const member: DevUser = {
+      id: 'member-001',
+      email: 'member@s2smatrimony.com',
+      phone: '+917777777777',
+      firstName: 'Kavitha',
+      lastName: 'Ramasamy',
+      gender: 'FEMALE',
+      roles: ['MEMBER'],
+      membershipTier: 'FREE',
+      profileFor: 'SELF',
+      maritalStatus: 'NEVER_MARRIED',
+      age: 26,
+      heightCm: 163,
+      motherTongue: 'Tamil',
+      religion: 'Hindu',
+      community: 'Nadar',
+      caste: 'Nadar',
+      educationDegree: 'B.E. Computer Science',
+      occupation: 'Software Engineer',
+      annualIncome: '12-15 LPA',
+      workLocation: 'Chennai, Tamil Nadu',
+      profileCompletionPercent: 85,
+    };
 
+    this.users.set(superAdmin.id, superAdmin);
+    this.users.set(admin.id, admin);
+    this.users.set(member.id, member);
+  }
 
   clearNonAdminProfiles() {
     this.resetStore();
   }
 
-  set(key: string, user: DevUser) {
-    if (!user || !key) return;
-    const cleanKey = key.toLowerCase();
-    this.users.set(cleanKey, user);
-    this.users.set(user.id, user);
-    if (user.email) this.users.set(user.email.toLowerCase(), user);
-    if (user.phone) {
-      this.users.set(user.phone, user);
-      const digitsOnly = user.phone.replace(/\D/g, '');
-      if (digitsOnly) this.users.set(digitsOnly, user);
-    }
+  set(key: string, user: DevUser): void {
+    this.users.set(key, user);
   }
 
   get(key: string): DevUser | undefined {
@@ -156,6 +171,10 @@ class DevStore {
     return updated;
   }
 
+  deleteUser(id: string): boolean {
+    return this.users.delete(id);
+  }
+
   getAll(): DevUser[] {
     const unique = new Map<string, DevUser>();
     for (const u of this.users.values()) {
@@ -163,60 +182,111 @@ class DevStore {
     }
     return Array.from(unique.values());
   }
+
+  getAllUsers(): DevUser[] {
+    return this.getAll();
+  }
 }
 
 export const devStore = new DevStore();
+
 export const devInterestsStore: any[] = [];
 export const devMessagesStore = new Map<string, any[]>();
 export const devUnlockedContactsStore = new Map<string, Set<string>>();
 export const devPaymentsStore: any[] = [];
 
 export const devPlansStore: DevPlan[] = [
+  // ── General Category Plans ──
   {
-    id: 'plan-free',
-    name: 'Free',
+    id: 'gen-free',
+    name: 'Free Starter',
+    category: 'GENERAL',
     tier: 'FREE',
     price: '0',
     duration: 'Lifetime',
     contactLimit: 5,
-    members: '0',
-    features: ['5 Daily Interests', 'Basic Search Filters', '5 Profile Views'],
+    members: '43,540',
+    features: ['5 Daily Expressed Interests', 'Basic Search (Age, Religion, Community)', '5 Profile Views per Day', 'Basic Compatibility Score', 'Verified Member Badge'],
     isActive: true,
     isPopular: false,
   },
   {
-    id: 'plan-silver',
-    name: 'Silver',
+    id: 'gen-silver',
+    name: 'Silver Plan',
+    category: 'GENERAL',
     tier: 'SILVER',
     price: '599',
     duration: '1 Month',
     contactLimit: 50,
-    members: '0',
-    features: ['50 Daily Interests', 'Advanced Search Filters', '50 Contact Views', 'Direct Chat Messaging'],
+    members: '3,240',
+    features: ['50 Daily Expressed Interests', 'Advanced Search & Education Filters', '50 Contact Number & Phone Unlocks', 'Direct Instant Messaging & Live Chat', 'Full Horoscope Overview', 'Verified Search Badge Priority'],
     isActive: true,
     isPopular: false,
   },
   {
-    id: 'plan-gold',
-    name: 'Gold',
+    id: 'gen-gold',
+    name: 'Gold Plan',
+    category: 'GENERAL',
     tier: 'GOLD',
-    price: '999',
+    price: '1199',
     duration: '3 Months',
-    contactLimit: 100,
-    members: '0',
-    features: ['Unlimited Interests', 'Advanced Search & Dosha Filters', '100 Contact Unlocks', 'Direct Chat Messaging', 'Priority Profile Ranking', 'AI Match Score'],
+    contactLimit: 150,
+    members: '4,180',
+    features: ['UNLIMITED Expressed Interests', '150 Direct Contact & Phone Unlocks', 'Unlimited Direct Messaging & Chat', 'Full Horoscope & Porutham Match Reports', 'Priority Search Placement in Results', 'AI Matchmaking & Compatibility Score'],
     isActive: true,
     isPopular: true,
   },
   {
-    id: 'plan-elite',
-    name: 'Elite',
-    tier: 'ELITE',
-    price: '1799',
+    id: 'gen-platinum',
+    name: 'Platinum Plan',
+    category: 'GENERAL',
+    tier: 'PLATINUM',
+    price: '1999',
     duration: '6 Months',
-    contactLimit: 999,
-    members: '0',
-    features: ['Everything in Gold +', 'Unlimited Contact Unlocks', 'Highlighted Profile Badge', 'Dedicated Relationship Manager', 'Direct Chat & Phone Access'],
+    contactLimit: 300,
+    members: '1,520',
+    features: ['UNLIMITED Expressed Interests', '300 Direct Contact & Phone Unlocks', 'Unlimited Chat & Priority Messaging', 'Full Horoscope & 10 Porutham Reports', 'TOP 5 Featured Profile Placement', 'Complete Privacy & Contact Protection'],
+    isActive: true,
+    isPopular: false,
+  },
+
+  // ── Elite Category Plans ──
+  {
+    id: 'elite-silver',
+    name: 'Elite Silver',
+    category: 'ELITE',
+    tier: 'SILVER',
+    price: '4999',
+    duration: '3 Months',
+    contactLimit: 500,
+    members: '840',
+    features: ['Dedicated Matchmaking Advisor', '15 Curated & Handpicked Introductions', 'Personal Profile Screening & Verification', 'Confidential Contact Information Sharing', 'Full Astrological & Horoscope Matching'],
+    isActive: true,
+    isPopular: false,
+  },
+  {
+    id: 'elite-gold',
+    name: 'Elite Gold',
+    category: 'ELITE',
+    tier: 'GOLD',
+    price: '9999',
+    duration: '6 Months',
+    contactLimit: 1000,
+    members: '1,120',
+    features: ['Senior Personal Relationship Manager', '35 Handpicked & Pre-Screened Matches', 'Family Meeting Setup & Facilitation', 'Discreet Introductions & Complete Discretion', 'In-Depth Background & Horoscope Verification'],
+    isActive: true,
+    isPopular: true,
+  },
+  {
+    id: 'elite-platinum',
+    name: 'Elite Platinum',
+    category: 'ELITE',
+    tier: 'PLATINUM',
+    price: '18999',
+    duration: '12 Months (Till Marriage)',
+    contactLimit: 9999,
+    members: '460',
+    features: ['Senior Director & Dedicated Matchmaking Team', 'UNLIMITED Curated & Vetted Introductions', 'End-to-End Family Coordination & Scheduling', 'Strict NDA & Total Privacy Protection', '24/7 Dedicated Concierge Support'],
     isActive: true,
     isPopular: false,
   },
