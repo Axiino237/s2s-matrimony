@@ -4,13 +4,9 @@ import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const TAB_GROUPS = [
-  { id: 'branding', label: 'Branding', icon: Palette },
-  { id: 'email', label: 'Email & SMS', icon: Mail },
-  { id: 'payment', label: 'Payment Gateway', icon: CreditCard },
-  { id: 'ai', label: 'AI & OCR', icon: Cpu },
-  { id: 'seo', label: 'SEO & Analytics', icon: BarChart2 },
+  { id: 'branding', label: 'Branding & Theme', icon: Palette },
   { id: 'social', label: 'Social Links', icon: LinkIcon },
-  { id: 'security', label: 'Security', icon: Shield },
+  { id: 'security', label: 'Security & Access', icon: Shield },
 ];
 
 const SecretInput = ({ label, value, onChange, placeholder }: any) => {
@@ -401,113 +397,6 @@ const SuperAdminSystemSettings = () => {
     </div>
   );
 
-  const renderEmail = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> SMTP Configuration</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <TextInput label="SMTP Host" value={settings.smtpHost} onChange={(e: any) => set('smtpHost', e.target.value)} placeholder="smtp.gmail.com" />
-          <TextInput label="SMTP Port" value={settings.smtpPort} onChange={(e: any) => set('smtpPort', e.target.value)} placeholder="587" />
-          <TextInput label="SMTP Username" value={settings.smtpUser} onChange={(e: any) => set('smtpUser', e.target.value)} placeholder="your@email.com" />
-          <SecretInput label="SMTP Password" value={settings.smtpPass} onChange={(e: any) => set('smtpPass', e.target.value)} placeholder="App password or SMTP secret" />
-          <TextInput label="From Name" value={settings.smtpFromName} onChange={(e: any) => set('smtpFromName', e.target.value)} placeholder="S2S Matrimony" />
-          <TextInput label="From Email" value={settings.smtpFromEmail} onChange={(e: any) => set('smtpFromEmail', e.target.value)} placeholder="noreply@yourdomain.com" />
-        </div>
-      </div>
-      <div>
-        <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> SMS / OTP Provider</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">SMS Provider</label>
-            <select value={settings.smsProvider} onChange={(e) => set('smsProvider', e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none">
-              <option value="twilio">Twilio</option>
-              <option value="msg91">MSG91</option>
-              <option value="fast2sms">Fast2SMS</option>
-              <option value="textlocal">TextLocal</option>
-            </select>
-          </div>
-          <SecretInput label="Account SID / API Key" value={settings.smsAccountSid} onChange={(e: any) => set('smsAccountSid', e.target.value)} placeholder="SMS API Key" />
-          <SecretInput label="Auth Token" value={settings.smsAuthToken} onChange={(e: any) => set('smsAuthToken', e.target.value)} placeholder="Auth Token / Secret" />
-          <TextInput label="From Number" value={settings.smsFromNumber} onChange={(e: any) => set('smsFromNumber', e.target.value)} placeholder="+91XXXXXXXXXX" />
-          <TextInput label="OTP Expiry (minutes)" value={settings.otpExpiry} onChange={(e: any) => set('otpExpiry', e.target.value)} placeholder="10" />
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderPayment = () => (
-    <div>
-      <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><CreditCard className="w-4 h-4 text-primary" /> Razorpay Configuration</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <SecretInput label="Razorpay Key ID" value={settings.razorpayKeyId} onChange={(e: any) => set('razorpayKeyId', e.target.value)} placeholder="rzp_live_XXXXXXXXXX" />
-        <SecretInput label="Razorpay Key Secret" value={settings.razorpayKeySecret} onChange={(e: any) => set('razorpayKeySecret', e.target.value)} placeholder="Secret Key" />
-        <SecretInput label="Webhook Secret" value={settings.razorpayWebhookSecret} onChange={(e: any) => set('razorpayWebhookSecret', e.target.value)} placeholder="Webhook Secret" />
-        <div>
-          <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Currency</label>
-          <select value={settings.currency} onChange={(e) => set('currency', e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none">
-            <option value="INR">INR — Indian Rupee</option>
-            <option value="USD">USD — US Dollar</option>
-            <option value="GBP">GBP — British Pound</option>
-            <option value="AED">AED — UAE Dirham</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderAI = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Cpu className="w-4 h-4 text-primary" /> AI Provider Configuration</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Primary AI Provider</label>
-            <select value={settings.aiProvider} onChange={(e) => set('aiProvider', e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none">
-              <option value="gemini">Google Gemini</option>
-              <option value="openai">OpenAI GPT-4</option>
-              <option value="anthropic">Anthropic Claude</option>
-            </select>
-          </div>
-          <SecretInput label="Gemini API Key" value={settings.geminiApiKey} onChange={(e: any) => set('geminiApiKey', e.target.value)} placeholder="AIzaSy..." />
-          <SecretInput label="OpenAI API Key" value={settings.openaiApiKey} onChange={(e: any) => set('openaiApiKey', e.target.value)} placeholder="sk-proj-..." />
-          <div>
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">OCR Provider</label>
-            <select value={settings.ocrProvider} onChange={(e) => set('ocrProvider', e.target.value)} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none">
-              <option value="google_vision">Google Cloud Vision</option>
-              <option value="aws_textract">AWS Textract</option>
-              <option value="tesseract">Tesseract (local)</option>
-            </select>
-          </div>
-          <SecretInput label="OCR API Key" value={settings.ocrApiKey} onChange={(e: any) => set('ocrApiKey', e.target.value)} placeholder="OCR API Key" />
-          <TextInput label="Max AI Jobs / Hour" value={settings.maxAiJobsPerHour} onChange={(e: any) => set('maxAiJobsPerHour', e.target.value)} placeholder="100" hint="Rate limit for AI biodata processing" />
-        </div>
-      </div>
-      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={settings.aiQueueEnabled === 'true'} onChange={(e) => set('aiQueueEnabled', String(e.target.checked))} className="w-4 h-4 accent-primary rounded" />
-          <span className="text-sm font-medium text-slate-700">Enable AI Job Queue</span>
-        </label>
-        <p className="text-xs text-slate-500 ml-2">Process biodata extractions asynchronously via queue</p>
-      </div>
-    </div>
-  );
-
-  const renderSEO = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      <div className="sm:col-span-2">
-        <TextInput label="Meta Title" value={settings.metaTitle} onChange={(e: any) => set('metaTitle', e.target.value)} placeholder="Your Site Name – Tagline" />
-      </div>
-      <div className="sm:col-span-2">
-        <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Meta Description</label>
-        <textarea value={settings.metaDescription} onChange={(e) => set('metaDescription', e.target.value)} rows={3} className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30" />
-        <p className="text-[11px] text-slate-400 mt-1">Recommended: 150-160 characters</p>
-      </div>
-      <TextInput label="Google Analytics ID" value={settings.googleAnalyticsId} onChange={(e: any) => set('googleAnalyticsId', e.target.value)} placeholder="G-XXXXXXXXXX" />
-      <TextInput label="Facebook Pixel ID" value={settings.facebookPixelId} onChange={(e: any) => set('facebookPixelId', e.target.value)} placeholder="123456789012345" />
-      <TextInput label="Google Search Console Key" value={settings.googleSearchConsoleKey} onChange={(e: any) => set('googleSearchConsoleKey', e.target.value)} placeholder="Verification meta content value" />
-    </div>
-  );
-
   const renderSocial = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
       <TextInput label="Facebook Page URL" value={settings.facebookUrl} onChange={(e: any) => set('facebookUrl', e.target.value)} placeholder="https://facebook.com/yourpage" />
@@ -553,10 +442,6 @@ const SuperAdminSystemSettings = () => {
 
   const RENDERERS: Record<string, () => React.ReactNode> = {
     branding: renderBranding,
-    email: renderEmail,
-    payment: renderPayment,
-    ai: renderAI,
-    seo: renderSEO,
     social: renderSocial,
     security: renderSecurity,
   };
@@ -568,7 +453,7 @@ const SuperAdminSystemSettings = () => {
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <Settings className="w-6 h-6 text-primary" /> System Settings
         </h1>
-        <p className="text-sm text-slate-500 mt-1">Configure platform-wide settings: branding, email, payments, AI providers, SEO, and security</p>
+        <p className="text-sm text-slate-500 mt-1">Configure platform branding, social links, and security access (API keys & gateway secrets are securely managed in .env)</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
