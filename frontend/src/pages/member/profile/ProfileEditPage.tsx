@@ -154,6 +154,8 @@ const ProfileEditPage = () => {
     diet: '',
     residentStatus: '',
     propertyDetails: '',
+    familyWorth: '',
+    individualWorth: '',
     educationDegree: '',
     college: '',
     occupation: '',
@@ -277,6 +279,8 @@ const ProfileEditPage = () => {
             diet: formatDiet(data.diet || prev.diet || ''),
             residentStatus: data.residentStatus || prev.residentStatus || '',
             propertyDetails: data.propertyDetails || prev.propertyDetails || '',
+            familyWorth: data.familyWorth || data.family?.familyWorth || (data as any).familyWorth || prev.familyWorth || '',
+            individualWorth: data.individualWorth || data.occupation?.individualWorth || (data as any).individualWorth || prev.individualWorth || '',
             educationDegree: data.education?.degree || (data as any).educationDegree || prev.educationDegree || '',
             college: data.education?.college || (data as any).college || prev.college || '',
             occupation: data.occupation?.designation || data.occupation?.title || (data as any).occupation || prev.occupation || '',
@@ -506,6 +510,8 @@ const ProfileEditPage = () => {
       diet: formData.diet || undefined,
       residentStatus: formData.residentStatus || undefined,
       propertyDetails: formData.propertyDetails || undefined,
+      familyWorth: formData.familyWorth || undefined,
+      individualWorth: formData.individualWorth || undefined,
       educationDegree: formData.educationDegree || undefined,
       college: formData.college || undefined,
       occupation: formData.occupation || undefined,
@@ -1100,23 +1106,27 @@ const ProfileEditPage = () => {
         {/* Career & Work */}
         {activeSection === 'career' && (
           <div className="card p-6 space-y-4 bg-white border border-slate-200 shadow-sm">
-            <h2 className="text-text-primary font-bold text-xs uppercase tracking-wider border-b border-slate-100 pb-2">Professional Details</h2>
+            <h2 className="text-text-primary font-bold text-xs uppercase tracking-wider border-b border-slate-100 pb-2">Professional & Financial Details</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="input-label">Occupation</label>
-                <input className="input border-slate-200 text-text-primary w-full" value={formData.occupation} onChange={(e) => handleChange('occupation', e.target.value)} />
+                <label className="input-label">Occupation / Profession</label>
+                <input placeholder="e.g. Senior Software Architect" className="input border-slate-200 text-text-primary w-full font-medium" value={formData.occupation} onChange={(e) => handleChange('occupation', e.target.value)} />
               </div>
               <div>
-                <label className="input-label">Company Name</label>
-                <input className="input border-slate-200 text-text-primary w-full" value={formData.company} onChange={(e) => handleChange('company', e.target.value)} />
+                <label className="input-label">Company / Organization</label>
+                <input placeholder="e.g. Cognizant / TCS" className="input border-slate-200 text-text-primary w-full font-medium" value={formData.company} onChange={(e) => handleChange('company', e.target.value)} />
               </div>
               <div>
-                <label className="input-label">Annual Salary Range</label>
-                <input className="input border-slate-200 text-text-primary w-full" value={formData.annualIncome} onChange={(e) => handleChange('annualIncome', e.target.value)} />
+                <label className="input-label">Annual Salary / Package (வருமானம்)</label>
+                <input placeholder="e.g. 12-15 LPA / 25 LPA" className="input border-slate-200 text-text-primary w-full font-medium" value={formData.annualIncome} onChange={(e) => handleChange('annualIncome', e.target.value)} />
               </div>
               <div>
+                <label className="input-label">Individual Worth / Assets (தனிநபர் சொத்து மதிப்பு)</label>
+                <input placeholder="e.g. ₹25 Lakhs - ₹50 Lakhs / ₹1 Crore+" className="input border-slate-200 text-text-primary w-full font-medium" value={formData.individualWorth} onChange={(e) => handleChange('individualWorth', e.target.value)} />
+              </div>
+              <div className="sm:col-span-2">
                 <label className="input-label">Work Location</label>
-                <input className="input border-slate-200 text-text-primary w-full" value={formData.workLocation} onChange={(e) => handleChange('workLocation', e.target.value)} />
+                <input placeholder="e.g. Chennai, Tamil Nadu" className="input border-slate-200 text-text-primary w-full font-medium" value={formData.workLocation} onChange={(e) => handleChange('workLocation', e.target.value)} />
               </div>
             </div>
           </div>
@@ -1125,13 +1135,21 @@ const ProfileEditPage = () => {
         {/* Family */}
         {activeSection === 'family' && (
           <div className="card p-6 space-y-4 bg-white border border-slate-200 shadow-sm">
-            <h2 className="text-text-primary font-bold text-xs uppercase tracking-wider border-b border-slate-100 pb-2">Family Background & Siblings</h2>
+            <h2 className="text-text-primary font-bold text-xs uppercase tracking-wider border-b border-slate-100 pb-2">Family Background, Financials & Siblings</h2>
             <div className="grid sm:grid-cols-2 gap-4">
-              <div><label className="input-label">Father's Name</label><input className="input border-slate-200 text-text-primary w-full" value={formData.fatherName} onChange={(e) => handleChange('fatherName', e.target.value)} /></div>
-              <div><label className="input-label">Father's Occupation</label><input className="input border-slate-200 text-text-primary w-full" value={formData.fatherOccupation} onChange={(e) => handleChange('fatherOccupation', e.target.value)} /></div>
-              <div><label className="input-label">Mother's Name</label><input className="input border-slate-200 text-text-primary w-full" value={formData.motherName} onChange={(e) => handleChange('motherName', e.target.value)} /></div>
-              <div><label className="input-label">Mother's Occupation</label><input className="input border-slate-200 text-text-primary w-full" value={formData.motherOccupation} onChange={(e) => handleChange('motherOccupation', e.target.value)} /></div>
-              <div><label className="input-label">Native Place (சொந்த ஊர்)</label><input className="input border-slate-200 text-text-primary w-full" value={formData.nativePlace} onChange={(e) => handleChange('nativePlace', e.target.value)} placeholder="e.g. Chennai, Madurai" /></div>
+              <div><label className="input-label">Father's Name</label><input className="input border-slate-200 text-text-primary w-full font-medium" value={formData.fatherName} onChange={(e) => handleChange('fatherName', e.target.value)} /></div>
+              <div><label className="input-label">Father's Occupation</label><input className="input border-slate-200 text-text-primary w-full font-medium" value={formData.fatherOccupation} onChange={(e) => handleChange('fatherOccupation', e.target.value)} /></div>
+              <div><label className="input-label">Mother's Name</label><input className="input border-slate-200 text-text-primary w-full font-medium" value={formData.motherName} onChange={(e) => handleChange('motherName', e.target.value)} /></div>
+              <div><label className="input-label">Mother's Occupation</label><input className="input border-slate-200 text-text-primary w-full font-medium" value={formData.motherOccupation} onChange={(e) => handleChange('motherOccupation', e.target.value)} /></div>
+              <div><label className="input-label">Native Place (சொந்த ஊர்)</label><input className="input border-slate-200 text-text-primary w-full font-medium" value={formData.nativePlace} onChange={(e) => handleChange('nativePlace', e.target.value)} placeholder="e.g. Chennai, Madurai" /></div>
+              <div>
+                <label className="input-label">Family Net Worth (குடும்ப சொத்து மதிப்பு)</label>
+                <input placeholder="e.g. ₹1 Crore - ₹5 Crores / ₹10+ Crores" className="input border-slate-200 text-text-primary w-full font-medium" value={formData.familyWorth} onChange={(e) => handleChange('familyWorth', e.target.value)} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="input-label">Family Property Details (குடும்ப சொத்து விவரம்)</label>
+                <input placeholder="e.g. 2 Own Houses in Chennai, 5 Acres Agriculture Land" className="input border-slate-200 text-text-primary w-full font-medium" value={formData.propertyDetails} onChange={(e) => handleChange('propertyDetails', e.target.value)} />
+              </div>
 
               {/* Sibling Detailed Breakdown — ± Stepper Pattern */}
               <div className="sm:col-span-2 pt-3 border-t border-slate-100">

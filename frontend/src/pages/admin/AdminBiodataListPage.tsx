@@ -64,6 +64,8 @@ type BiodataRecord = {
   diet?: string;
   residentStatus?: string;
   propertyDetails?: string;
+  familyWorth?: string;
+  individualWorth?: string;
   city?: string;
   educationDegree?: string;
   education?: any;
@@ -220,7 +222,9 @@ export default function AdminBiodataListPage() {
           diet: p.diet || '',
           birthOrder: p.birthOrder || fam.birthOrder || '',
           residentStatus: p.residentStatus || p.resident || '',
-          propertyDetails: p.propertyDetails || p.property || '',
+          propertyDetails: p.propertyDetails || p.property || fam.propertyDetails || '',
+          familyWorth: p.familyWorth || fam.familyWorth || fam.family_worth || '',
+          individualWorth: p.individualWorth || p.occupation?.individualWorth || '',
           educationDegree: eduStr,
           education: p.educationDetails || eduStr,
           designation: jobStr,

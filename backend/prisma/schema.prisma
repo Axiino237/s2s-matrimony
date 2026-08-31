@@ -333,6 +333,9 @@ model Profile {
   branch                  String?
   residentStatus          String?
   propertyDetails         String?
+  familyWorth             String?
+  individualWorth         String?
+  annualIncome            String?
   biodataJson             String?
   status                  ProfileStatus @default(PENDING)
   isVerified              Boolean       @default(false)
@@ -461,6 +464,8 @@ model FamilyDetail {
   familyStatus       FamilyStatus?
   familyValues       FamilyValues?
   nativePlace        String?
+  familyWorth        String?
+  propertyDetails    String?
   familyDescription  String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt

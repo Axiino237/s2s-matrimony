@@ -258,6 +258,16 @@ const ProfileViewPage = () => {
       fatherOccupation: p.family?.fatherOccupation || p.fatherOccupation || 'Not Specified',
       motherName: p.family?.motherName || p.motherName || 'Not Specified',
       motherOccupation: p.family?.motherOccupation || p.motherOccupation || 'Not Specified',
+      familyWorth: p.familyWorth || p.family?.familyWorth || (p as any).familyWorth || 'Not Specified',
+      propertyDetails: p.propertyDetails || p.family?.propertyDetails || (p as any).propertyDetails || 'Not Specified',
+      individualWorth: p.individualWorth || p.occupation?.individualWorth || (p as any).individualWorth || 'Not Specified',
+      isElite: Boolean(
+        p.isEliteProfile ||
+        p.isElite ||
+        p.membershipTier === 'ELITE' ||
+        ['crore', 'cr', '1,00,00,000', 'rich'].some((k) => String(p.familyWorth || p.family?.familyWorth || '').toLowerCase().includes(k)) ||
+        ['crore', 'cr', '25 lpa', '30 lpa', '50 lpa', '1 crore'].some((k) => String(p.individualWorth || p.annualIncome || p.occupation?.annualIncome || '').toLowerCase().includes(k))
+      ),
       marital: formatMarital(p.maritalStatus),
       motherTongue: p.motherTongue ?? 'Tamil',
       complexion: p.complexion ?? 'Fair',
@@ -390,11 +400,15 @@ const ProfileViewPage = () => {
                     <ShieldCheck className="w-3.5 h-3.5" /> ID Verified
                   </span>
                 )}
-                {profile.isPremiumProfile && (
+                {profile.isElite ? (
+                  <span className="badge bg-gradient-to-r from-amber-500 to-amber-600 text-white font-black shadow-md border border-amber-300 backdrop-blur-md">
+                    <Crown className="w-3.5 h-3.5 text-amber-200" /> Elite VIP Member
+                  </span>
+                ) : profile.isPremiumProfile ? (
                   <span className="badge badge-premium bg-black/40 backdrop-blur-md">
                     <Crown className="w-3.5 h-3.5" /> Premium Member
                   </span>
-                )}
+                ) : null}
               </div>
               {isOwnProfile && (
                 <div className="absolute top-4 right-4 flex items-center gap-2">
@@ -648,6 +662,8 @@ const ProfileViewPage = () => {
                     ['Father Occupation', profile.fatherOccupation],
                     ['Mother Name', profile.motherName],
                     ['Mother Occupation', profile.motherOccupation],
+                    ['Family Net Worth (குடும்ப சொத்து மதிப்பு)', profile.familyWorth],
+                    ['Property Details (சொத்து விவரம்)', profile.propertyDetails],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-2 border-b border-slate-100">
                       <span className="text-text-muted text-xs font-medium">{k}</span>
@@ -664,7 +680,8 @@ const ProfileViewPage = () => {
                     ['College / University', profile.college],
                     ['Occupation', profile.occupation],
                     ['Company Name', profile.company],
-                    ['Annual Income', profile.salary],
+                    ['Annual Income / Package', profile.salary],
+                    ['Individual Net Worth (தனிநபர் சொத்து மதிப்பு)', profile.individualWorth],
                     ['Work Location', profile.workLocation],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-2 border-b border-slate-100">

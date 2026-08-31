@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Save, Loader2, Eye, EyeOff, CheckCircle2, Globe, Mail, Phone, CreditCard, Cpu, Server, Palette, Shield, Link as LinkIcon, BarChart2, Upload, Image as ImageIcon } from 'lucide-react';
+import { Settings, Save, Loader2, Eye, EyeOff, CheckCircle2, Globe, Mail, Phone, CreditCard, Cpu, Server, Palette, Shield, Link as LinkIcon, BarChart2, Upload, Image as ImageIcon, Crown, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const TAB_GROUPS = [
   { id: 'branding', label: 'Branding & Theme', icon: Palette },
+  { id: 'elite', label: '👑 Elite Matching & VIP Criteria', icon: Crown },
   { id: 'social', label: 'Social Links', icon: LinkIcon },
   { id: 'security', label: 'Security & Access', icon: Shield },
 ];
@@ -203,6 +204,12 @@ const SuperAdminSystemSettings = () => {
     enableTwoFactor: 'false',
     maintenanceMode: 'false',
     enableBiodataForm: 'true',
+
+    // 👑 Elite VIP Classification & Threshold Settings
+    minFamilyWorthElite: '1 Crore+',
+    minIndividualWorthElite: '15 Lakhs+',
+    autoClassifyElite: 'true',
+    restrictEliteVisibility: 'true',
   });
 
   useEffect(() => {
@@ -397,6 +404,119 @@ const SuperAdminSystemSettings = () => {
     </div>
   );
 
+  const renderElite = () => (
+    <div className="space-y-6">
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-rose-500/10 border border-amber-300 flex items-start gap-3.5">
+        <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold flex-shrink-0 shadow-md">
+          <Crown className="w-5 h-5" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-amber-950">👑 High-Net-Worth Elite Matching & Visibility Rules</h3>
+          <p className="text-xs text-amber-900/80 mt-0.5 leading-relaxed">
+            Configure the financial thresholds to automatically classify profiles as <strong>Elite VIP Members</strong>.
+            When visibility restriction is active, only paid <strong>Elite VIP Subscribers</strong> (Elite Silver, Elite Gold, Elite Platinum) can view Elite profile details.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {/* Min Family Worth */}
+        <div>
+          <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
+            Minimum Family Net Worth for Elite (குடும்ப சொத்து மதிப்பு)
+          </label>
+          <select
+            value={settings.minFamilyWorthElite}
+            onChange={(e) => set('minFamilyWorthElite', e.target.value)}
+            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+          >
+            <option value="50 Lakhs+">₹50 Lakhs+</option>
+            <option value="1 Crore+">₹1 Crore+ (Recommended)</option>
+            <option value="2 Crores+">₹2 Crores+</option>
+            <option value="5 Crores+">₹5 Crores+</option>
+            <option value="10 Crores+">₹10 Crores+</option>
+          </select>
+          <p className="text-[11px] text-slate-400 mt-1">Profiles with Family Worth equal to or above this become Elite.</p>
+        </div>
+
+        {/* Min Individual Worth / Salary */}
+        <div>
+          <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
+            Minimum Individual Worth / Annual Income (தனிநபர் வருமானம் / சொத்து)
+          </label>
+          <select
+            value={settings.minIndividualWorthElite}
+            onChange={(e) => set('minIndividualWorthElite', e.target.value)}
+            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+          >
+            <option value="10 Lakhs+">₹10 LPA / ₹10 Lakhs+</option>
+            <option value="15 Lakhs+">₹15 LPA / ₹15 Lakhs+ (Recommended)</option>
+            <option value="25 Lakhs+">₹25 LPA / ₹25 Lakhs+</option>
+            <option value="50 Lakhs+">₹50 LPA / ₹50 Lakhs+</option>
+            <option value="1 Crore+">₹1 Crore+ Annual Package</option>
+          </select>
+          <p className="text-[11px] text-slate-400 mt-1">Profiles with Individual Worth / Salary above this become Elite.</p>
+        </div>
+      </div>
+
+      <div className="space-y-3 pt-2">
+        {/* Toggle 1: Auto-Classify */}
+        <label className="flex items-center gap-3.5 p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors">
+          <input
+            type="checkbox"
+            checked={settings.autoClassifyElite === 'true'}
+            onChange={(e) => set('autoClassifyElite', String(e.target.checked))}
+            className="w-5 h-5 accent-amber-500 rounded"
+          />
+          <div>
+            <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <span>Auto-Classify High-Net-Worth Profiles as Elite</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">Auto-Tag</span>
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Automatically tag and categorize profiles matching the net-worth criteria as Elite VIP profiles.
+            </p>
+          </div>
+        </label>
+
+        {/* Toggle 2: Restrict Visibility */}
+        <label className="flex items-center gap-3.5 p-4 bg-amber-50/60 rounded-2xl border border-amber-200 cursor-pointer hover:bg-amber-100/60 transition-colors">
+          <input
+            type="checkbox"
+            checked={settings.restrictEliteVisibility === 'true'}
+            onChange={(e) => set('restrictEliteVisibility', String(e.target.checked))}
+            className="w-5 h-5 accent-amber-600 rounded"
+          />
+          <div>
+            <p className="text-sm font-bold text-amber-950 flex items-center gap-2">
+              <span>🔒 Restrict Elite Profiles to Elite Subscribers Only</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200/80 text-amber-900 font-black">VIP Gate</span>
+            </p>
+            <p className="text-xs text-amber-900/80 mt-0.5">
+              General members (Free, Silver, Gold, Platinum) will see Elite profiles as locked with an upgrade button. Only members with an active Elite VIP plan can access them.
+            </p>
+          </div>
+        </label>
+      </div>
+
+      {/* Live Matching Status Banner */}
+      <div className="p-4 bg-white rounded-2xl border border-slate-200 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-3">
+          <Sparkles className="w-5 h-5 text-amber-500" />
+          <div>
+            <p className="text-xs font-bold text-slate-800">Current Threshold Criteria:</p>
+            <p className="text-xs text-slate-500">
+              Family Worth ≥ <strong>{settings.minFamilyWorthElite}</strong> OR Individual Worth ≥ <strong>{settings.minIndividualWorthElite}</strong>
+            </p>
+          </div>
+        </div>
+        <span className="px-3 py-1 bg-amber-100 text-amber-900 text-xs font-black rounded-full border border-amber-300">
+          👑 ACTIVE CRITERIA
+        </span>
+      </div>
+    </div>
+  );
+
   const renderSocial = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
       <TextInput label="Facebook Page URL" value={settings.facebookUrl} onChange={(e: any) => set('facebookUrl', e.target.value)} placeholder="https://facebook.com/yourpage" />
@@ -442,6 +562,7 @@ const SuperAdminSystemSettings = () => {
 
   const RENDERERS: Record<string, () => React.ReactNode> = {
     branding: renderBranding,
+    elite: renderElite,
     social: renderSocial,
     security: renderSecurity,
   };

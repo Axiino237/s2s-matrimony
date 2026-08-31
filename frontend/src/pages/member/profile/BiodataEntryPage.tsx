@@ -101,6 +101,8 @@ export default function BiodataEntryPage() {
     marriedYoungerSister: '0',
     resident: '',
     property: '',
+    familyWorth: '',
+    individualWorth: '',
     residencePlace: '',
     nativePlace: '',
     expectation: '',
@@ -1010,13 +1012,35 @@ export default function BiodataEntryPage() {
               </div>
 
               <div>
-                <span className="font-bold text-slate-700">Property: </span>
+                <span className="font-bold text-slate-700">Property Details (சொத்து விவரம்): </span>
                 <input
                   type="text"
                   className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 uppercase w-full mt-1"
                   value={form.property}
                   onChange={(e) => handleSet('property', e.target.value)}
                   placeholder="2 PLOTS, CHENNAI"
+                />
+              </div>
+
+              <div>
+                <span className="font-bold text-slate-700">Family Worth (குடும்ப சொத்து மதிப்பு): </span>
+                <input
+                  type="text"
+                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 uppercase w-full mt-1"
+                  value={form.familyWorth}
+                  onChange={(e) => handleSet('familyWorth', e.target.value)}
+                  placeholder="e.g. ₹1 CRORE - ₹5 CRORES"
+                />
+              </div>
+
+              <div>
+                <span className="font-bold text-slate-700">Individual Worth (தனிநபர் சொத்து மதிப்பு): </span>
+                <input
+                  type="text"
+                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 uppercase w-full mt-1"
+                  value={form.individualWorth}
+                  onChange={(e) => handleSet('individualWorth', e.target.value)}
+                  placeholder="e.g. ₹25 LAKHS - ₹50 LAKHS"
                 />
               </div>
 

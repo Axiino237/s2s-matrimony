@@ -132,7 +132,15 @@ export class ProfilesService {
         fatherName,
         fatherOccupation,
         motherName,
-        motherOccupation,
+        familyWorth: (profile as any).familyWorth || profile.family?.familyWorth || devUser.familyWorth || '',
+        individualWorth: (profile as any).individualWorth || (profile.occupation as any)?.individualWorth || devUser.individualWorth || '',
+        isEliteProfile: Boolean(
+          (profile as any).isElite ||
+          ((profile as any).familyWorth && ['crore', 'cr', '1,00,00,000', 'rich'].some((k: string) => String((profile as any).familyWorth).toLowerCase().includes(k))) ||
+          (profile.family?.familyWorth && ['crore', 'cr', '1,00,00,000', 'rich'].some((k: string) => String(profile.family?.familyWorth).toLowerCase().includes(k))) ||
+          ((profile as any).individualWorth && ['crore', 'cr', '25 lpa', '30 lpa', '50 lpa', '1 crore'].some((k: string) => String((profile as any).individualWorth).toLowerCase().includes(k))) ||
+          devUser.isElite
+        ),
         horoscope: {
           star,
           rasi,
@@ -155,12 +163,15 @@ export class ProfilesService {
           company,
           workingLocation: workLocation,
           annualIncome,
+          individualWorth: profile.individualWorth || (profile as any).individualWorth || devUser.individualWorth || '',
         },
         family: {
           fatherName,
           fatherOccupation,
           motherName,
           motherOccupation,
+          familyWorth: profile.familyWorth || profile.family?.familyWorth || (profile as any).familyWorth || devUser.familyWorth || '',
+          propertyDetails: profile.propertyDetails || profile.family?.propertyDetails || (profile as any).propertyDetails || devUser.propertyDetails || '',
           nativePlace: profile.family?.nativePlace || devUser.nativePlace || '',
           brothers: profile.family?.brothers ?? devUser.brothers ?? 0,
           sisters: profile.family?.sisters ?? devUser.sisters ?? 0,
@@ -373,6 +384,9 @@ export class ProfilesService {
       }
       if (data.residentStatus !== undefined) updateData.residentStatus = data.residentStatus;
       if (data.propertyDetails !== undefined) updateData.propertyDetails = data.propertyDetails;
+      if (data.familyWorth !== undefined) updateData.familyWorth = data.familyWorth;
+      if (data.individualWorth !== undefined) updateData.individualWorth = data.individualWorth;
+      if (data.annualIncome !== undefined) updateData.annualIncome = data.annualIncome;
       if (data.branch !== undefined) updateData.branch = data.branch;
       if (data.memberId !== undefined) updateData.memberId = data.memberId;
 
@@ -540,6 +554,8 @@ export class ProfilesService {
               familyStatus: data.familyStatus || null,
               familyValues: data.familyValues || null,
               nativePlace: data.nativePlace || null,
+              familyWorth: data.familyWorth || null,
+              propertyDetails: data.propertyDetails || null,
             },
             update: {
               fatherName: data.fatherName !== undefined ? data.fatherName : undefined,
@@ -562,6 +578,8 @@ export class ProfilesService {
               familyStatus: data.familyStatus !== undefined ? data.familyStatus : undefined,
               familyValues: data.familyValues !== undefined ? data.familyValues : undefined,
               nativePlace: data.nativePlace !== undefined ? data.nativePlace : undefined,
+              familyWorth: data.familyWorth !== undefined ? data.familyWorth : undefined,
+              propertyDetails: data.propertyDetails !== undefined ? data.propertyDetails : undefined,
             },
           }).catch(() => null);
         }

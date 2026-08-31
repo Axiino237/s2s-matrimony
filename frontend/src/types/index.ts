@@ -75,6 +75,10 @@ export interface Profile {
   complexion?: string;
   residentStatus?: string;
   propertyDetails?: string;
+  familyWorth?: string;
+  individualWorth?: string;
+  annualIncome?: string;
+  isEliteProfile?: boolean;
   motherTongue?: string;
   about?: string;
   status: ProfileStatus;
@@ -124,6 +128,8 @@ export interface Occupation {
   occupationName: string;
   company?: string;
   designation?: string;
+  annualIncome?: string;
+  individualWorth?: string;
   salaryMin?: number;
   salaryMax?: number;
   salaryDisplay?: string;
@@ -136,6 +142,8 @@ export interface FamilyDetail {
   fatherOccupation?: string;
   motherName?: string;
   motherOccupation?: string;
+  familyWorth?: string;
+  propertyDetails?: string;
   siblings?: number;
   brothers?: number;
   brothersMarried?: number;

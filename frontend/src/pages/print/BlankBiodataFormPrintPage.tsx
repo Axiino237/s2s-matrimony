@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react';
+import { useEffect } from 'react';
 
 function ChartGrid({ center }: { center: string }) {
   const B = ({ n }: { n: string }) => (
@@ -141,7 +141,7 @@ export default function BlankBiodataFormPrintPage() {
               </div>
               <div style={{border:'2px solid #b91c1c'}}>
                 <div style={s.sectionHead}>FINANCIAL & ANCESTRAL DETAILS</div>
-                <Grid2 pairs={[['Resident','Property'],['Residence Place','Native Place']]} />
+                <Grid2 pairs={[['Resident','Property'],['Family Worth','Individual Worth'],['Residence Place','Native Place']]} />
               </div>
             </div>
 

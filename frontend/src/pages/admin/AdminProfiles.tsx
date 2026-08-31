@@ -25,6 +25,10 @@ type ProfileRecord = {
   motherTongue?: string;
   about?: string;
   gothram?: string;
+  familyWorth?: string;
+  individualWorth?: string;
+  propertyDetails?: string;
+  annualIncome?: string;
   verificationStatus: string;
   profileCompletionPercent?: number;
   createdAt: string;
@@ -49,6 +53,8 @@ type ProfileRecord = {
   occupation?: {
     company?: string;
     designation?: string;
+    annualIncome?: string;
+    individualWorth?: string;
     salaryMin?: number;
     salaryMax?: number;
     workingLocation?: string;
@@ -62,6 +68,8 @@ type ProfileRecord = {
     motherName?: string;
     motherOccupation?: string;
     motherAlive?: boolean;
+    familyWorth?: string;
+    propertyDetails?: string;
     brothers?: number;
     brothersMarried?: number;
     sisters?: number;
@@ -505,7 +513,8 @@ const AdminProfiles = () => {
                         ['Company / Firm', viewProfile.occupation?.company || '—'],
                         ['Employment Type', viewProfile.occupation?.employmentType || '—'],
                         ['Working Location', viewProfile.occupation?.workingLocation || '—'],
-                        ['Annual Salary (Min)', viewProfile.occupation?.salaryMin ? `₹${viewProfile.occupation.salaryMin.toLocaleString()}` : '—'],
+                        ['Annual Salary (Min)', viewProfile.occupation?.salaryMin ? `₹${viewProfile.occupation.salaryMin.toLocaleString()}` : (viewProfile.annualIncome || '—')],
+                        ['Individual Net Worth (தனிநபர் சொத்து மதிப்பு)', viewProfile.individualWorth || viewProfile.occupation?.individualWorth || '—'],
                         ['Annual Salary (Max)', viewProfile.occupation?.salaryMax ? `₹${viewProfile.occupation.salaryMax.toLocaleString()}` : '—'],
                       ].map(([k, v]) => (
                         <div key={k as string} className="flex justify-between py-1.5 border-b border-slate-50">
@@ -530,6 +539,8 @@ const AdminProfiles = () => {
                       ['Father\'s Occupation', viewProfile.family?.fatherOccupation || '—'],
                       ['Mother\'s Name', viewProfile.family?.motherName || '—'],
                       ['Mother\'s Occupation', viewProfile.family?.motherOccupation || '—'],
+                      ['Family Net Worth (குடும்ப சொத்து மதிப்பு)', viewProfile.familyWorth || viewProfile.family?.familyWorth || '—'],
+                      ['Property Details (சொத்து விவரம்)', viewProfile.propertyDetails || viewProfile.family?.propertyDetails || '—'],
                       ['Brothers Count', viewProfile.family?.brothers !== undefined ? `${viewProfile.family.brothers} (${viewProfile.family.brothersMarried ?? 0} Married)` : '—'],
                       ['Sisters Count', viewProfile.family?.sisters !== undefined ? `${viewProfile.family.sisters} (${viewProfile.family.sistersMarried ?? 0} Married)` : '—'],
                       ['Family Type', viewProfile.family?.familyType || '—'],

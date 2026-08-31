@@ -151,6 +151,7 @@ const ProfileCompletePage = () => {
     employedIn: 'PRIVATE',
     companyName: '',
     annualIncome: '',
+    individualWorth: '',
 
     // Step 3: Location
     country: 'India',
@@ -164,6 +165,7 @@ const ProfileCompletePage = () => {
     fatherOccupation: '',
     motherName: '',
     motherOccupation: '',
+    familyWorth: '',
     nativePlace: '',
     brothers: 0,
     sisters: 0,
@@ -841,6 +843,10 @@ const ProfileCompletePage = () => {
         <option value="3500000">₹25 Lakhs – ₹35 Lakhs</option>
         <option value="5000000">Above ₹35 Lakhs</option>
       </Select>
+
+      <div className="sm:col-span-2">
+        <Input label="Individual Worth / Assets (தனிநபர் சொத்து மதிப்பு)" value={form.individualWorth} onChange={(e: any) => set('individualWorth', e.target.value)} placeholder="e.g. ₹25 Lakhs - ₹50 Lakhs / ₹1 Crore+" />
+      </div>
     </div>
   );
 
@@ -866,6 +872,7 @@ const ProfileCompletePage = () => {
       <Input label="Mother's Name" value={form.motherName} onChange={(e: any) => set('motherName', e.target.value)} />
       <Input label="Mother's Occupation" value={form.motherOccupation} onChange={(e: any) => set('motherOccupation', e.target.value)} placeholder="e.g. Homemaker, Teacher" />
       <Input label="Native Place (சொந்த ஊர்)" value={form.nativePlace} onChange={(e: any) => set('nativePlace', e.target.value)} placeholder="e.g. Chennai, Madurai" />
+      <Input label="Family Net Worth (குடும்ப சொத்து மதிப்பு)" value={form.familyWorth} onChange={(e: any) => set('familyWorth', e.target.value)} placeholder="e.g. ₹1 Crore - ₹5 Crores / ₹10+ Crores" />
       <Select label="Family Type" value={form.familyType} onChange={(e: any) => set('familyType', e.target.value)}>
         <option value="NUCLEAR">Nuclear Family</option>
         <option value="JOINT">Joint Family</option>

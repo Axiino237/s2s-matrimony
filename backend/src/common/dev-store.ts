@@ -27,6 +27,11 @@ export interface DevUser {
   roles?: string[];
   membershipTier?: string;
 
+  familyWorth?: string;
+  individualWorth?: string;
+  isElite?: boolean;
+  propertyDetails?: string;
+
   // Additional dev fields
   star?: string;
   rasi?: string;
@@ -59,6 +64,20 @@ export interface DevUser {
 
   [key: string]: any;
 }
+
+export interface EliteSettingsConfig {
+  minFamilyWorthElite: string; // e.g. "1_CRORE", "2_CRORES", "5_CRORES", "10_CRORES"
+  minIndividualWorthElite: string; // e.g. "15_LPA", "25_LPA", "50_LPA", "1_CRORE"
+  autoClassifyElite: boolean;
+  restrictEliteVisibility: boolean;
+}
+
+export const defaultEliteSettings: EliteSettingsConfig = {
+  minFamilyWorthElite: '1 Crore+',
+  minIndividualWorthElite: '15 Lakhs+',
+  autoClassifyElite: true,
+  restrictEliteVisibility: true,
+};
 
 export interface DevPlan {
   id: string;
