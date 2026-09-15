@@ -25,6 +25,32 @@ async function sync() {
 
   await client.query(`ALTER TABLE horoscope ADD COLUMN IF NOT EXISTS "starPadam" INTEGER`);
   await client.query(`ALTER TABLE horoscope ADD COLUMN IF NOT EXISTS "horoscopeData" JSONB`);
+  await client.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "familyWorth" TEXT`);
+  await client.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "individualWorth" TEXT`);
+  await client.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "annualIncome" TEXT`);
+  await client.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "propertyDetails" TEXT`);
+  await client.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "biodataJson" TEXT`);
+  await client.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "memberId" TEXT`);
+  await client.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "branch" TEXT`);
+  await client.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "residentStatus" TEXT`);
+
+  // family_details
+  await client.query(`ALTER TABLE family_details ADD COLUMN IF NOT EXISTS "familyWorth" TEXT`);
+  await client.query(`ALTER TABLE family_details ADD COLUMN IF NOT EXISTS "propertyDetails" TEXT`);
+  await client.query(`ALTER TABLE family_details ADD COLUMN IF NOT EXISTS "familyDescription" TEXT`);
+  await client.query(`ALTER TABLE family_details ADD COLUMN IF NOT EXISTS "fatherAlive" BOOLEAN DEFAULT true`);
+  await client.query(`ALTER TABLE family_details ADD COLUMN IF NOT EXISTS "motherAlive" BOOLEAN DEFAULT true`);
+  await client.query(`ALTER TABLE family_details ADD COLUMN IF NOT EXISTS "nativePlace" TEXT`);
+
+  // education
+  await client.query(`ALTER TABLE education ADD COLUMN IF NOT EXISTS "college" TEXT`);
+  await client.query(`ALTER TABLE education ADD COLUMN IF NOT EXISTS "educationDetail" TEXT`);
+
+  // occupation
+  await client.query(`ALTER TABLE occupation ADD COLUMN IF NOT EXISTS "company" TEXT`);
+  await client.query(`ALTER TABLE occupation ADD COLUMN IF NOT EXISTS "companyName" TEXT`);
+  await client.query(`ALTER TABLE occupation ADD COLUMN IF NOT EXISTS "workLocation" TEXT`);
+  await client.query(`ALTER TABLE occupation ADD COLUMN IF NOT EXISTS "occupationDetail" TEXT`);
 
   console.log('✅ ALL MISSING DB COLUMNS ADDED SUCCESSFULLY!');
   await client.end();

@@ -157,17 +157,12 @@ export const useAuthStore = create<AuthStore>()(
 
         const mainRole = getUserMainRole(user);
 
-        // Always allow dashboard:view for ADMIN and SUPER_ADMIN so they can view their main dashboard
-        if (perm === 'dashboard:view' && (mainRole === 'ADMIN' || mainRole === 'SUPER_ADMIN')) {
-          return true;
-        }
-
         const savedMapStr = localStorage.getItem('s2s_role_permissions');
         if (savedMapStr) {
           try {
             const map = JSON.parse(savedMapStr);
             const rolePerms = map[mainRole];
-            if (Array.isArray(rolePerms) && rolePerms.length > 0) {
+            if (Array.isArray(rolePerms)) {
               return rolePerms.includes(perm);
             }
           } catch {
@@ -180,10 +175,6 @@ export const useAuthStore = create<AuthStore>()(
         }
 
         if (mainRole === 'SUPER_ADMIN') return true;
-
-        if (mainRole === 'ADMIN' || mainRole === 'MODERATOR' || mainRole === 'SUPPORT_AGENT') {
-          return perm !== 'admins:manage';
-        }
 
         return false;
       },

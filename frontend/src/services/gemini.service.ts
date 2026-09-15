@@ -4,16 +4,33 @@
  * from images and text in Tamil, English, Hindi, or any Indian language.
  */
 
-const GEMINI_API_KEY = 'AIzaSyC3H8zTng1AeyaDlfaaO-V3ojkp0kROuXs';
+export const getGeminiApiKey = (): string => {
+  const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (envKey && envKey.trim()) return envKey.trim();
+  const localKey = localStorage.getItem('s2s_gemini_api_key');
+  if (localKey && localKey.trim()) return localKey.trim();
+  return 'AIzaSyDyQ3HhImjtlIB9SN0QkjPsn4BXTvk17T8';
+};
+
+export const setGeminiApiKey = (key: string) => {
+  if (key && key.trim()) {
+    localStorage.setItem('s2s_gemini_api_key', key.trim());
+  } else {
+    localStorage.removeItem('s2s_gemini_api_key');
+  }
+};
+
 const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 const buildPrompt = (mode: 'image' | 'text') => `
-You are an expert South Indian matrimonial biodata parser with expertise in Tamil, English, Hindi, Telugu, Kannada, and Malayalam scripts.
+You are an expert South Indian matrimonial biodata and Vedic astrology / horoscope parser with expertise in Tamil, English, Hindi, Telugu, Kannada, and Malayalam scripts.
 
-${mode === 'image'
-  ? 'TASK: Carefully read ALL text visible in this biodata image — including Tamil script, English text, and any mixed-language content. Extract every field you can identify.'
-  : 'TASK: Parse the following biodata text and extract every field you can identify.'}
+${
+  mode === 'image'
+    ? 'TASK: Carefully read ALL text and HOROSCOPE GRIDS (Rasi Chart / ராசி கட்டம் & Navamsam Chart / நவாம்சம் / அம்ச கட்டம்) visible in this biodata image — including Tamil script, English text, and any mixed-language content. Extract every field and chart detail accurately.'
+    : 'TASK: Parse the following biodata text and extract every field and chart detail you can identify.'
+}
 
 Return ONLY a single valid JSON object. Do NOT include markdown fences, explanation, or extra text — just the raw JSON.
 
@@ -48,6 +65,7 @@ The JSON must use these exact keys (use null for missing/unknown fields):
   "lagnam": null,
   "dosham": null,
   "chevvai": null,
+  "dasaBalance": null,
   "maritalStatus": null,
   "disability": null,
   "about": null,
@@ -83,20 +101,52 @@ The JSON must use these exact keys (use null for missing/unknown fields):
   "regnDate": null,
   "birthPlace": null,
   "birthTime": null,
-  "horoscopeDetails": null
+  "horoscopeDetails": null,
+  "rasiChart": {
+    "Mesham": null,
+    "Rishabam": null,
+    "Mithunam": null,
+    "Kadagam": null,
+    "Simmam": null,
+    "Kanni": null,
+    "Thulaam": null,
+    "Viruchigam": null,
+    "Dhanusu": null,
+    "Magaram": null,
+    "Kumbam": null,
+    "Meenam": null
+  },
+  "amsamChart": {
+    "Mesham": null,
+    "Rishabam": null,
+    "Mithunam": null,
+    "Kadagam": null,
+    "Simmam": null,
+    "Kanni": null,
+    "Thulaam": null,
+    "Viruchigam": null,
+    "Dhanusu": null,
+    "Magaram": null,
+    "Kumbam": null,
+    "Meenam": null
+  }
 }
 
-CRITICAL RULES:
-1. Read Tamil (தமிழ்), English, and Hindi text — all are valid
-2. Convert height to heightCm as a number (e.g., "5 ft 6 in" = 168)
-3. Normalize gender to exactly "Male" or "Female"
-4. For siblings, extract elderBrothers / youngerBrothers / elderSisters / youngerSisters as numbers
-5. Extract mobile numbers even if written in Tamil numerals
-6. Extract salary/income even if written in lakhs (e.g., "14 LPA" = "14,00,000")
-7. If a Tamil word is used, translate it to English for the value
-8. name = full name (combination of firstName + lastName)
+CRITICAL RULES FOR HOROSCOPE CHART (ராசி & நவாம்சம் கட்டம்):
+1. In the traditional South Indian 4x4 astrology chart grid (with central box named RASI / NAVAMSAM):
+   - Top row (left to right): Meenam (மீனம்), Mesham (மேஷம்), Rishabam (ரிஷபம்), Mithunam (மிதுனம்)
+   - Right column (top to bottom): Kadagam (கடகம்), Simmam (சிம்மம்), Kanni (கன்னி)
+   - Bottom row (right to left): Thulaam (துலாம்), Viruchigam (விருச்சிகம்), Dhanusu (தனுசு)
+   - Left column (bottom to top): Magaram (மகரம்), Kumbam (கும்பம்)
+2. In each box, extract all planet abbreviations present (e.g. "சூரி, புத" or "சந்" or "செவ், ராகு" or "லக்" or "குரு" or "சுக், சனி" or "கேது" or "மாந்"). If a box is empty, set value to null or empty string.
+3. If both RASI CHART and NAVAMSAM CHART (நவாம்ச கட்டம்) are in the image, extract both into "rasiChart" and "amsamChart" respectively.
+4. Read Tamil (தமிழ்), English, and Hindi text — all are valid.
+5. Convert height to heightCm as a number (e.g., "5 ft 6 in" = 168).
+6. Normalize gender to exactly "Male" or "Female".
+7. Extract mobile numbers even if written in Tamil numerals.
+8. Extract salary/income even if written in lakhs (e.g., "14 LPA" = "14,00,000").
 9. For any field NOT present in the biodata, use null.
-10. Return ONLY the JSON — no markdown, no prose, no code fences
+10. Return ONLY the valid JSON — no markdown, no prose, no code fences.
 `;
 
 export const fileToBase64 = (file: File): Promise<string> =>
@@ -109,6 +159,68 @@ export const fileToBase64 = (file: File): Promise<string> =>
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+
+const normalizeChartObject = (chart: any): Record<string, string> => {
+  if (!chart || typeof chart !== 'object') return {};
+
+  const keysMapping: Record<string, string> = {
+    mesham: 'Mesham',
+    மேஷம்: 'Mesham',
+    aries: 'Mesham',
+    rishabam: 'Rishabam',
+    ரிஷபம்: 'Rishabam',
+    taurus: 'Rishabam',
+    mithunam: 'Mithunam',
+    மிதுனம்: 'Mithunam',
+    gemini: 'Mithunam',
+    kadagam: 'Kadagam',
+    கடகம்: 'Kadagam',
+    cancer: 'Kadagam',
+    simmam: 'Simmam',
+    சிம்மம்: 'Simmam',
+    leo: 'Simmam',
+    kanni: 'Kanni',
+    கன்னி: 'Kanni',
+    virgo: 'Kanni',
+    thulaam: 'Thulaam',
+    thulam: 'Thulaam',
+    துலாம்: 'Thulaam',
+    libra: 'Thulaam',
+    viruchigam: 'Viruchigam',
+    விருச்சிகம்: 'Viruchigam',
+    scorpio: 'Viruchigam',
+    dhanusu: 'Dhanusu',
+    தனுசு: 'Dhanusu',
+    sagittarius: 'Dhanusu',
+    magaram: 'Magaram',
+    makaram: 'Magaram',
+    மகரம்: 'Magaram',
+    capricorn: 'Magaram',
+    kumbam: 'Kumbam',
+    கும்பம்: 'Kumbam',
+    aquarius: 'Kumbam',
+    meenam: 'Meenam',
+    மீனம்: 'Meenam',
+    pisces: 'Meenam',
+  };
+
+  const normalized: Record<string, string> = {};
+
+  // Initialize all 12 houses
+  const validHouses = ['Mesham', 'Rishabam', 'Mithunam', 'Kadagam', 'Simmam', 'Kanni', 'Thulaam', 'Viruchigam', 'Dhanusu', 'Magaram', 'Kumbam', 'Meenam'];
+  validHouses.forEach(h => { normalized[h] = ''; });
+
+  Object.entries(chart).forEach(([k, v]) => {
+    if (!v) return;
+    const cleanKey = k.trim().toLowerCase();
+    const mappedKey = keysMapping[cleanKey] || keysMapping[k.trim()] || (validHouses.includes(k) ? k : null);
+    if (mappedKey) {
+      normalized[mappedKey] = String(v).trim();
+    }
+  });
+
+  return normalized;
+};
 
 /**
  * Normalizes any profile object into a clean canonical JSON schema
@@ -130,6 +242,9 @@ export const normalizeCanonicalProfileJson = (d: any = {}): Record<string, any> 
   const firstName = strOrNull(d.firstName || (d.name ? String(d.name).split(' ')[0] : null));
   const lastName = strOrNull(d.lastName || (d.name ? String(d.name).split(' ').slice(1).join(' ') : null));
   const fullName = strOrNull(d.name || d.fullName || d.displayName || [firstName, lastName].filter(Boolean).join(' ') || null);
+
+  const rasiChartData = normalizeChartObject(d.horoscope?.rasiChart || d.rasiChart);
+  const amsamChartData = normalizeChartObject(d.horoscope?.amsamChart || d.horoscope?.navamsamChart || d.amsamChart || d.navamsamChart);
 
   return {
     memberId: strOrNull(d.memberId || d.member_id),
@@ -200,6 +315,7 @@ export const normalizeCanonicalProfileJson = (d: any = {}): Record<string, any> 
     horoscope: {
       rasi: strOrNull(d.horoscope?.rasi || d.rasi),
       nakshatra: strOrNull(d.horoscope?.nakshatra || d.horoscope?.star || d.nakshatra || d.star || d.natchathiram),
+      star: strOrNull(d.horoscope?.star || d.horoscope?.nakshatra || d.star || d.nakshatra || d.natchathiram),
       starPadam: numOrNull(d.horoscope?.starPadam || d.starPadam || d.natchathiramPadham),
       lagnam: strOrNull(d.horoscope?.lagnam || d.lagnam),
       gothram: strOrNull(d.horoscope?.gothram || d.gothram),
@@ -210,7 +326,12 @@ export const normalizeCanonicalProfileJson = (d: any = {}): Record<string, any> 
       birthPlace: strOrNull(d.horoscope?.birthPlace || d.birthPlace || d.placeOfBirth),
       birthTime: strOrNull(d.horoscope?.birthTime || d.birthTime || d.timeOfBirth),
       horoscopeDetails: strOrNull(d.horoscope?.horoscopeDetails || d.horoscopeDetails),
+      rasiChart: rasiChartData,
+      amsamChart: amsamChartData,
     },
+
+    rasiChart: rasiChartData,
+    amsamChart: amsamChartData,
 
     contact: {
       mobile: strOrNull(d.contact?.mobile || d.mobile || d.phone),
@@ -225,27 +346,66 @@ export const normalizeCanonicalProfileJson = (d: any = {}): Record<string, any> 
 };
 
 const parseGeminiResponse = (text: string): Record<string, any> => {
-  // Strip markdown code fences if Gemini adds them despite instructions
-  const clean = text
-    .replace(/`json\s*/gi, '')
-    .replace(/`\s*/g, '')
+  if (!text || !text.trim()) {
+    throw new Error('Empty response received from Gemini AI');
+  }
+
+  // 1. Try direct parse
+  try {
+    const direct = JSON.parse(text.trim());
+    return normalizeCanonicalProfileJson(direct);
+  } catch {
+    // continue to extractors
+  }
+
+  // 2. Strip markdown fences
+  let clean = text
+    .replace(/```(?:json)?\s*/gi, '')
+    .replace(/```\s*/g, '')
     .trim();
 
-  // Find first { and last } to extract JSON robustly
+  try {
+    const parsed = JSON.parse(clean);
+    return normalizeCanonicalProfileJson(parsed);
+  } catch {
+    // continue to substring extraction
+  }
+
+  // 3. Find first { and last }
   const start = clean.indexOf('{');
   const end = clean.lastIndexOf('}');
-  if (start === -1 || end === -1) throw new Error('No JSON object found in Gemini response');
+  if (start !== -1 && end !== -1 && end > start) {
+    try {
+      const sliced = clean.slice(start, end + 1);
+      const parsed = JSON.parse(sliced);
+      return normalizeCanonicalProfileJson(parsed);
+    } catch (e: any) {
+      console.error('JSON substring parse error:', e, 'Clean text:', clean);
+    }
+  }
 
-  const rawParsed = JSON.parse(clean.slice(start, end + 1));
-  return normalizeCanonicalProfileJson(rawParsed);
+  throw new Error('Gemini returned unstructured text. Please try again.');
 };
 
 /**
  * Analyze a biodata image (photo / scan) using Gemini Vision
  */
 export const analyzeImageWithGemini = async (file: File): Promise<Record<string, any>> => {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('Google Gemini API Key is missing or invalid. Please configure your API key.');
+  }
+
   const base64Data = await fileToBase64(file);
-  const mimeType = file.type || 'image/jpeg';
+  const mimeType =
+    file.type ||
+    (file.name.toLowerCase().endsWith('.pdf')
+      ? 'application/pdf'
+      : file.name.toLowerCase().endsWith('.png')
+        ? 'image/png'
+        : file.name.toLowerCase().endsWith('.webp')
+          ? 'image/webp'
+          : 'image/jpeg');
 
   const requestBody = {
     contents: [
@@ -256,10 +416,14 @@ export const analyzeImageWithGemini = async (file: File): Promise<Record<string,
         ],
       },
     ],
-    generationConfig: { temperature: 0.05, topK: 1, topP: 1, maxOutputTokens: 4096 },
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.1,
+      maxOutputTokens: 8192,
+    },
   };
 
-  const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestBody),
@@ -271,13 +435,82 @@ export const analyzeImageWithGemini = async (file: File): Promise<Record<string,
   }
 
   const result = await response.json();
-  const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const text =
+    result?.candidates?.[0]?.content?.parts
+      ?.map((p: any) => p.text)
+      .filter(Boolean)
+      .join('\n') || '';
 
-  try {
-    return parseGeminiResponse(text);
-  } catch {
-    throw new Error('Gemini returned invalid JSON. Please try a clearer image.');
+  return parseGeminiResponse(text);
+};
+
+/**
+ * Analyze multiple biodata files (images & PDFs, e.g. Page 1 + Page 2 horoscope) using Gemini Vision
+ */
+export const analyzeMultipleFilesWithGemini = async (files: File[]): Promise<Record<string, any>> => {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('Google Gemini API Key is missing or invalid. Please configure your API key.');
   }
+
+  if (!files || files.length === 0) {
+    throw new Error('No files provided for extraction');
+  }
+
+  if (files.length === 1) {
+    return analyzeImageWithGemini(files[0]);
+  }
+
+  const parts: any[] = [];
+  for (const file of files) {
+    const base64Data = await fileToBase64(file);
+    const mimeType =
+      file.type ||
+      (file.name.toLowerCase().endsWith('.pdf')
+        ? 'application/pdf'
+        : file.name.toLowerCase().endsWith('.png')
+          ? 'image/png'
+          : file.name.toLowerCase().endsWith('.webp')
+            ? 'image/webp'
+            : 'image/jpeg');
+
+    parts.push({ inlineData: { mimeType, data: base64Data } });
+  }
+
+  parts.push({
+    text:
+      buildPrompt('image') +
+      `\n\nNOTE: You are given ${files.length} pages/images for the same candidate (e.g. Biodata personal details + Horoscope chart + Education). Merge all information accurately into ONE canonical JSON object.`,
+  });
+
+  const requestBody = {
+    contents: [{ parts }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.1,
+      maxOutputTokens: 8192,
+    },
+  };
+
+  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Gemini API error: ${response.status}`);
+  }
+
+  const result = await response.json();
+  const text =
+    result?.candidates?.[0]?.content?.parts
+      ?.map((p: any) => p.text)
+      .filter(Boolean)
+      .join('\n') || '';
+
+  return parseGeminiResponse(text);
 };
 
 /**
@@ -287,6 +520,11 @@ export const analyzeBase64ImageWithGemini = async (
   base64DataUrl: string,
   mimeType: string = 'image/jpeg'
 ): Promise<Record<string, any>> => {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('Google Gemini API Key is missing or invalid. Please configure your API key.');
+  }
+
   const base64Data = base64DataUrl.includes(',')
     ? base64DataUrl.split(',')[1]
     : base64DataUrl;
@@ -300,10 +538,14 @@ export const analyzeBase64ImageWithGemini = async (
         ],
       },
     ],
-    generationConfig: { temperature: 0.05, topK: 1, topP: 1, maxOutputTokens: 4096 },
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.1,
+      maxOutputTokens: 8192,
+    },
   };
 
-  const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestBody),
@@ -315,19 +557,24 @@ export const analyzeBase64ImageWithGemini = async (
   }
 
   const result = await response.json();
-  const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const text =
+    result?.candidates?.[0]?.content?.parts
+      ?.map((p: any) => p.text)
+      .filter(Boolean)
+      .join('\n') || '';
 
-  try {
-    return parseGeminiResponse(text);
-  } catch {
-    throw new Error('Gemini returned invalid JSON. Please try a clearer image.');
-  }
+  return parseGeminiResponse(text);
 };
 
 /**
  * Analyze plain text biodata using Gemini (Tamil / English / Hindi)
  */
 export const analyzeTextWithGemini = async (text: string): Promise<Record<string, any>> => {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('Google Gemini API Key is missing or invalid. Please configure your API key.');
+  }
+
   const requestBody = {
     contents: [
       {
@@ -338,10 +585,14 @@ export const analyzeTextWithGemini = async (text: string): Promise<Record<string
         ],
       },
     ],
-    generationConfig: { temperature: 0.05, topK: 1, topP: 1, maxOutputTokens: 4096 },
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.1,
+      maxOutputTokens: 8192,
+    },
   };
 
-  const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestBody),
@@ -353,11 +604,11 @@ export const analyzeTextWithGemini = async (text: string): Promise<Record<string
   }
 
   const result = await response.json();
-  const responseText = result?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const outputText =
+    result?.candidates?.[0]?.content?.parts
+      ?.map((p: any) => p.text)
+      .filter(Boolean)
+      .join('\n') || '';
 
-  try {
-    return parseGeminiResponse(responseText);
-  } catch {
-    throw new Error('Gemini returned invalid JSON. Please try again.');
-  }
+  return parseGeminiResponse(outputText);
 };

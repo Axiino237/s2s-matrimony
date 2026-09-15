@@ -1,8 +1,29 @@
 import { useState } from 'react';
-import { Sparkles, Upload, CheckCircle2, Code, Copy, RefreshCw, Database, ExternalLink, Image as ImageIcon, XCircle, User } from 'lucide-react';
+import { Sparkles, Upload, CheckCircle2, Code, Copy, RefreshCw, Database, ExternalLink, Image as ImageIcon, XCircle, User, FileText, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { analyzeImageWithGemini, analyzeBase64ImageWithGemini } from '../../services/gemini.service';
+import { analyzeMultipleFilesWithGemini } from '../../services/gemini.service';
 import { profilesApi } from '../../services/profiles.service';
+
+interface UploadedFileItem {
+  file: File;
+  previewUrl: string;
+  isPdf: boolean;
+}
+
+const HOUSES = [
+  { id: 'Mesham', tamil: 'மேஷம்', row: 0, col: 1 },
+  { id: 'Rishabam', tamil: 'ரிஷபம்', row: 0, col: 2 },
+  { id: 'Mithunam', tamil: 'மிதுனம்', row: 0, col: 3 },
+  { id: 'Kadagam', tamil: 'கடகம்', row: 1, col: 3 },
+  { id: 'Simmam', tamil: 'சிம்மம்', row: 2, col: 3 },
+  { id: 'Kanni', tamil: 'கன்னி', row: 3, col: 3 },
+  { id: 'Thulaam', tamil: 'துலாம்', row: 3, col: 2 },
+  { id: 'Viruchigam', tamil: 'விருச்சிகம்', row: 3, col: 1 },
+  { id: 'Dhanusu', tamil: 'தனுசு', row: 3, col: 0 },
+  { id: 'Magaram', tamil: 'மகரம்', row: 2, col: 0 },
+  { id: 'Kumbam', tamil: 'கும்பம்', row: 1, col: 0 },
+  { id: 'Meenam', tamil: 'மீனம்', row: 0, col: 0 },
+];
 
 const SAMPLE_TAMIL_BIODATA = `MATRIMONIAL BIODATA
 Name: K. Ramasamy
@@ -21,7 +42,7 @@ Education: B.E. Computer Science Engineering
 College: Anna University Chennai
 Occupation: Senior Software Engineer
 Company: Tata Consultancy Services (TCS)
-Salary: ₹14,000,000 / Year (14 LPA)
+Salary: ₹14,00,000 / Year (14 LPA)
 Work Location: Chennai
 Father Name: M. Kandasamy
 Father Occupation: Business
@@ -32,59 +53,80 @@ Address: No 45, Gandhi Street, T.Nagar, Chennai 600017
 Horoscope: Suddha Jathagam, Chevvai: No`;
 
 const AdminAiBiodata = () => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileItem[]>([]);
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
   const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
   const [savedResult, setSavedResult] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'charts' | 'json'>('charts');
 
   const handleParse = async () => {
-    if (!imagePreview) {
-      return toast.error('Please upload a biodata image or document first');
+    if (uploadedFiles.length === 0) {
+      return toast.error('Please upload at least one biodata image or PDF document first');
     }
 
     setParsing(true);
     setSavedResult(null);
     try {
-      let data: Record<string, any>;
-      toast.loading('🔍 Gemini Vision reading Tamil/English biodata image...', { id: 'g' });
-      if (selectedFile) {
-        data = await analyzeImageWithGemini(selectedFile);
-      } else {
-        data = await analyzeBase64ImageWithGemini(imagePreview);
-      }
+      toast.loading(`🔍 Gemini AI Vision reading ${uploadedFiles.length} file(s)...`, { id: 'g' });
+      const rawFiles = uploadedFiles.map((item) => item.file);
+      const data = await analyzeMultipleFilesWithGemini(rawFiles);
       toast.dismiss('g');
       setExtractedData(data);
-      toast.success('✨ Gemini AI extracted all biodata & horoscope fields successfully!');
+      toast.success(`✨ Gemini AI extracted all biodata & horoscope fields from ${uploadedFiles.length} file(s)!`);
     } catch (err: any) {
       toast.dismiss('g');
-      toast.error(err?.message || 'Failed to extract biodata with Gemini AI');
+      const msg = err?.message || 'Failed to extract biodata with Gemini AI';
+      toast.error(msg);
     } finally {
       setParsing(false);
     }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
 
-    setSelectedFile(file);
+    const newItems: UploadedFileItem[] = [];
+    const filesArray = Array.from(fileList);
 
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setImagePreview(base64);
-        toast.success(`📸 Biodata Image Loaded: ${file.name}`);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setImagePreview(null);
-      toast.error('Please upload an image file (JPG, PNG, WEBP). Text/PDF not supported in image mode.');
+    filesArray.forEach((file) => {
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const isImage = file.type.startsWith('image/');
+
+      if (isPdf || isImage) {
+        const previewUrl = URL.createObjectURL(file);
+        newItems.push({ file, previewUrl, isPdf });
+      } else {
+        toast.error(`Unsupported format for ${file.name}. Please upload PDF, JPG, PNG, or WEBP.`);
+      }
+    });
+
+    if (newItems.length > 0) {
+      setUploadedFiles((prev) => [...prev, ...newItems]);
+      toast.success(`📄 ${newItems.length} file(s) attached successfully!`);
     }
+
+    // Reset input value so same files can be re-selected if needed
+    e.target.value = '';
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setUploadedFiles((prev) => {
+      const updated = [...prev];
+      const removed = updated.splice(index, 1)[0];
+      if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+      return updated;
+    });
+  };
+
+  const handleClearAllFiles = () => {
+    uploadedFiles.forEach((item) => {
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    });
+    setUploadedFiles([]);
   };
 
   const handleProfilePicUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,11 +140,6 @@ const AdminAiBiodata = () => {
       toast.success(`👤 Profile Photo Loaded: ${file.name}`);
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleClearImage = () => {
-    setSelectedFile(null);
-    setImagePreview(null);
   };
 
   const handleCopyJson = () => {
@@ -134,6 +171,9 @@ const AdminAiBiodata = () => {
       const city = d.contact?.currentCity || d.currentCity || null;
       const exp = d.expectations || d.aboutPartner || null;
 
+      const rasiChartData = d.horoscope?.rasiChart || d.rasiChart || {};
+      const amsamChartData = d.horoscope?.amsamChart || d.amsamChart || {};
+
       const nested = {
         profile: {
           name: d.name || d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim() || null,
@@ -163,6 +203,23 @@ const AdminAiBiodata = () => {
           horoscope_details: d.horoscopeDetails || d.horoscope?.horoscopeDetails || null,
           member_id: d.memberId || null,
           profile_photo: profilePicPreview || d.profilePhotoUrl || null,
+        },
+        horoscope: {
+          rasi: d.horoscope?.rasi || d.rasi || null,
+          nakshatra: d.horoscope?.nakshatra || d.nakshatra || d.star || null,
+          star: d.horoscope?.star || d.horoscope?.nakshatra || d.star || d.nakshatra || null,
+          star_padam: d.horoscope?.starPadam || d.starPadam || null,
+          lagnam: d.horoscope?.lagnam || d.lagnam || null,
+          gothram: d.horoscope?.gothram || d.gothram || null,
+          kuladeivam: d.horoscope?.kuladeivam || d.kuladeivam || null,
+          dosham: d.horoscope?.dosham || d.dosham || null,
+          chevvai: d.horoscope?.chevvai || d.chevvai || null,
+          dasa_balance: d.horoscope?.dasaBalance || d.dasaBalance || null,
+          birth_place: d.horoscope?.birthPlace || d.birthPlace || null,
+          birth_time: d.horoscope?.birthTime || d.birthTime || null,
+          horoscope_details: d.horoscopeDetails || d.horoscope?.horoscopeDetails || null,
+          rasi_chart: rasiChartData,
+          amsam_chart: amsamChartData,
         },
         education: {
           highest_qualification: eduDegree,
@@ -245,44 +302,97 @@ const AdminAiBiodata = () => {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Left Column — Input */}
         <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-4">
-          {imagePreview ? (
-            <div className="border border-slate-200 rounded-2xl p-4 bg-slate-900 text-white space-y-3 relative group">
+          {uploadedFiles.length > 0 ? (
+            <div className="border border-slate-200 rounded-2xl p-4 bg-slate-900 text-white space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                 <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-emerald-400" /> {selectedFile?.name || 'Uploaded Image'}
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> {uploadedFiles.length} File(s) Attached (PDF & Images)
                 </span>
-                <button
-                  type="button"
-                  onClick={handleClearImage}
-                  className="text-rose-400 hover:text-rose-300 text-xs font-bold flex items-center gap-1"
-                >
-                  <XCircle className="w-4 h-4" /> Remove
-                </button>
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="admin-biodata-add-more-input"
+                    className="text-xs text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 cursor-pointer bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 hover:bg-slate-700 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add More
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="admin-biodata-add-more-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleClearAllFiles}
+                    className="text-rose-400 hover:text-rose-300 text-xs font-bold flex items-center gap-1 bg-rose-950/40 px-2.5 py-1 rounded-lg border border-rose-800/40 hover:bg-rose-900/40 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Clear All
+                  </button>
+                </div>
               </div>
-              <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center border border-slate-800">
-                <img src={imagePreview} alt="Biodata Preview" className="max-h-full max-w-full object-contain" />
+
+              {/* Gallery of Uploaded Files */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[320px] overflow-y-auto p-1">
+                {uploadedFiles.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="group relative rounded-xl border border-slate-800 bg-slate-950 overflow-hidden shadow-sm flex flex-col justify-between"
+                  >
+                    {item.isPdf ? (
+                      <div className="aspect-[4/3] flex flex-col items-center justify-center p-3 bg-gradient-to-br from-rose-950/60 to-slate-950 text-center">
+                        <FileText className="w-8 h-8 text-rose-400 mb-1 animate-pulse" />
+                        <span className="text-[10px] font-bold text-rose-200 bg-rose-900/50 px-1.5 py-0.5 rounded border border-rose-700/50">
+                          PDF Document
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="aspect-[4/3] bg-slate-950 flex items-center justify-center overflow-hidden">
+                        <img src={item.previewUrl} alt={item.file.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform" />
+                      </div>
+                    )}
+
+                    <div className="p-2 bg-slate-900/90 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-300 truncate max-w-[90px] font-medium" title={item.file.name}>
+                        {item.file.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(idx)}
+                        className="text-rose-400 hover:text-rose-300 p-0.5 rounded hover:bg-rose-950 transition-colors"
+                        title="Remove this file"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <p className="text-[11px] text-slate-400 text-center font-mono">
-                📸 Ready for AI Vision OCR extraction. Click "Run AI Extraction Engine"!
-              </p>
+
+              <div className="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400">
+                <span>📸 All pages will be merged by Gemini Vision AI into one profile</span>
+                <span className="font-mono text-emerald-400 font-bold">{uploadedFiles.length} file(s) ready</span>
+              </div>
             </div>
           ) : (
             <div className="border-2 border-dashed border-slate-200 hover:border-primary/40 rounded-2xl p-12 text-center bg-slate-50/50 hover:bg-white transition-all space-y-3">
               <Upload className="w-12 h-12 text-primary mx-auto animate-bounce" />
               <div>
-                <p className="text-text-primary font-bold text-sm">Upload Biodata Document or Image</p>
-                <p className="text-text-muted text-xs mt-1">Supports JPG, PNG, WEBP, PDF, or TXT files</p>
-                <p className="text-[10px] text-emerald-600 font-bold mt-1.5 bg-emerald-50 inline-block px-2 py-0.5 rounded-full">✦ Powered by Google Gemini 1.5 Flash Vision — reads Tamil, English, Hindi</p>
+                <p className="text-text-primary font-bold text-sm">Upload Biodata Document(s), PDF or Images</p>
+                <p className="text-text-muted text-xs mt-1">Supports PDF, JPG, PNG, WEBP — Multi-page & Multiple files supported</p>
+                <p className="text-[10px] text-emerald-600 font-bold mt-1.5 bg-emerald-50 inline-block px-2 py-0.5 rounded-full">✦ Powered by Google Gemini 2.5 Flash Vision — reads Tamil, English, Hindi</p>
               </div>
               <input
                 type="file"
-                accept="image/*,.pdf,.txt"
+                accept="image/*,.pdf"
+                multiple
                 onChange={handleFileUpload}
                 className="hidden"
                 id="admin-biodata-file-input"
               />
               <label htmlFor="admin-biodata-file-input" className="btn btn-secondary btn-sm cursor-pointer inline-flex items-center gap-2 font-bold shadow-sm">
-                <ImageIcon className="w-4 h-4 text-primary" /> Browse Image / File
+                <ImageIcon className="w-4 h-4 text-primary" /> Browse PDF / Images (Multi-File)
               </label>
             </div>
           )}
@@ -342,13 +452,34 @@ const AdminAiBiodata = () => {
           </button>
         </div>
 
-        {/* Right Column — Output JSON */}
+        {/* Right Column — Output Preview (Charts & JSON) */}
         <div className="card p-6 bg-slate-950 text-slate-100 border border-slate-900 shadow-xl space-y-4 flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Code className="w-5 h-5 text-emerald-400" />
-                <h3 className="font-bold text-sm text-emerald-400">Structured JSON Output</h3>
+              {/* Tab Navigation */}
+              <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('charts')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    activeTab === 'charts'
+                      ? 'bg-rose-900/80 text-white shadow-sm border border-rose-700/50'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <span>🪐</span> Rasi & Navamsam Charts
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('json')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    activeTab === 'json'
+                      ? 'bg-emerald-950/80 text-emerald-300 shadow-sm border border-emerald-700/50'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Code className="w-3.5 h-3.5" /> Full JSON Schema
+                </button>
               </div>
 
               {extractedData && (
@@ -373,9 +504,104 @@ const AdminAiBiodata = () => {
             </div>
 
             {extractedData ? (
-              <pre className="text-xs font-mono leading-relaxed text-emerald-300 overflow-x-auto max-h-[460px] p-4 bg-slate-900/90 rounded-2xl border border-slate-800">
-                {JSON.stringify(extractedData, null, 2)}
-              </pre>
+              activeTab === 'charts' ? (
+                <div className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
+                  {/* Horoscope Highlights Badge Row */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-900/90 p-3 rounded-2xl border border-slate-800 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block uppercase font-mono">Rasi (ராசி)</span>
+                      <span className="font-bold text-amber-300">{extractedData.horoscope?.rasi || extractedData.rasi || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block uppercase font-mono">Star (நட்சத்திரம்)</span>
+                      <span className="font-bold text-amber-300">{extractedData.horoscope?.nakshatra || extractedData.nakshatra || extractedData.star || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block uppercase font-mono">Lagnam (லக்னம்)</span>
+                      <span className="font-bold text-emerald-400">{extractedData.horoscope?.lagnam || extractedData.lagnam || '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block uppercase font-mono">Chevvai / Dosham</span>
+                      <span className="font-bold text-rose-400">{extractedData.horoscope?.chevvai || extractedData.chevvai || extractedData.dosham || 'None'}</span>
+                    </div>
+                  </div>
+
+                  {/* 2 South Indian Horoscope Grids (Rasi Chart & Navamsam Chart) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* RASI CHART */}
+                    <div className="border border-rose-900/80 bg-slate-900 rounded-2xl overflow-hidden shadow-lg">
+                      <div className="bg-gradient-to-r from-rose-950 to-rose-900 text-rose-200 font-bold text-xs uppercase px-3 py-2 text-center border-b border-rose-800/60">
+                        RASI CHART (ராசி கட்டம்)
+                      </div>
+                      <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-950/80 p-1 aspect-square text-[10px]">
+                        {HOUSES.map((h) => {
+                          const planets = extractedData.horoscope?.rasiChart?.[h.id] || extractedData.rasiChart?.[h.id] || '';
+                          return (
+                            <div
+                              key={h.id}
+                              style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
+                              className="bg-slate-950 p-1.5 flex flex-col justify-between border border-rose-900/40 rounded min-h-[42px]"
+                            >
+                              <span className="text-[8px] font-bold text-slate-400 truncate">{h.tamil}</span>
+                              <div className="font-extrabold text-amber-300 text-center leading-tight my-auto text-[9px] break-words">
+                                {planets ? (
+                                  <span className="bg-amber-950/80 text-amber-200 px-1 py-0.5 rounded border border-amber-800/60">
+                                    {planets}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-700 text-[8px] font-mono">—</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {/* Center Label */}
+                        <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-rose-950/40 flex items-center justify-center font-extrabold text-rose-400 text-sm tracking-widest border border-rose-800/40 rounded">
+                          RASI
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* NAVAMSAM CHART */}
+                    <div className="border border-indigo-900/80 bg-slate-900 rounded-2xl overflow-hidden shadow-lg">
+                      <div className="bg-gradient-to-r from-indigo-950 to-indigo-900 text-indigo-200 font-bold text-xs uppercase px-3 py-2 text-center border-b border-indigo-800/60">
+                        NAVAMSAM CHART (நவாம்ச கட்டம்)
+                      </div>
+                      <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-indigo-950/80 p-1 aspect-square text-[10px]">
+                        {HOUSES.map((h) => {
+                          const planets = extractedData.horoscope?.amsamChart?.[h.id] || extractedData.amsamChart?.[h.id] || '';
+                          return (
+                            <div
+                              key={h.id}
+                              style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
+                              className="bg-slate-950 p-1.5 flex flex-col justify-between border border-indigo-900/40 rounded min-h-[42px]"
+                            >
+                              <span className="text-[8px] font-bold text-slate-400 truncate">{h.tamil}</span>
+                              <div className="font-extrabold text-cyan-300 text-center leading-tight my-auto text-[9px] break-words">
+                                {planets ? (
+                                  <span className="bg-cyan-950/80 text-cyan-200 px-1 py-0.5 rounded border border-cyan-800/60">
+                                    {planets}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-700 text-[8px] font-mono">—</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {/* Center Label */}
+                        <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-indigo-950/40 flex items-center justify-center font-extrabold text-indigo-400 text-sm tracking-widest border border-indigo-800/40 rounded">
+                          NAVAMSAM
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <pre className="text-xs font-mono leading-relaxed text-emerald-300 overflow-x-auto max-h-[460px] p-4 bg-slate-900/90 rounded-2xl border border-slate-800">
+                  {JSON.stringify(extractedData, null, 2)}
+                </pre>
+              )
             ) : (
               <div className="py-24 text-center text-slate-500 space-y-2">
                 <Sparkles className="w-10 h-10 mx-auto opacity-30 animate-pulse text-emerald-500" />
@@ -399,12 +625,13 @@ const AdminAiBiodata = () => {
           ) : extractedData ? (
             <div className="p-3 bg-emerald-950/60 rounded-xl border border-emerald-800/80 flex items-center justify-between">
               <span className="text-xs text-emerald-300 font-semibold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Extracted 50+ matrimony fields successfully. Click "Save Profile to DB" to store in database.
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Extracted 50+ fields & Horoscope 12-Box Charts. Click "Save Profile to DB" to store in database.
               </span>
             </div>
           ) : null}
         </div>
       </div>
+
     </div>
   );
 };

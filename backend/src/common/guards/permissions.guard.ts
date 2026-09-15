@@ -38,7 +38,6 @@ export class PermissionsGuard implements CanActivate {
     );
 
     if (!hasAllPermissions) {
-      if (userRole === 'ADMIN') return true;
       throw new ForbiddenException('Insufficient permissions for this action');
     }
 
