@@ -36,19 +36,17 @@ export class ProfilesService {
         });
         if (!user) throw new NotFoundException('User not found');
 
-        const roles = user.userRoles?.map((ur) => ur.role.name) || [];
-        const isOnlyAdmin = (roles.includes('SUPER_ADMIN') || roles.includes('ADMIN')) && !roles.includes('MEMBER');
-
-        if (isOnlyAdmin) {
-          throw new NotFoundException('Admin accounts do not have a matrimony profile.');
-        }
+        const emailPrefix = user.email ? user.email.split('@')[0] : 'Member';
+        const firstName = (user as any).firstName || emailPrefix;
+        const lastName = (user as any).lastName || '';
+        const displayName = `${firstName} ${lastName}`.trim() || 'Member';
 
         profile = await this.prisma.profile.create({
           data: {
             userId: user.id,
-            firstName: '',
-            lastName: '',
-            displayName: '',
+            firstName,
+            lastName,
+            displayName,
             gender: 'MALE',
             dateOfBirth: new Date(2000, 0, 1),
             age: 26,
