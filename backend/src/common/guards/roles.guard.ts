@@ -25,6 +25,7 @@ export class RolesGuard implements CanActivate {
     const userRole = (
       user?.role ||
       user?.roles?.[0] ||
+      user?.userAssignments?.[0]?.role?.name ||
       user?.userRoles?.[0]?.role?.name ||
       'MEMBER'
     ).toString().toUpperCase();

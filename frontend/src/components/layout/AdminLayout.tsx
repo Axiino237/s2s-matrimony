@@ -44,12 +44,35 @@ const ROUTE_PERMISSIONS: Record<string, string> = {
   '/admin/settings': 'settings:read',
 };
 
+const ROUTE_SCREEN_SLUGS: Record<string, string> = {
+  '/admin/dashboard': 'admin-dashboard',
+  '/admin/users': 'admin-users',
+  '/admin/profiles': 'admin-profiles',
+  '/admin/communities': 'admin-communities',
+  '/admin/plans': 'admin-plans',
+  '/admin/payments': 'admin-payments',
+  '/admin/success-stories': 'admin-success-stories',
+  '/admin/blogs': 'admin-blogs',
+  '/admin/banners': 'admin-banners',
+  '/admin/faq': 'admin-faq',
+  '/admin/testimonials': 'admin-testimonials',
+  '/admin/static-pages': 'admin-static-pages',
+  '/admin/ai-biodata': 'admin-ai-biodata',
+  '/admin/biodata-entry': 'admin-biodata-entry',
+  '/admin/biodata-list': 'admin-biodata-list',
+  '/admin/reports': 'admin-reports',
+  '/admin/logs': 'admin-logs',
+  '/admin/settings': 'admin-settings',
+};
+
 import { useSettingsStore } from '../../store/settings.store';
+import { useScreenAccess } from '../../hooks/useScreenAccess';
 
 const AdminSidebar = ({ isOpen }: { isOpen: boolean }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, hasPermission, isSuperAdmin } = useAuthStore();
+  const { canAccess, isLoading: screensLoading } = useScreenAccess();
   const logoUrl = useSettingsStore((s) => s.logoUrl);
   const [, setRefreshKey] = useState(0);
 
@@ -147,8 +170,10 @@ const AdminSidebar = ({ isOpen }: { isOpen: boolean }) => {
     .map((group) => ({
       ...group,
       items: group.items.filter((item) => {
-        if (!item.requiredPermission) return true;
-        return hasPermission(item.requiredPermission);
+        if (item.requiredPermission && !hasPermission(item.requiredPermission)) return false;
+        const slug = ROUTE_SCREEN_SLUGS[item.href];
+        if (slug && !screensLoading && !canAccess(slug)) return false;
+        return true;
       }),
     }))
     .filter((group) => group.items.length > 0);
@@ -281,9 +306,15 @@ const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { hasPermission, isSuperAdmin } = useAuthStore();
+  const { canAccess, isLoading: screensLoading } = useScreenAccess();
 
   const currentReqPerm = ROUTE_PERMISSIONS[location.pathname];
   if (currentReqPerm && !isSuperAdmin() && !hasPermission(currentReqPerm)) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  const currentScreenSlug = ROUTE_SCREEN_SLUGS[location.pathname];
+  if (currentScreenSlug && !isSuperAdmin() && !screensLoading && !canAccess(currentScreenSlug)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

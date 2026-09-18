@@ -54,8 +54,9 @@ export const getUserMainRole = (user: any): string => {
     }
   }
 
-  if ((!roleStr || roleStr === '[object Object]') && Array.isArray(user.userRoles) && user.userRoles.length > 0) {
-    for (const ur of user.userRoles) {
+  const assignments = user.userAssignments || user.userRoles;
+  if ((!roleStr || roleStr === '[object Object]') && Array.isArray(assignments) && assignments.length > 0) {
+    for (const ur of assignments) {
       const extracted = extractRoleName(ur.role || ur);
       if (extracted && extracted !== '[object Object]') {
         roleStr = extracted;

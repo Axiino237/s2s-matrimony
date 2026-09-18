@@ -12,6 +12,7 @@ import { CommunitiesModule } from './communities/communities.module';
 import { MessagesModule } from './messages/messages.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SuperAdminModule } from './super-admin/super-admin.module';
+import { RbacModule } from './rbac/rbac.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -35,6 +36,7 @@ import { AppService } from './app.service';
     MessagesModule,
     NotificationsModule,
     SuperAdminModule,
+    RbacModule,
   ],
   controllers: [AppController],
   providers: [

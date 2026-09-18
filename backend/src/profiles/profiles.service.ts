@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Gender } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -32,7 +32,7 @@ export class ProfilesService {
       if (!profile) {
         const user = await this.prisma.user.findUnique({
           where: { id: userId },
-          include: { userRoles: { include: { role: true } } },
+          include: { userAssignments: { include: { role: true } } },
         });
         if (!user) throw new NotFoundException('User not found');
 
@@ -1033,7 +1033,7 @@ export class ProfilesService {
 
       const memberRole = await this.prisma.role.findUnique({ where: { name: 'MEMBER' } });
       if (memberRole) {
-        await this.prisma.userRole.create({
+        await this.prisma.userAssignment.create({
           data: { userId: user.id, roleId: memberRole.id },
         });
       }

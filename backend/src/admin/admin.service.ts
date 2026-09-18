@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { devStore } from '../common/dev-store';
 
@@ -15,7 +15,7 @@ export class AdminService {
       todayStart.setHours(0, 0, 0, 0);
 
       const memberUserWhere = {
-        userRoles: {
+        userAssignments: {
           none: {
             role: {
               name: { in: ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'SUPPORT_AGENT'] },
@@ -225,7 +225,7 @@ export class AdminService {
                 occupation: { include: { occupationMaster: true } },
               },
             },
-            userRoles: { include: { role: true } },
+            userAssignments: { include: { role: true } },
           },
           orderBy: { createdAt: 'desc' },
         }),
@@ -560,12 +560,12 @@ export class AdminService {
   async banUser(currentUser: any, userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { userRoles: { include: { role: true } } },
+      include: { userAssignments: { include: { role: true } } },
     });
     if (!user) throw new NotFoundException('User not found');
 
     const isSuperAdmin = currentUser?.roles?.includes('SUPER_ADMIN');
-    const targetRoles = user.userRoles?.map((ur) => ur.role?.name) || [];
+    const targetRoles = user.userAssignments?.map((ur) => ur.role?.name) || [];
     const targetIsAdminOrSuper =
       targetRoles.includes('SUPER_ADMIN') ||
       targetRoles.includes('ADMIN') ||
@@ -589,12 +589,12 @@ export class AdminService {
   async deleteUser(currentUser: any, userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { userRoles: { include: { role: true } } },
+      include: { userAssignments: { include: { role: true } } },
     });
     if (!user) throw new NotFoundException('User not found');
 
     const isSuperAdmin = currentUser?.roles?.includes('SUPER_ADMIN');
-    const targetRoles = user.userRoles?.map((ur) => ur.role?.name) || [];
+    const targetRoles = user.userAssignments?.map((ur) => ur.role?.name) || [];
     const targetIsAdminOrSuper =
       targetRoles.includes('SUPER_ADMIN') ||
       targetRoles.includes('ADMIN') ||
@@ -622,7 +622,7 @@ export class AdminService {
         await tx.privacySetting.deleteMany({ where: { profileId: profile.id } }).catch(() => null);
         await tx.profile.delete({ where: { id: profile.id } }).catch(() => null);
       }
-      await tx.userRole.deleteMany({ where: { userId } }).catch(() => null);
+      await tx.userAssignment.deleteMany({ where: { userId } }).catch(() => null);
       await tx.session.deleteMany({ where: { userId } }).catch(() => null);
       await tx.user.delete({ where: { id: userId } });
     });
@@ -810,7 +810,7 @@ export class AdminService {
         entityId: 'pay-902',
         userEmail: 'priya.s@yahoo.com',
         userName: 'Priya Sundaram',
-        details: 'Subscribed to Gold Membership Plan (₹4,999) via Razorpay',
+        details: 'Subscribed to Gold Membership Plan (â‚¹4,999) via Razorpay',
         ipAddress: '157.33.10.12',
         userAgent: 'Chrome / Android',
         status: 'SUCCESS',

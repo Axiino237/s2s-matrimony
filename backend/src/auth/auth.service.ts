@@ -138,7 +138,7 @@ export class AuthService {
         // Assign MEMBER role
         const memberRole = await tx.role.findUnique({ where: { name: 'MEMBER' } });
         if (memberRole) {
-          await tx.userRole.create({
+          await tx.userAssignment.create({
             data: { userId: newUser.id, roleId: memberRole.id },
           });
         }
@@ -202,7 +202,7 @@ export class AuthService {
       user = await this.prisma.user.findUnique({
         where: { email: dto.email },
         include: {
-          userRoles: { include: { role: true } },
+          userAssignments: { include: { role: true } },
           profile: { include: { membership: true } },
         },
       });
@@ -247,7 +247,7 @@ export class AuthService {
       throw new UnauthorizedException('Account has been suspended or deactivated');
     }
 
-    const roles = user.userRoles.map((ur) => ur.role.name);
+    const roles = user.userAssignments.map((ur) => ur.role.name);
     const membershipTier = user.profile?.membership?.tier || 'FREE';
 
     await this.prisma.user.update({
@@ -264,7 +264,7 @@ export class AuthService {
     try {
       let user = await this.prisma.user.findUnique({
         where: { phone: dto.phone },
-        include: { userRoles: { include: { role: true } } },
+        include: { userAssignments: { include: { role: true } } },
       });
 
       if (!user) {
@@ -285,7 +285,7 @@ export class AuthService {
               },
             },
           },
-          include: { userRoles: { include: { role: true } } },
+          include: { userAssignments: { include: { role: true } } },
         });
       } else if (!user.isPhoneVerified) {
         await this.prisma.user.update({
@@ -294,7 +294,7 @@ export class AuthService {
         });
       }
 
-      const roles = user.userRoles?.length > 0 ? user.userRoles.map((ur) => ur.role.name) : [Role.MEMBER];
+      const roles = user.userAssignments?.length > 0 ? user.userAssignments.map((ur) => ur.role.name) : [Role.MEMBER];
       return this.generateAuthResponse(user.id, user.email, user.phone, roles, 'FREE');
     } catch (err: any) {
       if (!this.allowDevAuth) {
@@ -319,7 +319,7 @@ export class AuthService {
     }
   }
 
-  /** Step 1: User enters email — sends 6-digit OTP to that email */
+  /** Step 1: User enters email â€” sends 6-digit OTP to that email */
   async forgotPassword(email: string) {
     try {
       const user = await this.prisma.user.findUnique({ where: { email } });
@@ -330,7 +330,7 @@ export class AuthService {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
-      // Upsert — one OTP per email at a time
+      // Upsert â€” one OTP per email at a time
       await this.prisma.passwordResetToken.upsert({
         where: { email },
         update: { token: otp, expiresAt, used: false },
@@ -352,7 +352,7 @@ export class AuthService {
     }
   }
 
-  /** Step 2: User enters OTP — validates it, returns a short-lived resetToken */
+  /** Step 2: User enters OTP â€” validates it, returns a short-lived resetToken */
   async verifyForgotOtp(email: string, otp: string) {
     const record = await this.prisma.passwordResetToken.findUnique({ where: { email } });
 
@@ -418,7 +418,7 @@ export class AuthService {
     // Query User Roles & Permissions from Database
     const permissionsSet = new Set<string>();
     try {
-      const dbUserRoles = await this.prisma.userRole.findMany({
+      const dbUserRoles = await this.prisma.userAssignment.findMany({
         where: { userId },
         include: {
           role: {
@@ -545,12 +545,18 @@ export class AuthService {
       else if (email === 'admin@s2smatrimony.com') roles = ['ADMIN'];
       else roles = ['MEMBER'];
     }
+    const userAssignments = await this.prisma.userAssignment.findMany({
+      where: { userId, isActive: true },
+      include: { role: true },
+    }).catch(() => []);
+
     const mainRole = roles[0] || 'MEMBER';
 
     return {
       ...currentUser,
       role: mainRole,
       roles,
+      userAssignments,
       firstName,
       lastName,
       displayName,

@@ -12,19 +12,37 @@ import {
   ChevronRight,
   Shield,
   Lock,
+  Unlock,
   Check,
   Users,
   Trash2,
+  Eye,
+  Layers,
+  Globe,
+  Plus,
+  SlidersHorizontal,
+  Sparkles,
+  Filter,
+  ExternalLink,
+  Calendar,
+  Clock,
 } from 'lucide-react';
 import { superAdminService } from '../../services/super-admin.service';
+import rbacService, { ScreenItem } from '../../services/rbac.service';
+import { communitiesApi, CommunityData } from '../../services/communities.service';
+import { ScreenMatrixView } from '../../components/admin/rbac/ScreenMatrixView';
+import { UserScreenAccessModal } from '../../components/admin/rbac/UserScreenAccessModal';
+import { ScreenRegisterModal } from '../../components/admin/rbac/ScreenRegisterModal';
 
 interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: 'SUPER_ADMIN' | 'ADMIN' | 'MEMBER';
+  role: string;
   community: string;
+  communityId?: string | null;
   status: 'ACTIVE' | 'INACTIVE';
+  expiresAt?: string | null;
   permissions?: string[];
 }
 
@@ -322,9 +340,19 @@ const DEFAULT_DB_ROLES: DbRole[] = [
 
 const SuperAdminAdmins = () => {
   const [activeTab, setActiveTab] = useState<'roles' | 'staff' | 'screens' | 'audit'>('roles');
+  const [matrixMode, setMatrixMode] = useState<'screens' | 'permissions'>('screens');
   const [dbRoles, setDbRoles] = useState<DbRole[]>(DEFAULT_DB_ROLES);
   const [showCreateRoleModal, setShowCreateRoleModal] = useState(false);
   const [newRoleForm, setNewRoleForm] = useState({ name: '', displayName: '', description: '' });
+
+  // Screens and Communities from PostgreSQL DB
+  const [screens, setScreens] = useState<ScreenItem[]>([]);
+  const [screensLoading, setScreensLoading] = useState(true);
+  const [communities, setCommunities] = useState<CommunityData[]>([]);
+  const [inspectUser, setInspectUser] = useState<AdminUser | null>(null);
+  const [showRegisterScreenModal, setShowRegisterScreenModal] = useState(false);
+  const [screenFilterCat, setScreenFilterCat] = useState<string>('ALL');
+  const [screenSearchQuery, setScreenSearchQuery] = useState<string>('');
 
   const [rolePermissions, setRolePermissions] = useState<Record<string, string[]>>(() => {
     const saved = localStorage.getItem('s2s_role_permissions');
@@ -341,8 +369,10 @@ const SuperAdminAdmins = () => {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
+  const [editCommunityId, setEditCommunityId] = useState<string>('');
+  const [editExpiresAt, setEditExpiresAt] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newAdmin, setNewAdmin] = useState({ name: '', email: '', role: 'ADMIN', community: 'Global' });
+  const [newAdmin, setNewAdmin] = useState({ name: '', email: '', role: 'ADMIN', community: 'Global', communityId: '' });
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -359,6 +389,31 @@ const SuperAdminAdmins = () => {
     }
   }, []);
 
+  const fetchScreens = useCallback(async () => {
+    setScreensLoading(true);
+    try {
+      const data = await rbacService.getAllScreens();
+      if (Array.isArray(data)) {
+        setScreens(data);
+      }
+    } catch (err) {
+      console.error('Failed to load screens:', err);
+    } finally {
+      setScreensLoading(false);
+    }
+  }, []);
+
+  const fetchCommunities = useCallback(async () => {
+    try {
+      const data = await communitiesApi.getCommunities();
+      if (Array.isArray(data)) {
+        setCommunities(data);
+      }
+    } catch (err) {
+      console.error('Failed to load communities:', err);
+    }
+  }, []);
+
   const fetchAdmins = useCallback(async () => {
     setLoading(true);
     try {
@@ -372,16 +427,19 @@ const SuperAdminAdmins = () => {
       if (Array.isArray(data) && data.length > 0) {
         setAdmins(
           data.map((u: any) => {
-            const rawRole = (u.userRoles?.[0]?.role?.name || 'ADMIN').toUpperCase();
+            const rawRole = (u.userAssignments?.[0]?.role?.name || u.userRoles?.[0]?.role?.name || 'ADMIN').toUpperCase();
             const name = u.profile ? `${u.profile.firstName ?? ''} ${u.profile.lastName ?? ''}`.trim() : (rawRole === 'SUPER_ADMIN' ? 'Super Admin' : u.email.split('@')[0]);
+            const assignment = u.userAssignments?.[0] || u.userRoles?.[0];
 
             return {
               id: u.id,
               name: name || 'Admin User',
               email: u.email,
-              role: rawRole as any,
-              community: u.profile?.community?.name ?? 'Global',
+              role: rawRole,
+              community: u.profile?.community?.name || assignment?.community?.name || 'Global',
+              communityId: u.profile?.communityId || assignment?.communityId || null,
               status: u.isActive !== false ? 'ACTIVE' : 'INACTIVE',
+              expiresAt: assignment?.expiresAt || null,
             };
           })
         );
@@ -414,6 +472,8 @@ const SuperAdminAdmins = () => {
   useEffect(() => {
     fetchDbRoles();
     fetchDbModules();
+    fetchScreens();
+    fetchCommunities();
     fetchAdmins();
     superAdminService.getRolePermissions().then((data) => {
       if (data && Object.keys(data).length > 0) {
@@ -421,7 +481,42 @@ const SuperAdminAdmins = () => {
         localStorage.setItem('s2s_role_permissions', JSON.stringify(data));
       }
     }).catch(() => null);
-  }, [fetchAdmins, fetchDbRoles, fetchDbModules]);
+  }, [fetchAdmins, fetchDbRoles, fetchDbModules, fetchScreens, fetchCommunities]);
+
+  // Screen-level Grant / Revoke Handlers
+  const handleGrantScreen = (screen: ScreenItem) => {
+    const reqPerms = screen.permissions?.map((p) => p.permission?.code || p.permission?.name) || [];
+    const current = rolePermissions[selectedRole] || [];
+    const combined = Array.from(new Set([...current, ...reqPerms]));
+    setRolePermissions({ ...rolePermissions, [selectedRole]: combined });
+    toast.success(`Screen "${screen.name}" enabled for ${selectedRole}!`);
+  };
+
+  const handleRevokeScreen = (screen: ScreenItem) => {
+    const reqPerms = screen.permissions?.map((p) => p.permission?.code || p.permission?.name) || [];
+    const current = rolePermissions[selectedRole] || [];
+    const filtered = current.filter((p) => !reqPerms.includes(p));
+    setRolePermissions({ ...rolePermissions, [selectedRole]: filtered });
+    toast.success(`Screen "${screen.name}" disabled for ${selectedRole}`);
+  };
+
+  const handleGrantCategory = (category: string) => {
+    const targetScreens = screens.filter((s) => s.category?.toUpperCase() === category.toUpperCase());
+    const targetPerms = targetScreens.flatMap((s) => s.permissions?.map((p) => p.permission?.code || p.permission?.name) || []);
+    const current = rolePermissions[selectedRole] || [];
+    const combined = Array.from(new Set([...current, ...targetPerms]));
+    setRolePermissions({ ...rolePermissions, [selectedRole]: combined });
+    toast.success(`All screens in "${category}" granted to ${selectedRole}!`);
+  };
+
+  const handleRevokeCategory = (category: string) => {
+    const targetScreens = screens.filter((s) => s.category?.toUpperCase() === category.toUpperCase());
+    const targetPerms = targetScreens.flatMap((s) => s.permissions?.map((p) => p.permission?.code || p.permission?.name) || []);
+    const current = rolePermissions[selectedRole] || [];
+    const filtered = current.filter((p) => !targetPerms.includes(p));
+    setRolePermissions({ ...rolePermissions, [selectedRole]: filtered });
+    toast.success(`All screens in "${category}" revoked from ${selectedRole}`);
+  };
 
   const handleCreateRole = async () => {
     if (!newRoleForm.name.trim() && !newRoleForm.displayName.trim()) {
@@ -516,16 +611,33 @@ const SuperAdminAdmins = () => {
     }
   };
 
-  const handleUpdateStaffRole = async (newRoleVal: any) => {
+  const handleUpdateStaffRole = async (newRoleVal: any, newCommunityId?: string | null, newExpiresAt?: string | null) => {
     if (!selectedAdmin) return;
     try {
-      await superAdminService.updateUserRole(selectedAdmin.id, newRoleVal);
-      const updatedAdmin = { ...selectedAdmin, role: newRoleVal };
+      const roleObj = dbRoles.find((r) => r.name === newRoleVal);
+      if (roleObj) {
+        await rbacService.assignRoleToUser(selectedAdmin.id, {
+          roleId: roleObj.id,
+          communityId: newCommunityId || undefined,
+          expiresAt: newExpiresAt || undefined,
+          isActive: true,
+        });
+      } else {
+        await superAdminService.updateUserRole(selectedAdmin.id, newRoleVal);
+      }
+      const commObj = communities.find((c) => c.id === newCommunityId);
+      const updatedAdmin: AdminUser = {
+        ...selectedAdmin,
+        role: newRoleVal,
+        community: commObj ? commObj.name : (newCommunityId ? 'Scoped' : 'Global'),
+        communityId: newCommunityId || null,
+        expiresAt: newExpiresAt || null,
+      };
       setSelectedAdmin(updatedAdmin);
       setAdmins((prev) => prev.map((a) => (a.id === selectedAdmin.id ? updatedAdmin : a)));
-      toast.success(`Role for ${selectedAdmin.name} updated to ${newRoleVal} in Database!`);
+      toast.success(`Role & privileges for ${selectedAdmin.name} updated in Database!`);
     } catch {
-      const updatedAdmin = { ...selectedAdmin, role: newRoleVal };
+      const updatedAdmin: AdminUser = { ...selectedAdmin, role: newRoleVal };
       setSelectedAdmin(updatedAdmin);
       setAdmins((prev) => prev.map((a) => (a.id === selectedAdmin.id ? updatedAdmin : a)));
       toast.success(`Role updated for ${selectedAdmin.name}`);
@@ -543,12 +655,13 @@ const SuperAdminAdmins = () => {
       email: newAdmin.email,
       role: newAdmin.role as any,
       community: newAdmin.community || 'Global',
+      communityId: newAdmin.communityId || null,
       status: 'ACTIVE',
     };
     setAdmins((prev) => [...prev, created]);
     toast.success(`Staff account ${newAdmin.name} added!`);
     setShowAddModal(false);
-    setNewAdmin({ name: '', email: '', role: 'ADMIN', community: 'Global' });
+    setNewAdmin({ name: '', email: '', role: 'ADMIN', community: 'Global', communityId: '' });
   };
 
   const getRolePermCount = (r: string) => (rolePermissions[r] || []).length;
@@ -712,31 +825,79 @@ const SuperAdminAdmins = () => {
                 </div>
             </div>
 
-            <div className="space-y-5">
-              {OFFICIAL_PERMISSIONS.map((group) => {
-                const categoryKeys = group.perms.map((p) => p.key);
-                const rolePerms = rolePermissions[selectedRole] || [];
-                const enabledInGroup = categoryKeys.filter((k) => rolePerms.includes(k)).length;
-                const allGroupEnabled = categoryKeys.length > 0 && enabledInGroup === categoryKeys.length;
+            {/* Mode Switcher */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80">
+              <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setMatrixMode('screens')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    matrixMode === 'screens'
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" /> 🖥️ Screen Matrix Mode (Recommended)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMatrixMode('permissions')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    matrixMode === 'permissions'
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5" /> ⚙️ Granular Action Permissions
+                </button>
+              </div>
 
-                return (
-                  <div key={group.category} className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">{group.category}</h3>
-                        <span className="text-[11px] font-bold text-slate-400">({enabledInGroup}/{categoryKeys.length})</span>
-                      </div>
-                      <button
+              <div className="text-xs text-slate-500 font-medium">
+                {matrixMode === 'screens' ? (
+                  <span>Click screen cards below to toggle access for <strong>{selectedRole}</strong>.</span>
+                ) : (
+                  <span>Check action keys to fine-tune individual CRUD permissions.</span>
+                )}
+              </div>
+            </div>
+
+            {matrixMode === 'screens' ? (
+              <ScreenMatrixView
+                screens={screens}
+                selectedRole={selectedRole}
+                rolePermissions={rolePermissions[selectedRole] || []}
+                onTogglePermission={handleToggleRolePermission}
+                onGrantScreen={handleGrantScreen}
+                onRevokeScreen={handleRevokeScreen}
+                onGrantCategory={handleGrantCategory}
+                onRevokeCategory={handleRevokeCategory}
+              />
+            ) : (
+              <div className="space-y-5">
+                {OFFICIAL_PERMISSIONS.map((group) => {
+                  const categoryKeys = group.perms.map((p) => p.key);
+                  const rolePerms = rolePermissions[selectedRole] || [];
+                  const enabledInGroup = categoryKeys.filter((k) => rolePerms.includes(k)).length;
+                  const allGroupEnabled = categoryKeys.length > 0 && enabledInGroup === categoryKeys.length;
+
+                  return (
+                    <div key={group.category} className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">{group.category}</h3>
+                          <span className="text-[11px] font-bold text-slate-400">({enabledInGroup}/{categoryKeys.length})</span>
+                        </div>
+                        <button
                           type="button"
                           onClick={() => handleToggleCategory(categoryKeys)}
                           className="text-[11px] font-bold text-primary hover:underline"
                         >
                           {allGroupEnabled ? 'Deselect Category' : 'Select Category'}
                         </button>
-                    </div>
+                      </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                      {group.perms.map((perm) => (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                        {group.perms.map((perm) => (
                           <button
                             key={perm.key}
                             onClick={() => handleToggleRolePermission(perm.key)}
@@ -752,12 +913,13 @@ const SuperAdminAdmins = () => {
                             </div>
                             {rolePerms.includes(perm.key) && <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />}
                           </button>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -821,7 +983,17 @@ const SuperAdminAdmins = () => {
                           {u.role ? u.role.replace('_', ' ') : 'ADMIN'}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-text-secondary text-sm font-medium">{u.community}</td>
+                      <td className="px-4 py-3.5 text-text-secondary text-sm font-medium">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
+                          <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                          {u.community || 'Global'}
+                        </span>
+                        {u.expiresAt && (
+                          <span className="block text-[10px] text-amber-600 font-mono mt-0.5">
+                            Expires: {new Date(u.expiresAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3.5">
                         <span className="text-primary text-xs font-extrabold px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
                           {permCount} Inherited from Role
@@ -831,12 +1003,25 @@ const SuperAdminAdmins = () => {
                         <span className="badge badge-active text-xs">{u.status}</span>
                       </td>
                       <td className="px-4 py-3.5">
-                        <button
-                          onClick={() => setSelectedAdmin(u)}
-                          className="btn btn-ghost btn-xs text-xs text-text-muted hover:text-primary flex items-center gap-1 border border-slate-200 bg-white"
-                        >
-                          <Settings className="w-3.5 h-3.5" /> Edit Role & Permissions
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setInspectUser(u)}
+                            className="btn btn-ghost btn-xs text-xs text-emerald-700 hover:text-emerald-800 flex items-center gap-1 border border-emerald-200 bg-emerald-50/60 hover:bg-emerald-100/60 font-bold"
+                            title="Inspect Accessible Screens"
+                          >
+                            <Eye className="w-3.5 h-3.5" /> Screen Access
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedAdmin(u);
+                              setEditCommunityId(u.communityId || '');
+                              setEditExpiresAt(u.expiresAt ? u.expiresAt.split('T')[0] : '');
+                            }}
+                            className="btn btn-ghost btn-xs text-xs text-text-muted hover:text-primary flex items-center gap-1 border border-slate-200 bg-white"
+                          >
+                            <Settings className="w-3.5 h-3.5" /> Edit Scope
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -850,36 +1035,168 @@ const SuperAdminAdmins = () => {
       {/* TAB 3: SCREENS & MODULES EXPLORER */}
       {activeTab === 'screens' && (
         <div className="card p-6 bg-white border border-slate-200 shadow-sm space-y-6">
-          <div className="border-b border-slate-100 pb-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Settings className="w-5 h-5 text-primary" /> Application Screens & Modules Directory ({OFFICIAL_PERMISSIONS.length} Modules)
-            </h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Complete list of all system screen routes, path mappings, and fine-grained action permissions configured in S2S Matrimony.
-            </p>
+          {/* Header & Register Button */}
+          <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-primary" /> Application Screens Directory ({screens.length} Screens)
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Complete live directory of all frontend screens stored in PostgreSQL. Each screen defines route endpoints and required permissions.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowRegisterScreenModal(true)}
+              className="btn btn-primary btn-sm flex items-center gap-2 font-bold shadow-md self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" /> + Register Custom Screen
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {OFFICIAL_PERMISSIONS.map((grp) => (
-              <div key={grp.category} className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 hover:bg-slate-50 transition space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                  <h3 className="text-xs font-bold text-slate-900">{grp.category}</h3>
-                  <span className="badge text-[10px] bg-primary/10 text-primary font-bold">{grp.perms.length} Actions</span>
-                </div>
-                <div className="space-y-1.5">
-                  {grp.perms.map((p) => (
-                    <div key={p.key} className="p-2 rounded-lg bg-white border border-slate-100 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold text-slate-800">{p.label}</p>
-                        <code className="text-[10px] text-slate-400 font-mono">{p.key}</code>
-                      </div>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                    </div>
-                  ))}
-                </div>
+          {/* KPI Summary Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-100 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider">Total Screens</p>
+                <p className="text-2xl font-black text-indigo-950 mt-1">{screens.length}</p>
               </div>
-            ))}
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+                <Layers className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Public Access</p>
+                <p className="text-2xl font-black text-blue-950 mt-1">{screens.filter((s) => s.isPublic).length}</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                <Globe className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-bold text-purple-700 uppercase tracking-wider">Member Portal</p>
+                <p className="text-2xl font-black text-purple-950 mt-1">{screens.filter((s) => s.category === 'MEMBER').length}</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold">
+                <Users className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Admin & Super</p>
+                <p className="text-2xl font-black text-emerald-950 mt-1">{screens.filter((s) => s.category === 'ADMIN' || s.category === 'SUPER_ADMIN').length}</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+            </div>
           </div>
+
+          {/* Filter & Search Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              {['ALL', 'PUBLIC', 'MEMBER', 'ADMIN', 'SUPER_ADMIN'].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setScreenFilterCat(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    screenFilterCat === cat
+                      ? 'bg-primary text-white shadow-xs'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  {cat === 'ALL' ? `All Screens (${screens.length})` : cat.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative min-w-[260px]">
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+              <input
+                type="text"
+                value={screenSearchQuery}
+                onChange={(e) => setScreenSearchQuery(e.target.value)}
+                placeholder="Search screen, route or slug..."
+                className="w-full pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </div>
+
+          {/* Live Screens Grid */}
+          {screensLoading ? (
+            <div className="py-16 flex flex-col items-center justify-center text-slate-400 space-y-2">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <p className="text-xs">Loading screens from PostgreSQL...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {screens
+                .filter((s) => {
+                  const q = screenSearchQuery.toLowerCase();
+                  const matches = s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q) || s.route.toLowerCase().includes(q);
+                  if (!matches) return false;
+                  if (screenFilterCat === 'ALL') return true;
+                  if (screenFilterCat === 'PUBLIC') return s.isPublic;
+                  return s.category?.toUpperCase() === screenFilterCat;
+                })
+                .map((s) => (
+                  <div key={s.id || s.slug} className="p-4 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs transition flex flex-col justify-between space-y-3">
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                              {s.category || 'General'}
+                            </span>
+                            {s.isPublic ? (
+                              <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                Public
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+                                Auth Gated
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900 mt-1.5">{s.name}</h4>
+                          <p className="text-[11px] font-mono text-primary font-semibold mt-0.5 truncate">{s.route}</p>
+                        </div>
+                        <span className={`w-2.5 h-2.5 rounded-full ${s.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`} title={s.isActive ? 'Active' : 'Inactive'} />
+                      </div>
+
+                      {s.permissions && s.permissions.length > 0 ? (
+                        <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap gap-1">
+                          {s.permissions.map((p) => {
+                            const code = p.permission?.code || p.permission?.name;
+                            return (
+                              <span key={code} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-slate-600">
+                                {code}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-slate-400 mt-2.5 pt-2 border-t border-slate-100 italic">No specific action permission required</p>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                      <span className="font-mono text-slate-400 text-[10px]">{s.slug}</span>
+                      <button
+                        onClick={() => setInspectUser({ id: 'test', name: `Preview Screen: ${s.name}`, email: s.slug, role: selectedRole, community: 'Global', status: 'ACTIVE' })}
+                        className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" /> Test Access
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -939,34 +1256,90 @@ const SuperAdminAdmins = () => {
               <button onClick={() => setSelectedAdmin(null)} className="text-text-muted hover:text-text-primary text-sm font-bold p-2 hover:bg-slate-100 rounded-lg">✕</button>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-2">Change Assigned Role</label>
-              <select
-                value={selectedAdmin.role}
-                onChange={(e) => handleUpdateStaffRole(e.target.value as any)}
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-              >
-                {dbRoles.map((r) => (
-                  <option key={r.id || r.name} value={r.name}>
-                    {r.displayName || r.name} ({r.description || r.name})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">Change Assigned Role</label>
+                <select
+                  value={selectedAdmin.role}
+                  onChange={(e) => setSelectedAdmin({ ...selectedAdmin, role: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  {dbRoles.map((r) => (
+                    <option key={r.id || r.name} value={r.name}>
+                      {r.displayName || r.name} ({r.description || r.name})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-              <p className="text-xs font-bold text-slate-700">Permissions inherited from [{selectedAdmin.role}] role ({getRolePermCount(selectedAdmin.role)} total):</p>
-              <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pt-1">
-                {(rolePermissions[selectedAdmin.role] || []).map((perm) => (
-                  <span key={perm} className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
-                    {perm}
-                  </span>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
+                    Community Scope (Multi-Tenancy)
+                  </label>
+                  <select
+                    value={editCommunityId}
+                    onChange={(e) => setEditCommunityId(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 bg-slate-50 focus:bg-white focus:outline-none"
+                  >
+                    <option value="">Global (All Communities)</option>
+                    {communities.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1.5">
+                    Access Expiration Date
+                  </label>
+                  <input
+                    type="date"
+                    value={editExpiresAt}
+                    onChange={(e) => setEditExpiresAt(e.target.value)}
+                    placeholder="Leave empty for permanent"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 bg-slate-50 focus:bg-white focus:outline-none"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">Leave empty for Permanent access</span>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-slate-700">Permissions inherited from [{selectedAdmin.role}] role:</p>
+                  <button
+                    type="button"
+                    onClick={() => setInspectUser(selectedAdmin)}
+                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                  >
+                    <Eye className="w-3.5 h-3.5" /> Preview Screen Access
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pt-1">
+                  {(rolePermissions[selectedAdmin.role] || []).map((perm) => (
+                    <span key={perm} className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700">
+                      {perm}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
             <div className="flex gap-2 pt-2 border-t border-slate-100">
-              <button onClick={() => setSelectedAdmin(null)} className="btn btn-primary btn-sm flex-1 font-bold shadow-md">Done</button>
+              <button onClick={() => setSelectedAdmin(null)} className="btn btn-ghost btn-sm flex-1 font-bold">
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleUpdateStaffRole(selectedAdmin.role, editCommunityId, editExpiresAt);
+                  setSelectedAdmin(null);
+                }}
+                className="btn btn-primary btn-sm flex-1 font-bold shadow-md"
+              >
+                Save & Apply Privileges
+              </button>
             </div>
           </div>
         </div>
@@ -1047,6 +1420,22 @@ const SuperAdminAdmins = () => {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1">Community Scope</label>
+                <select
+                  className="input border-slate-200 text-text-primary w-full text-xs font-semibold text-slate-800"
+                  value={newAdmin.communityId}
+                  onChange={(e) => {
+                    const cObj = communities.find((c) => c.id === e.target.value);
+                    setNewAdmin({ ...newAdmin, communityId: e.target.value, community: cObj ? cObj.name : 'Global' });
+                  }}
+                >
+                  <option value="">Global (All Communities)</option>
+                  {communities.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="flex gap-2 pt-2">
               <button onClick={() => setShowAddModal(false)} className="btn btn-ghost btn-sm flex-1 border border-slate-200">Cancel</button>
@@ -1054,6 +1443,26 @@ const SuperAdminAdmins = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* User Screen Access Inspector Modal */}
+      {inspectUser && (
+        <UserScreenAccessModal
+          user={inspectUser}
+          rolePermissionsMap={rolePermissions}
+          onClose={() => setInspectUser(null)}
+        />
+      )}
+
+      {/* Screen Register Modal */}
+      {showRegisterScreenModal && (
+        <ScreenRegisterModal
+          onClose={() => setShowRegisterScreenModal(false)}
+          onCreated={(newScreen) => {
+            setScreens((prev) => [...prev, newScreen]);
+            fetchScreens();
+          }}
+        />
       )}
     </div>
   );

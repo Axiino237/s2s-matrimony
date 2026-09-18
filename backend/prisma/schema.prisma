@@ -30,6 +30,7 @@ enum MembershipTier {
   FREE
   SILVER
   GOLD
+  DIAMOND
   ELITE
   PLATINUM
 }
@@ -149,7 +150,7 @@ model User {
 
   // Relations
   profile         Profile?
-  userRoles       UserRole[]
+  userAssignments UserAssignment[]
   sessions        Session[]
   otpTokens       OtpToken[]
   sentInterests   Interest[]     @relation("SentInterests")
@@ -199,7 +200,7 @@ model OtpToken {
 }
 
 // ============================================================
-// RBAC & UAM — Roles, Modules, Actions, Permissions, User Roles
+// RBAC & UAM — Roles, Modules, Actions, Permissions, Screens
 // ============================================================
 
 model Module {
@@ -213,8 +214,43 @@ model Module {
   updatedAt   DateTime @updatedAt
 
   permissions Permission[]
+  screens     Screen[]
 
   @@map("modules")
+}
+
+// Screen = one frontend page/screen that can be access-controlled
+model Screen {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g. "Admin Users"
+  slug        String   @unique // e.g. "admin-users"
+  route       String            // e.g. "/admin/users"
+  icon        String?           // Lucide icon name
+  description String?
+  moduleId    String?           // Belongs to which module
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  module            Module?           @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  screenPermissions ScreenPermission[]
+
+  @@index([moduleId])
+  @@map("screens")
+}
+
+model ScreenPermission {
+  id           String   @id @default(uuid())
+  screenId     String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  screen     Screen     @relation(fields: [screenId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([screenId, permissionId])
+  @@map("screen_permissions")
 }
 
 model Action {
@@ -238,8 +274,8 @@ model Role {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  rolePermissions RolePermission[]
-  userRoles       UserRole[]
+  rolePermissions  RolePermission[]
+  userAssignments  UserAssignment[]
 
   @@map("roles")
 }
@@ -252,11 +288,13 @@ model Permission {
   description String?
   moduleId    String?
   actionId    String?
+  screenId    String?           // Optional: scoped to a specific screen
   createdAt   DateTime @default(now())
 
-  module          Module?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
-  action          Action?          @relation(fields: [actionId], references: [id], onDelete: SetNull)
-  rolePermissions RolePermission[]
+  module            Module?           @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  action            Action?           @relation(fields: [actionId], references: [id], onDelete: SetNull)
+  rolePermissions   RolePermission[]
+  screenPermissions ScreenPermission[]
 
   @@map("permissions")
 }
@@ -274,18 +312,25 @@ model RolePermission {
   @@map("role_permissions")
 }
 
-model UserRole {
-  id        String   @id @default(uuid())
-  userId    String
-  roleId    String
-  grantedBy String?
-  createdAt DateTime @default(now())
+// Renamed from UserRole → UserAssignment (more expressive, supports scoped/time-bound roles)
+model UserAssignment {
+  id          String    @id @default(uuid())
+  userId      String
+  roleId      String
+  communityId String?   // Optional: scope this role to a specific community
+  grantedBy   String?   // Admin ID who granted this role
+  expiresAt   DateTime? // Optional: time-bound role (null = permanent)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, roleId])
-  @@map("user_roles")
+  @@unique([userId, roleId, communityId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_assignments")
 }
 
 model AuditLog {
@@ -328,7 +373,7 @@ model Profile {
   drinking                Boolean       @default(false)
   motherTongue            String?
   about                   String?
-  birthOrder              Int?
+  birthOrder              String?
   memberId                String?       @unique
   branch                  String?
   residentStatus          String?
@@ -337,6 +382,21 @@ model Profile {
   individualWorth         String?
   annualIncome            String?
   biodataJson             String?
+  nativePlace             String?
+  bloodGroup              String?
+  disability              String?
+  birthPlace              String?
+  birthTime               String?
+  horoscopeDetails        String?
+  regnDate                String?
+  chevvai                 String?
+  nakshatra               String?
+  rasi                    String?
+  profilePhotoUrl         String?
+  casteText               String?
+  subCasteText            String?
+  religionText            String?
+  currentCity             String?
   status                  ProfileStatus @default(PENDING)
   isVerified              Boolean       @default(false)
   verificationStatus      VerificationStatus @default(UNVERIFIED)
@@ -411,6 +471,7 @@ model Education {
   university     String?
   yearCompleted  Int?
   additionalInfo String?
+  educationDetail String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -421,17 +482,21 @@ model Education {
 }
 
 model Occupation {
-  id             String   @id @default(uuid())
-  profileId      String   @unique
-  occupationId   String?
-  company        String?
-  designation    String?
-  salaryMin      Int?
-  salaryMax      Int?
+  id              String   @id @default(uuid())
+  profileId       String   @unique
+  occupationId    String?
+  company         String?
+  companyName     String?
+  designation     String?
+  salaryMin       Int?
+  salaryMax       Int?
   workingLocation String?
-  employmentType String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  workLocation    String?
+  employmentType  String?
+  occupationDetail String?
+  annualIncome    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   profile          Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
   occupationMaster OccupationMaster? @relation(fields: [occupationId], references: [id])

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { devStore } from '../common/dev-store';
 
@@ -64,7 +64,7 @@ export class SuperAdminService {
     }
 
     await this.prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
-    await this.prisma.userRole.deleteMany({ where: { roleId: role.id } });
+    await this.prisma.userAssignment.deleteMany({ where: { roleId: role.id } });
     return this.prisma.role.delete({ where: { id: role.id } });
   }
 
@@ -154,7 +154,7 @@ export class SuperAdminService {
         this.prisma.community.count({ where: { isActive: true } }),
         this.prisma.profile.count({ where: { verificationStatus: 'PENDING' } }),
         this.prisma.report.count({ where: { status: 'PENDING' } }),
-        this.prisma.userRole.count({
+        this.prisma.userAssignment.count({
           where: { role: { name: { in: ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'] } } },
         }).catch(() => 2),
       ]);
@@ -333,7 +333,7 @@ export class SuperAdminService {
                 community: true,
               },
             },
-            userRoles: {
+            userAssignments: {
               include: {
                 role: true,
               },
@@ -361,7 +361,7 @@ export class SuperAdminService {
         isActive: true,
         createdAt: new Date().toISOString(),
         profile: { firstName: 'Super', lastName: 'Admin', community: { name: 'Global' } },
-        userRoles: [{ role: { name: 'SUPER_ADMIN' } }],
+        userAssignments: [{ role: { name: 'SUPER_ADMIN' } }],
       },
       {
         id: 'usr-admin',
@@ -370,7 +370,7 @@ export class SuperAdminService {
         isActive: true,
         createdAt: new Date().toISOString(),
         profile: { firstName: 'Platform', lastName: 'Admin', community: { name: 'Global' } },
-        userRoles: [{ role: { name: 'ADMIN' } }],
+        userAssignments: [{ role: { name: 'ADMIN' } }],
       },
     ];
 
@@ -561,8 +561,8 @@ export class SuperAdminService {
         });
       }
 
-      await this.prisma.userRole.deleteMany({ where: { userId } });
-      await this.prisma.userRole.create({
+      await this.prisma.userAssignment.deleteMany({ where: { userId } });
+      await this.prisma.userAssignment.create({
         data: {
           userId,
           roleId: role.id,
