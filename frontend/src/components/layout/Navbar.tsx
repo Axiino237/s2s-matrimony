@@ -39,15 +39,15 @@ const Navbar = () => {
       <div className="container mx-auto px-4 md:px-8">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3 group">
+          <Link to="/" className="flex items-center gap-2.5 sm:gap-3 group min-w-0">
             <img 
               src={logoUrl || "/images/logo.png"} 
               alt="S2S Matrimony" 
-              className="w-10 h-10 object-contain rounded-xl shadow-sm border border-amber-400/40 p-0.5 bg-white" 
+              className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-xl shadow-sm border border-amber-400/40 p-0.5 bg-white flex-shrink-0" 
             />
-            <div>
-              <span className="font-display font-black text-xl text-slate-900 tracking-tight block leading-none">S2S MATRIMONY</span>
-              <span className="text-[10px] font-bold text-primary uppercase tracking-widest block mt-0.5">Community Platform</span>
+            <div className="min-w-0">
+              <span className="font-display font-black text-lg sm:text-xl text-slate-900 tracking-tight block leading-none truncate">S2S MATRIMONY</span>
+              <span className="text-[9px] sm:text-[10px] font-bold text-primary uppercase tracking-widest block mt-0.5 truncate">Community Platform</span>
             </div>
           </Link>
 

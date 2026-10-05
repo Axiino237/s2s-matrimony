@@ -93,13 +93,6 @@ export const OFFICIAL_PERMISSIONS: PermissionGroup[] = [
       { key: 'payments:refund', label: 'Issue Payment Refunds' },
     ],
   },
-  {
-    category: '🖼️ Banners',
-    perms: [
-      { key: 'banners:read', label: 'View Promotional Banners' },
-      { key: 'banners:write', label: 'Create, Upload & Manage Banners' },
-    ],
-  },
 
   // ── Content & AI Group ──
   {
@@ -251,7 +244,7 @@ export const OFFICIAL_PERMISSIONS: PermissionGroup[] = [
     ],
   },
   {
-    category: '📞 Member Portal — Contact History',
+    category: '📞 Member Portal — Contact Details',
     perms: [
       { key: 'member:contacts', label: 'View & Unlock Candidate Phone/Email Details' },
     ],
@@ -342,6 +335,23 @@ const SuperAdminAdmins = () => {
   const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ name: '', email: '', role: 'ADMIN', community: 'Global' });
+  const [savingAdmin, setSavingAdmin] = useState(false);
+
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  const fetchAuditLogs = useCallback(async () => {
+    setLoadingLogs(true);
+    try {
+      const res = await superAdminService.getAuditLogs(1, 30);
+      const data = res.logs || (Array.isArray(res) ? res : []);
+      setAuditLogs(data);
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setLoadingLogs(false);
+    }
+  }, []);
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -414,6 +424,7 @@ const SuperAdminAdmins = () => {
     fetchDbRoles();
     fetchDbModules();
     fetchAdmins();
+    fetchAuditLogs();
     superAdminService.getRolePermissions().then((data) => {
       if (data && Object.keys(data).length > 0) {
         data.SUPER_ADMIN = ALL_PERM_KEYS;
@@ -421,7 +432,7 @@ const SuperAdminAdmins = () => {
         localStorage.setItem('s2s_role_permissions', JSON.stringify(data));
       }
     }).catch(() => null);
-  }, [fetchAdmins, fetchDbRoles, fetchDbModules]);
+  }, [fetchAdmins, fetchDbRoles, fetchDbModules, fetchAuditLogs]);
 
   const handleCreateRole = async () => {
     if (!newRoleForm.name.trim() && !newRoleForm.displayName.trim()) {
@@ -438,6 +449,7 @@ const SuperAdminAdmins = () => {
 
       toast.success(`New Role "${created.displayName || created.name}" created in Database! 🎉`);
       await fetchDbRoles();
+      fetchAuditLogs();
       setSelectedRole(created.name);
       setShowCreateRoleModal(false);
       setNewRoleForm({ name: '', displayName: '', description: '' });
@@ -458,6 +470,7 @@ const SuperAdminAdmins = () => {
       await superAdminService.deleteRole(roleObj.id);
       toast.success(`Role "${roleObj.displayName}" deleted from Database.`);
       await fetchDbRoles();
+      fetchAuditLogs();
       if (selectedRole === roleObj.name) {
         setSelectedRole('ADMIN');
       }
@@ -518,10 +531,12 @@ const SuperAdminAdmins = () => {
       setRolePermissions(finalMap);
       localStorage.setItem('s2s_role_permissions', JSON.stringify(finalMap));
       window.dispatchEvent(new Event('s2s_permissions_updated'));
+      fetchAuditLogs();
       toast.success(`Role permissions updated & saved to Database for ${selectedRole.replace('_', ' ')}! 🎉`);
     } catch {
       localStorage.setItem('s2s_role_permissions', JSON.stringify(rolePermissions));
       window.dispatchEvent(new Event('s2s_permissions_updated'));
+      fetchAuditLogs();
       toast.success(`Role permissions saved for ${selectedRole.replace('_', ' ')}!`);
     }
   };
@@ -533,32 +548,40 @@ const SuperAdminAdmins = () => {
       const updatedAdmin = { ...selectedAdmin, role: newRoleVal };
       setSelectedAdmin(updatedAdmin);
       setAdmins((prev) => prev.map((a) => (a.id === selectedAdmin.id ? updatedAdmin : a)));
+      fetchAuditLogs();
       toast.success(`Role for ${selectedAdmin.name} updated to ${newRoleVal} in Database!`);
     } catch {
       const updatedAdmin = { ...selectedAdmin, role: newRoleVal };
       setSelectedAdmin(updatedAdmin);
       setAdmins((prev) => prev.map((a) => (a.id === selectedAdmin.id ? updatedAdmin : a)));
+      fetchAuditLogs();
       toast.success(`Role updated for ${selectedAdmin.name}`);
     }
   };
 
-  const handleAddAdmin = () => {
-    if (!newAdmin.name || !newAdmin.email) {
+  const handleAddAdmin = async () => {
+    if (!newAdmin.name.trim() || !newAdmin.email.trim()) {
       toast.error('Name and Email are required');
       return;
     }
-    const created: AdminUser = {
-      id: `ADM-${Date.now().toString().slice(-4)}`,
-      name: newAdmin.name,
-      email: newAdmin.email,
-      role: newAdmin.role as any,
-      community: newAdmin.community || 'Global',
-      status: 'ACTIVE',
-    };
-    setAdmins((prev) => [...prev, created]);
-    toast.success(`Staff account ${newAdmin.name} added!`);
-    setShowAddModal(false);
-    setNewAdmin({ name: '', email: '', role: 'ADMIN', community: 'Global' });
+    setSavingAdmin(true);
+    try {
+      await superAdminService.createAdminStaff({
+        name: newAdmin.name.trim(),
+        email: newAdmin.email.trim(),
+        role: newAdmin.role,
+        community: newAdmin.community,
+      });
+      toast.success(`Staff account for ${newAdmin.name} created successfully in Database! 🎉`);
+      setShowAddModal(false);
+      setNewAdmin({ name: '', email: '', role: 'ADMIN', community: 'Global' });
+      await fetchAdmins();
+      fetchAuditLogs();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to create staff account');
+    } finally {
+      setSavingAdmin(false);
+    }
   };
 
   const getRolePermCount = (r: string) => (rolePermissions[r] || []).length;
@@ -635,7 +658,7 @@ const SuperAdminAdmins = () => {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 items-stretch">
             {dbRoles.map((rObj) => {
               const role = rObj.name;
               const title = rObj.displayName || role;
@@ -649,14 +672,14 @@ const SuperAdminAdmins = () => {
                 <div
                   key={rObj.id || role}
                   onClick={() => setSelectedRole(role)}
-                  className={`p-4 rounded-2xl cursor-pointer border transition-all flex flex-col justify-between relative group ${
+                  className={`h-full min-h-[126px] p-4 rounded-2xl cursor-pointer border transition-all flex flex-col justify-between relative group ${
                     isSelected
                       ? 'bg-primary/5 border-primary ring-2 ring-primary/20 shadow-md'
                       : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center justify-between mb-1.5 min-h-[24px]">
                       <span className={`badge text-[11px] font-bold ${roleBadge[role] || 'bg-indigo-100 text-indigo-800'}`}>{title}</span>
                       <div className="flex items-center gap-1">
                         {canDelete && (
@@ -672,7 +695,7 @@ const SuperAdminAdmins = () => {
                         {isSelected && <Check className="w-4 h-4 text-primary" />}
                       </div>
                     </div>
-                    <p className="text-[11px] text-slate-500 line-clamp-2">{desc}</p>
+                    <p className="text-[11px] text-slate-500 line-clamp-2 h-8 leading-4 flex items-start">{desc}</p>
                   </div>
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-[10px] font-bold text-slate-400">ENABLED</span>
@@ -699,7 +722,7 @@ const SuperAdminAdmins = () => {
               </div>
 
               {selectedRole !== 'SUPER_ADMIN' ? (
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-shrink-0">
                   {dbRoles.find(r => r.name === selectedRole) && !['SUPER_ADMIN', 'ADMIN', 'MEMBER'].includes(selectedRole) && (
                     <button
                       type="button"
@@ -707,23 +730,23 @@ const SuperAdminAdmins = () => {
                         const targetObj = dbRoles.find(r => r.name === selectedRole);
                         if (targetObj) handleDeleteRole(targetObj, e);
                       }}
-                      className="btn btn-xs bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 flex items-center gap-1 font-bold"
+                      className="btn btn-sm bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5 font-bold whitespace-nowrap h-9 px-3 text-xs"
                     >
                       <Trash2 className="w-3.5 h-3.5" /> Delete Role
                     </button>
                   )}
-                  <button type="button" onClick={handleSelectAllRolePerms} className="btn btn-ghost btn-xs text-xs text-primary border border-primary/20 hover:bg-primary/5">
+                  <button type="button" onClick={handleSelectAllRolePerms} className="btn btn-ghost btn-sm text-xs text-primary border border-primary/20 hover:bg-primary/5 whitespace-nowrap h-9 px-3 font-semibold">
                     Select All ({ALL_PERM_KEYS.length})
                   </button>
-                  <button type="button" onClick={handleClearAllRolePerms} className="btn btn-ghost btn-xs text-xs text-slate-500 border border-slate-200 hover:bg-slate-100">
+                  <button type="button" onClick={handleClearAllRolePerms} className="btn btn-ghost btn-sm text-xs text-slate-500 border border-slate-200 hover:bg-slate-100 whitespace-nowrap h-9 px-3 font-semibold">
                     Clear All
                   </button>
-                  <button onClick={handleSaveRolePermissions} className="btn btn-primary btn-sm font-bold shadow-md">
+                  <button onClick={handleSaveRolePermissions} className="btn btn-primary btn-sm font-bold shadow-md whitespace-nowrap h-9 px-4 text-xs">
                     Save Role Permissions
                   </button>
                 </div>
               ) : (
-                <div className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1.5">
+                <div className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1.5 h-9">
                   <Lock className="w-3.5 h-3.5" /> Full Root Access Granted
                 </div>
               )}
@@ -814,16 +837,17 @@ const SuperAdminAdmins = () => {
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : (
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  {['Staff Member', 'Assigned Role', 'Assigned Scope', 'Role Permissions Count', 'Status', 'Actions'].map((h) => (
-                    <th key={h} className="px-4 py-3.5 text-text-muted text-xs font-bold uppercase tracking-wider">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[700px] text-left">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    {['Staff Member', 'Assigned Role', 'Assigned Scope', 'Role Permissions Count', 'Status', 'Actions'].map((h) => (
+                      <th key={h} className="px-4 py-3.5 text-text-muted text-xs font-bold uppercase tracking-wider whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-slate-100">
                 {admins.map((u) => {
                   const permCount = getRolePermCount(u.role);
@@ -867,7 +891,8 @@ const SuperAdminAdmins = () => {
                 })}
               </tbody>
             </table>
-          )}
+          </div>
+        )}
         </div>
       )}
 
@@ -924,30 +949,42 @@ const SuperAdminAdmins = () => {
             </span>
           </div>
 
-          <div className="space-y-3">
-            {[
-              { time: 'Just now', action: 'ROLE_PERMISSIONS_UPDATE', admin: 'Super Admin Owner', detail: 'Updated permissions matrix for ADMIN role in Database.' },
-              { time: '10 minutes ago', action: 'ROLE_CREATED', admin: 'Super Admin Owner', detail: 'Created new system role record in PostgreSQL Database.' },
-              { time: '1 hour ago', action: 'USER_ROLE_ASSIGN', admin: 'Super Admin Owner', detail: 'Assigned ADMIN role privileges to staff member admin@s2smatrimony.com.' },
-              { time: 'Yesterday at 04:30 PM', action: 'MODULE_SYNC', admin: 'System Engine', detail: 'Synchronized 24 application screen modules and action keys.' },
-            ].map((log, idx) => (
-              <div key={idx} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex items-start justify-between gap-4 hover:bg-slate-50 transition">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
-                    UAM
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900">{log.action}</span>
-                      <span className="text-[11px] font-medium text-slate-500">by {log.admin}</span>
+          {loadingLogs ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : auditLogs.length > 0 ? (
+            <div className="space-y-3">
+              {auditLogs.map((log: any) => {
+                const detailsText = log.details || (log.newValue ? JSON.stringify(log.newValue) : (log.oldValue ? JSON.stringify(log.oldValue) : `${log.action} performed on ${log.entity}`));
+                const timeAgo = new Date(log.createdAt).toLocaleString('en-IN', {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                });
+                return (
+                  <div key={log.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex items-start justify-between gap-4 hover:bg-slate-50 transition">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">
+                        UAM
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-slate-900">{log.action}</span>
+                          <span className="text-[11px] font-medium text-slate-500">entity: {log.entity}</span>
+                        </div>
+                        <p className="text-xs text-slate-600 mt-1 font-mono text-[11px] break-all">{detailsText}</p>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-600 mt-1">{log.detail}</p>
+                    <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap">{timeAgo}</span>
                   </div>
-                </div>
-                <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap">{log.time}</span>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-10 text-slate-400 text-xs">
+              No UAM activity logs recorded yet. Changes made to roles, staff, and permissions will be logged here in real-time.
+            </div>
+          )}
         </div>
       )}
 
@@ -1073,8 +1110,10 @@ const SuperAdminAdmins = () => {
               </div>
             </div>
             <div className="flex gap-2 pt-2">
-              <button onClick={() => setShowAddModal(false)} className="btn btn-ghost btn-sm flex-1 border border-slate-200">Cancel</button>
-              <button onClick={handleAddAdmin} className="btn btn-primary btn-sm flex-1 font-bold shadow-md">Add Staff</button>
+              <button disabled={savingAdmin} onClick={() => setShowAddModal(false)} className="btn btn-ghost btn-sm flex-1 border border-slate-200">Cancel</button>
+              <button disabled={savingAdmin} onClick={handleAddAdmin} className="btn btn-primary btn-sm flex-1 font-bold shadow-md flex items-center justify-center gap-2">
+                {savingAdmin ? <><Loader2 className="w-4 h-4 animate-spin" /> Adding...</> : 'Add Staff'}
+              </button>
             </div>
           </div>
         </div>

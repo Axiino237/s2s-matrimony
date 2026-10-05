@@ -30,9 +30,9 @@ const ChatPage = () => {
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMessages = useCallback(async (silent = false) => {
     if (!chatId) {
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
     try {
@@ -49,11 +49,20 @@ const ChatPage = () => {
           if (!isDup) unique.push(m);
         }
       }
-      setMessages(unique);
+      setMessages((prev) => {
+        // Retain any pending temp messages that haven't been confirmed by the server yet
+        const pendingTemp = prev.filter(
+          (p) => p.id.startsWith('temp-') && !unique.some((u) => u.content === p.content),
+        );
+        if (prev.length === unique.length && prev.every((p, i) => p.id === unique[i]?.id)) {
+          return prev;
+        }
+        return [...unique, ...pendingTemp];
+      });
     } catch {
-      toast.error('Failed to load messages');
+      if (!silent) toast.error('Failed to load messages');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [chatId]);
 
@@ -78,14 +87,24 @@ const ChatPage = () => {
       }
     };
     loadChatInfo();
-    fetchMessages();
+    fetchMessages(false);
   }, [chatId, fetchMessages, user]);
+
+  // Periodic lightweight polling fallback while chat is open
+  useEffect(() => {
+    if (!chatId) return;
+    const interval = setInterval(() => {
+      fetchMessages(true);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [chatId, fetchMessages]);
 
   // WebSocket Live Real-Time Message Listener (Socket.io)
   useEffect(() => {
     if (!chatId) return;
 
     const socket = getSocket();
+    const currentUserId = user?.id || user?.sub || (user as any)?.userId;
 
     const joinRoom = () => {
       socket.emit('join_chat', { chatId });
@@ -98,11 +117,12 @@ const ChatPage = () => {
     const handleReceiveMessage = (msg: any) => {
       if (msg.chatId === chatId) {
         setMessages((prev) => {
-          const isSentByMe = msg.senderId === user?.id;
+          const isSentByMe = msg.senderId === currentUserId;
           const existingIdx = prev.findIndex(
             (m) =>
               m.id === msg.id ||
-              (m.content === msg.content && Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 5000),
+              (m.id.startsWith('temp-') && m.content === msg.content) ||
+              (m.content === msg.content && Math.abs(new Date(m.createdAt).getTime() - new Date(msg.createdAt).getTime()) < 15000),
           );
 
           if (existingIdx >= 0) {
@@ -162,17 +182,24 @@ const ChatPage = () => {
     setMessages((prev) => [...prev, tempMsg]);
 
     try {
-      // Call REST endpoint for DB persistence and backend broadcast to chat room
       const sent = await messagesService.sendMessage(chatId, text);
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === tempId
-            ? { id: sent.id || tempId, content: sent.content || text, sent: true, isRead: false, createdAt: sent.createdAt || new Date().toISOString() }
+          m.id === tempId || (m.id.startsWith('temp-') && m.content === text)
+            ? {
+                id: sent?.id || tempId,
+                content: sent?.content || text,
+                sent: true,
+                isRead: sent?.isRead ?? false,
+                createdAt: sent?.createdAt || new Date().toISOString(),
+              }
             : m,
         ),
       );
-    } catch {
-      // Keep optimistic message or handle silently
+    } catch (err: any) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      const msg = err?.response?.data?.message || err?.message || 'Failed to send message';
+      toast.error(msg, { duration: 5000 });
     } finally {
       setSending(false);
     }
@@ -231,23 +258,34 @@ const ChatPage = () => {
         )}
       </div>
 
-      {/* Input Form */}
-      <div className="flex gap-2">
-        <input
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          className="input flex-1 border-slate-200 font-medium"
-          placeholder="Type your message here..."
-          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-        />
-        <button
-          onClick={handleSend}
-          disabled={sending || !inputText.trim()}
-          className="btn btn-primary px-5 py-3 flex items-center justify-center disabled:opacity-50 shadow-md"
-        >
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-        </button>
-      </div>
+      {/* Input Form or Plan Disabled Notice */}
+      {user?.entitlements && !user.entitlements.hasChat && !user.entitlements.isStaff ? (
+        <div className="card p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-xs">
+          <span className="text-amber-800 font-semibold">
+            💬 Direct Live Chat is disabled for your active membership plan ({user.entitlements.planName}).
+          </span>
+          <Link to="/premium" className="btn btn-gold btn-sm text-xs font-bold whitespace-nowrap">
+            Upgrade Plan to Chat
+          </Link>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <input
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            className="input flex-1 border-slate-200 font-medium"
+            placeholder="Type your message here..."
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+          />
+          <button
+            onClick={handleSend}
+            disabled={sending || !inputText.trim()}
+            className="btn btn-primary px-5 py-3 flex items-center justify-center disabled:opacity-50 shadow-md"
+          >
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

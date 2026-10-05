@@ -61,8 +61,28 @@ export const superAdminService = {
       .put(`/super-admin/admins/${userId}/role`, { role })
       .then((r) => r.data.data || r.data),
 
+  createAdminStaff: (data: { name: string; email: string; role: string; community?: string; password?: string }) =>
+    api
+      .post('/super-admin/admins', data)
+      .then((r) => r.data.data || r.data),
+
+  getAuditLogs: (page = 1, limit = 20, type = '') =>
+    api
+      .get('/super-admin/audit-logs', { params: { page, limit, type } })
+      .then((r) => r.data.data || r.data),
+
   getReportsAnalytics: () =>
     api
       .get('/super-admin/reports')
+      .then((r) => r.data.data || r.data),
+
+  getAuditLogsForExport: (params?: { action?: string; entity?: string; search?: string }) =>
+    api
+      .get('/super-admin/audit-logs/export', { params })
+      .then((r) => r.data.data || r.data),
+
+  getReportExportData: (type: string, days = 30) =>
+    api
+      .get('/super-admin/reports/data', { params: { type, days } })
       .then((r) => r.data.data || r.data),
 };

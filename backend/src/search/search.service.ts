@@ -35,12 +35,18 @@ export class SearchService {
 
     const where: any = {
       deletedAt: null,
-      // Exclude admin/moderator/super-admin users — only show real members
+      status: 'ACTIVE',
+      isVerified: true,
+      verificationStatus: 'VERIFIED',
+      // Mandatory visibility criteria for other members:
+      // Account status must be Active (isActive: true, deletedAt: null)
       user: {
+        isActive: true,
+        deletedAt: null,
         userRoles: {
           none: {
             role: {
-              name: { in: ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'SUPPORT_AGENT'] },
+              name: { in: ['ADMIN', 'SUPER_ADMIN'] },
             },
           },
         },
@@ -64,10 +70,16 @@ export class SearchService {
       }).catch(() => null);
     }
 
-    // Gender filter - Default to partner preference or opposite gender if not explicitly passed
-    if (query.gender && query.gender !== 'ALL' && query.gender !== 'ANY' && query.gender !== '') {
-      where.gender = query.gender.toUpperCase();
-    } else if (myProfile) {
+    // Gender filter:
+    // 1. If explicitly 'MALE' or 'FEMALE': filter strictly by that gender
+    // 2. If 'ALL', 'ANY', 'BOTH': show both Bride and Groom members (do not filter where.gender)
+    // 3. Only default to partner preference or opposite gender if usePartnerPref is explicitly requested (e.g. /matches)
+    const genderUpper = (query.gender || '').toUpperCase().trim();
+    if (genderUpper === 'MALE' || genderUpper === 'FEMALE') {
+      where.gender = genderUpper;
+    } else if (genderUpper === 'ALL' || genderUpper === 'ANY' || genderUpper === 'BOTH') {
+      // Explicitly show both Bride and Groom — do not set where.gender
+    } else if ((query as any).usePartnerPref && myProfile) {
       const prefGender = myProfile.partnerPreference?.gender;
       if (prefGender && ['MALE', 'FEMALE'].includes(prefGender)) {
         where.gender = prefGender;
@@ -87,17 +99,23 @@ export class SearchService {
       if (pref.heightMin && pref.heightMax) {
         where.heightCm = { gte: pref.heightMin, lte: pref.heightMax };
       }
+      if (!query.maritalStatus && pref.maritalStatus && pref.maritalStatus.length > 0) {
+        where.maritalStatus = { in: pref.maritalStatus };
+      }
     }
 
     // Community filter
     if (query.communityId && query.communityId !== '' && query.communityId !== 'ANY') {
       where.communityId = query.communityId;
     } else if (query.community && query.community !== '' && query.community !== 'ANY' && query.community !== 'All') {
-      where.OR = [
-        { communityId: query.community },
-        { community: { name: { contains: query.community, mode: 'insensitive' } } },
-        { community: { slug: { contains: query.community.toLowerCase(), mode: 'insensitive' } } },
-      ];
+      if (!where.AND) where.AND = [];
+      where.AND.push({
+        OR: [
+          { communityId: query.community },
+          { community: { name: { contains: query.community, mode: 'insensitive' } } },
+          { community: { slug: { contains: query.community.toLowerCase(), mode: 'insensitive' } } },
+        ],
+      });
     }
 
     // Religion filter
@@ -121,22 +139,87 @@ export class SearchService {
 
     // Occupation filter
     if (query.occupation && query.occupation !== '' && query.occupation !== 'ANY' && query.occupation !== 'All') {
-      where.occupation = {
-        OR: [
-          { designation: { contains: query.occupation, mode: 'insensitive' } },
-          { company: { contains: query.occupation, mode: 'insensitive' } },
-        ],
-      };
+      if (!where.AND) where.AND = [];
+      where.AND.push({
+        occupation: {
+          OR: [
+            { designation: { contains: query.occupation, mode: 'insensitive' } },
+            { company: { contains: query.occupation, mode: 'insensitive' } },
+          ],
+        },
+      });
+    }
+
+    // Salary / Annual Income filter
+    const salaryQuery = (query as any).salary || (query as any).salaryMin || (query as any).minSalary;
+    if (salaryQuery && salaryQuery !== '' && salaryQuery !== 'ANY' && salaryQuery !== 'All') {
+      let minSalaryNum: number | null = null;
+      if (typeof salaryQuery === 'number') {
+        minSalaryNum = salaryQuery;
+      } else {
+        const rawStr = String(salaryQuery).trim();
+        const lpaMatch = rawStr.match(/(\d+(?:\.\d+)?)\s*lpa/i);
+        if (lpaMatch) {
+          minSalaryNum = Math.round(parseFloat(lpaMatch[1]) * 100000);
+        } else {
+          const lakhMatch = rawStr.match(/(\d+(?:\.\d+)?)\s*lakh/i);
+          if (lakhMatch) {
+            minSalaryNum = Math.round(parseFloat(lakhMatch[1]) * 100000);
+          } else {
+            const parsed = parseInt(rawStr.replace(/[^0-9]/g, ''), 10);
+            if (!isNaN(parsed) && parsed > 0) {
+              minSalaryNum = parsed < 100 ? parsed * 100000 : parsed;
+            }
+          }
+        }
+      }
+
+      if (minSalaryNum !== null && minSalaryNum > 0) {
+        if (!where.AND) where.AND = [];
+        where.AND.push({
+          occupation: {
+            OR: [
+              { salaryMin: { gte: minSalaryNum } },
+              { salaryMax: { gte: minSalaryNum } },
+            ],
+          },
+        });
+      }
     }
 
     // Country filter
     if ((query as any).country && (query as any).country !== '' && (query as any).country !== 'ANY' && (query as any).country !== 'All') {
-      where.country = { name: { contains: (query as any).country, mode: 'insensitive' } };
+      const c = String((query as any).country).trim();
+      const isIndia = c.toLowerCase() === 'india' || c.toUpperCase() === 'IN';
+      const countryCondition: any[] = [
+        { country: { name: { contains: c, mode: 'insensitive' } } },
+        { country: { code: { equals: c, mode: 'insensitive' } } },
+      ];
+      if (c.toUpperCase() === 'USA') {
+        countryCondition.push({ country: { name: { contains: 'United States', mode: 'insensitive' } } });
+        countryCondition.push({ country: { code: 'US' } });
+      } else if (c.toUpperCase() === 'UK') {
+        countryCondition.push({ country: { name: { contains: 'United Kingdom', mode: 'insensitive' } } });
+        countryCondition.push({ country: { code: 'GB' } });
+      }
+      if (isIndia) {
+        countryCondition.push({ countryId: null });
+      }
+      if (!where.AND) where.AND = [];
+      where.AND.push({ OR: countryCondition });
     }
 
     // State filter
     if ((query as any).state && (query as any).state !== '' && (query as any).state !== 'ANY' && (query as any).state !== 'All') {
-      where.state = { name: { contains: (query as any).state, mode: 'insensitive' } };
+      const s = String((query as any).state).trim();
+      const stateCondition: any[] = [
+        { state: { name: { contains: s, mode: 'insensitive' } } },
+        { city: { name: { contains: s, mode: 'insensitive' } } },
+        { family: { nativePlace: { contains: s, mode: 'insensitive' } } },
+        { occupation: { workingLocation: { contains: s, mode: 'insensitive' } } },
+      ];
+      if (!where.AND) where.AND = [];
+      where.AND.push({ OR: stateCondition });
     }
 
     // Photo filter
@@ -150,15 +233,16 @@ export class SearchService {
         OR: [
           { dosham: null },
           { dosham: { contains: 'none', mode: 'insensitive' } },
+          { dosham: { contains: 'no dosham', mode: 'insensitive' } },
           { dosham: '' },
         ],
       };
     }
 
-    // Verification filter
-    if (query.isVerified !== undefined && query.isVerified !== '' && query.isVerified !== false && query.isVerified !== 'false') {
-      where.isVerified = query.isVerified === true || query.isVerified === 'true';
-    }
+    // Enforce profile verification & active criteria
+    where.isVerified = true;
+    where.verificationStatus = 'VERIFIED';
+    where.status = 'ACTIVE';
 
     // Safe Sorting logic (using valid Prisma model fields)
     let orderBy: any = { createdAt: 'desc' };
@@ -219,7 +303,10 @@ export class SearchService {
             community: true,
             city: true,
             religion: true,
-            membership: true,
+            state: true,
+            country: true,
+            family: true,
+            membership: { include: { plan: true } },
           },
           orderBy,
         }),
@@ -227,12 +314,22 @@ export class SearchService {
       ]);
 
       if (profiles && profiles.length > 0) {
-        let profilesWithScores = profiles.map((p, idx) => {
+        let profilesWithScores = profiles.map((p) => {
           const plain = JSON.parse(JSON.stringify(p));
-          const isPremium = !!(p.membership && p.membership.isActive && p.membership.tier !== 'FREE') || idx % 2 === 0;
+          const plan = p.membership?.plan;
+          const features: string[] = Array.isArray(plan?.features) ? (plan.features as string[]) : [];
+          const hasHighlight = (plan as any)?.hasProfileHighlight || features.some((f) => String(f).toLowerCase().includes('highlight') || String(f).toLowerCase().includes('priority'));
+          const isPremium = Boolean(
+            p.membership &&
+            p.membership.isActive &&
+            p.membership.tier !== 'FREE' &&
+            (!p.membership.endDate || new Date(p.membership.endDate) >= new Date())
+          );
+          const membershipTier = isPremium ? p.membership?.tier : 'FREE';
           return {
             ...plain,
             isPremium,
+            membershipTier,
             matchScore: this.calculateMatchScore(p, myProfile),
           };
         });
@@ -273,14 +370,16 @@ export class SearchService {
       console.error('Search Profiles Query Error:', err);
     }
 
-    // devStore fallback — filter out admin-named users
-    const ADMIN_NAMES = ['super admin', 'system admin', 'admin', 'moderator', 'support agent'];
+    // devStore fallback — filter out admin-named users and enforce visibility criteria
+    const ADMIN_NAMES = ['super admin', 'system admin', 'admin'];
     const devUsers = devStore.getAll()
       .filter((u) => {
         const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase().trim();
         const isAdmin = ADMIN_NAMES.some((a) => fullName.includes(a));
         const isCurrentUser = excludeUserId && u.id === excludeUserId;
-        return !isAdmin && !isCurrentUser;
+        const isAccountActive = u.isActive !== false && !u.isSuspended;
+        const isProfileVerified = (u.isVerified === true || u.verificationStatus === 'VERIFIED');
+        return !isAdmin && !isCurrentUser && isAccountActive && isProfileVerified;
       })
       .map((u, idx) => ({
       id: `prof-${u.id}`,
@@ -298,8 +397,8 @@ export class SearchService {
       city: { name: 'Chennai' },
       education: { degree: u.educationDegree || 'Graduate' },
       occupation: { designation: u.occupation || 'Professional', company: u.company || '' },
-      isVerified: u.membershipTier ? u.membershipTier !== 'FREE' : false,
-      isPremium: u.membershipTier ? u.membershipTier !== 'FREE' : false,
+      isVerified: Boolean(u.isVerified),
+      isPremium: Boolean(u.isPremium),
       membershipTier: u.membershipTier || 'FREE',
       photos: (u as any).photos?.length > 0
         ? (u as any).photos
@@ -383,6 +482,81 @@ export class SearchService {
     score += salt;
 
     return Math.min(98, Math.max(75, score));
+  }
+
+  async getCountries() {
+    try {
+      const countries = await this.prisma.country.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, code: true, flag: true },
+        orderBy: { name: 'asc' },
+      });
+      if (countries && countries.length > 0) {
+        return countries;
+      }
+    } catch (e) {
+      console.error('Error fetching countries from database:', e);
+    }
+    // Fallback list of standard countries
+    return [
+      { id: 'in', name: 'India', code: 'IN', flag: '🇮🇳' },
+      { id: 'us', name: 'United States', code: 'US', flag: '🇺🇸' },
+      { id: 'ae', name: 'United Arab Emirates', code: 'AE', flag: '🇦🇪' },
+      { id: 'sg', name: 'Singapore', code: 'SG', flag: '🇸🇬' },
+      { id: 'my', name: 'Malaysia', code: 'MY', flag: '🇲🇾' },
+      { id: 'uk', name: 'United Kingdom', code: 'GB', flag: '🇬🇧' },
+      { id: 'ca', name: 'Canada', code: 'CA', flag: '🇨🇦' },
+      { id: 'au', name: 'Australia', code: 'AU', flag: '🇦🇺' },
+    ];
+  }
+
+  async getStates(countryFilter?: string) {
+    try {
+      const where: any = { isActive: true };
+
+      if (countryFilter && countryFilter !== 'ANY' && countryFilter !== 'All') {
+        const countryTerm = countryFilter.trim();
+        where.country = {
+          OR: [
+            { id: countryTerm },
+            { code: { equals: countryTerm, mode: 'insensitive' } },
+            { name: { contains: countryTerm, mode: 'insensitive' } },
+            ...(countryTerm.toUpperCase() === 'USA' ? [{ code: 'US' }, { name: { contains: 'United States', mode: 'insensitive' } }] : []),
+            ...(countryTerm.toUpperCase() === 'UK' ? [{ code: 'GB' }, { name: { contains: 'United Kingdom', mode: 'insensitive' } }] : []),
+            ...(countryTerm.toUpperCase() === 'UAE' ? [{ code: 'AE' }, { name: { contains: 'Emirates', mode: 'insensitive' } }] : []),
+          ],
+        };
+      }
+
+      const states = await this.prisma.state.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          countryId: true,
+          country: {
+            select: { id: true, name: true, code: true },
+          },
+        },
+        orderBy: { name: 'asc' },
+      });
+
+      if (states && states.length > 0) {
+        return states;
+      }
+    } catch (e) {
+      console.error('Error fetching states from database:', e);
+    }
+
+    // Default / fallback states if database empty or error
+    return [
+      { id: 'tn', name: 'Tamil Nadu', countryId: 'in', country: { name: 'India', code: 'IN' } },
+      { id: 'kl', name: 'Kerala', countryId: 'in', country: { name: 'India', code: 'IN' } },
+      { id: 'ka', name: 'Karnataka', countryId: 'in', country: { name: 'India', code: 'IN' } },
+      { id: 'ap', name: 'Andhra Pradesh', countryId: 'in', country: { name: 'India', code: 'IN' } },
+      { id: 'ts', name: 'Telangana', countryId: 'in', country: { name: 'India', code: 'IN' } },
+      { id: 'mh', name: 'Maharashtra', countryId: 'in', country: { name: 'India', code: 'IN' } },
+    ];
   }
 }
 

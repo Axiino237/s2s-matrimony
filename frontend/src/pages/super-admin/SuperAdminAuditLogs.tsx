@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ScrollText, Search, Filter, Download, RefreshCw, Loader2, User, ChevronLeft, ChevronRight, Clock, Globe, Shield } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { exportToCSV, exportToExcel, getExportTimestamp } from '../../utils/export.utils';
 
 interface AuditLog {
   id: string;
@@ -44,6 +46,7 @@ const FALLBACK_LOGS: AuditLog[] = Array.from({ length: 20 }, (_, i) => ({
 const SuperAdminAuditLogs = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<'csv' | 'excel' | null>(null);
   const [search, setSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [entityFilter, setEntityFilter] = useState('');
@@ -76,15 +79,70 @@ const SuperAdminAuditLogs = () => {
   };
 
   const exportLogs = async (format: 'csv' | 'excel') => {
+    setExporting(format);
     try {
-      const res = await api.get(`/super-admin/audit-logs/export?format=${format}`, { responseType: 'blob' });
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `audit-logs.${format === 'csv' ? 'csv' : 'xlsx'}`;
-      a.click();
-    } catch {
-      alert('Export not yet connected to backend. Coming soon!');
+      let exportData: any[] = [];
+      try {
+        const res = await api.get('/super-admin/audit-logs/export', {
+          params: {
+            action: actionFilter || undefined,
+            entity: entityFilter || undefined,
+            search: search || undefined,
+          },
+        });
+        exportData = res.data?.data || res.data || [];
+      } catch {
+        exportData = filteredLogs;
+      }
+
+      if (!exportData || exportData.length === 0) {
+        exportData = filteredLogs.length > 0 ? filteredLogs : logs;
+      }
+
+      if (!exportData || exportData.length === 0) {
+        toast.error('No logs available to export');
+        return;
+      }
+
+      const formatted = exportData.map((log: any) => ({
+        id: log.id,
+        timestamp: new Date(log.createdAt).toLocaleString('en-IN'),
+        action: log.action,
+        entity: log.entity,
+        entityId: log.entityId || 'N/A',
+        performedBy: log.adminId || log.userId || 'System',
+        ipAddress: log.ipAddress || 'Internal',
+        oldValue: log.oldValue ? (typeof log.oldValue === 'object' ? JSON.stringify(log.oldValue) : log.oldValue) : '',
+        newValue: log.newValue ? (typeof log.newValue === 'object' ? JSON.stringify(log.newValue) : log.newValue) : '',
+      }));
+
+      const headers: Record<string, string> = {
+        id: 'Log ID',
+        timestamp: 'Date & Time',
+        action: 'Action',
+        entity: 'Target Entity',
+        entityId: 'Entity Ref',
+        performedBy: 'User/Admin ID',
+        ipAddress: 'IP Address',
+        oldValue: 'Previous State',
+        newValue: 'New State',
+      };
+
+      const dateStamp = getExportTimestamp();
+      const filename = `s2s_audit_logs_${dateStamp}`;
+
+      if (format === 'csv') {
+        exportToCSV(formatted, filename, headers);
+        toast.success(`Exported ${formatted.length} audit logs as CSV!`);
+      } else {
+        exportToExcel(formatted, filename, 'Audit Logs', headers);
+        toast.success(`Exported ${formatted.length} audit logs as Excel!`);
+      }
+    } catch (err: any) {
+      console.error('Audit log export error:', err);
+      toast.error('Failed to export audit logs. Please try again.');
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -110,21 +168,27 @@ const SuperAdminAuditLogs = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => exportLogs('csv')}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            disabled={exporting !== null}
+            className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
           >
-            <Download className="w-4 h-4" /> Export CSV
+            {exporting === 'csv' ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Download className="w-4 h-4" />}
+            Export CSV
           </button>
           <button
             onClick={() => exportLogs('excel')}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-medium hover:bg-green-700 transition-colors"
+            disabled={exporting !== null}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-50 shadow-sm"
           >
-            <Download className="w-4 h-4" /> Export Excel
+            {exporting === 'excel' ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Download className="w-4 h-4" />}
+            Export Excel
           </button>
           <button
             onClick={fetchLogs}
+            disabled={loading}
             className="p-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-colors"
+            title="Refresh logs"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>

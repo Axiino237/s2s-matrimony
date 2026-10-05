@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '../../../store/auth.store';
 import { dashboardService } from '../../../services/dashboard.service';
 import { profilesApi } from '../../../services/profiles.service';
+import { MembershipBadge } from '../../../components/common/MembershipBadge';
 import { 
   Eye, Heart, Sparkles, MessageSquare, ArrowUpRight, ShieldCheck, 
   CheckCircle2, Crown, Edit3, Activity, Star, FileText
@@ -47,9 +48,29 @@ const DashboardPage = () => {
   });
 
   const completionPct = profile?.profileCompletionPercent 
+    ?? (user as any)?.profileCompletionPercent
     ?? dashStats?.profileCompletionPercent 
     ?? dashStats?.profileCompletion 
-    ?? 0;
+    ?? (user?.firstName ? 100 : 0);
+
+  const hasBasicInfo = completionPct >= 25 || Boolean(profile?.firstName && profile?.gender && profile?.maritalStatus);
+  const hasPhotos = completionPct >= 50 || Boolean(profile?.photos && profile.photos.length > 0) || Boolean(profile?.mainPhotoId);
+  const hasEducationCareer = completionPct >= 75 || Boolean(profile?.education?.degree || profile?.occupation?.designation || (profile as any)?.educationDegree || (profile as any)?.occupation);
+  const hasHoroscope = completionPct >= 100 
+    || Boolean(profile?.hasHoroscope) 
+    || Boolean(profile?.horoscope && (
+        profile.horoscope.star || 
+        profile.horoscope.rasi || 
+        profile.horoscope.horoscopeFile || 
+        profile.horoscope.horoscopeData || 
+        profile.horoscope.gothram || 
+        profile.horoscope.lagnam || 
+        profile.horoscope.dosham || 
+        profile.horoscope.birthPlace || 
+        profile.horoscope.birthTime
+       )) 
+    || Boolean((profile as any)?.star || (profile as any)?.rasi);
+
 
   const stats = [
     { icon: Eye, label: 'Profile Views', val: dashStats?.profileViews ?? 0, change: 'Total views received', color: 'bg-primary/10 text-primary border border-primary/20' },
@@ -60,41 +81,54 @@ const DashboardPage = () => {
 
   const rawRecommended = searchResult?.profiles || searchResult?.data || (Array.isArray(searchResult) ? searchResult : []);
   const recommendedMatches = rawRecommended
-    .filter((m: any) => m.userId !== user?.id && m.id !== user?.id && m.id !== profile?.id)
+    .filter((m: any) => {
+      if (m.userId === user?.id || m.id === user?.id || m.id === profile?.id) return false;
+      const isAccountActive = m.user ? m.user.isActive !== false : m.isActive !== false;
+      const isProfileVerified = m.isVerified === true && (!m.verificationStatus || m.verificationStatus === 'VERIFIED');
+      const isProfileActive = !m.status || m.status === 'ACTIVE';
+      return isAccountActive && isProfileVerified && isProfileActive;
+    })
     .slice(0, 4);
 
+  const rawTier = (
+    profile?.membershipTier ||
+    (profile as any)?.membership?.tier ||
+    user?.membershipTier ||
+    user?.membershipStatus ||
+    user?.entitlements?.tier ||
+    'FREE'
+  ).toUpperCase();
+  const isPrem = isPremium() && rawTier !== 'FREE';
+  const memberTier = isPrem ? rawTier : 'FREE';
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in w-full max-w-full min-w-0">
       {/* Welcome Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 card bg-gradient-to-r from-white via-primary/5 to-white border-primary/20 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-primary flex items-center justify-center text-white text-xl font-bold shadow-lg flex-shrink-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-6 card bg-gradient-to-r from-white via-primary/5 to-white border-primary/20 shadow-sm">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-primary flex items-center justify-center text-white text-lg sm:text-xl font-bold shadow-lg flex-shrink-0">
             {profile?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'M'}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-2xl font-bold text-text-primary">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="font-display text-lg sm:text-2xl font-bold text-text-primary truncate">
                 Welcome back, {profile?.firstName || user?.email?.split('@')[0] || 'Member'}!
               </h1>
-              {isPremium() ? (
-                <span className="badge badge-premium text-xs">★ Premium</span>
-              ) : (
-                <span className="badge bg-slate-100 text-text-secondary border-slate-200 text-xs">Free Plan</span>
-              )}
+              <MembershipBadge tier={memberTier} size="sm" />
             </div>
-            <p className="text-text-secondary text-sm mt-0.5">Here is your live database matrimony overview & partner activity</p>
+            <p className="text-text-secondary text-xs sm:text-sm mt-0.5 line-clamp-1 sm:line-clamp-none">Here is your live database matrimony overview & partner activity</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Link to="/profile/biodata-form" className="btn bg-rose-900 hover:bg-rose-950 text-white btn-sm flex items-center gap-1.5 font-bold shadow-md">
-            <FileText className="w-4 h-4 text-amber-300" /> 📄 Biodata Form
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+          <Link to="/profile/biodata-form" className="btn bg-rose-900 hover:bg-rose-950 text-white btn-sm flex items-center justify-center flex-1 sm:flex-initial gap-1.5 font-bold shadow-md text-xs sm:text-sm">
+            <FileText className="w-4 h-4 text-amber-300" /> Biodata Form
           </Link>
-          <Link to="/profile/edit" className="btn btn-secondary btn-sm flex items-center gap-1.5 border-slate-200 bg-white">
+          <Link to="/profile/edit" className="btn btn-secondary btn-sm flex items-center justify-center flex-1 sm:flex-initial gap-1.5 border-slate-200 bg-white text-xs sm:text-sm">
             <Edit3 className="w-4 h-4" /> Edit Profile
           </Link>
-          {!isPremium() && (
-            <Link to="/premium" className="btn btn-gold btn-sm flex items-center gap-1.5 font-bold shadow-md">
+          {!isPrem && (
+            <Link to="/premium" className="btn btn-gold btn-sm flex items-center justify-center flex-1 sm:flex-initial gap-1.5 font-bold shadow-md text-xs sm:text-sm">
               <Crown className="w-4 h-4" /> Upgrade
             </Link>
           )}
@@ -102,7 +136,7 @@ const DashboardPage = () => {
       </div>
 
       {/* Top 4 Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map((s, i) => {
           const IconComponent = s.icon;
           const isProfileViews = s.label === 'Profile Views';
@@ -149,9 +183,22 @@ const DashboardPage = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {recommendedMatches.length === 0 ? (
-              <div className="col-span-2 text-center py-8 text-text-muted text-sm">
-                <Sparkles className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                No recommendations yet — complete your profile to get matches!
+              <div className="col-span-2 text-center py-8 text-text-muted text-sm space-y-3">
+                <Sparkles className="w-8 h-8 mx-auto text-slate-300" />
+                <p className="text-slate-600 text-xs sm:text-sm">
+                  {completionPct >= 100
+                    ? 'No recommendations found right now. Check back soon or broaden your partner preferences!'
+                    : `No recommendations yet — complete your profile (${completionPct}% completed) to get matches!`}
+                </p>
+                {completionPct >= 100 ? (
+                  <Link to="/search" className="btn btn-primary btn-sm inline-flex items-center gap-1.5 mx-auto">
+                    <Sparkles className="w-3.5 h-3.5" /> Explore All Matches
+                  </Link>
+                ) : (
+                  <Link to="/complete-profile" className="btn btn-primary btn-sm inline-flex items-center gap-1.5 mx-auto">
+                    Complete Your Profile
+                  </Link>
+                )}
               </div>
             ) : recommendedMatches.map((m: any) => {
               const name = `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || m.displayName || '—';
@@ -196,58 +243,157 @@ const DashboardPage = () => {
               <h2 className="text-text-primary font-bold text-sm flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-gold" /> Profile Strength
               </h2>
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold py-0.5 px-2.5 bg-emerald-600 text-white rounded-full shadow-xs">High compatibility</span>
+              <span className={`inline-flex items-center gap-1 text-[10px] font-bold py-0.5 px-2.5 rounded-full shadow-xs ${completionPct >= 100 ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'}`}>
+                {completionPct >= 100 ? '100% Complete' : 'High compatibility'}
+              </span>
             </div>
 
             <div className="text-center my-4">
               <span className="text-4xl font-extrabold text-gradient-gold">{completionPct}%</span>
-              <p className="text-text-muted text-xs mt-1">Complete to get 3x more interest responses</p>
+              {completionPct >= 100 ? (
+                <p className="text-emerald-600 font-semibold text-xs mt-1 flex items-center justify-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Profile is 100% complete & verified
+                </p>
+              ) : (
+                <p className="text-text-muted text-xs mt-1">Complete to get 3x more interest responses</p>
+              )}
             </div>
 
             <div className="w-full bg-slate-100 rounded-full h-2 mb-4 overflow-hidden">
-              <div className="bg-gradient-gold h-full rounded-full transition-all" style={{ width: `${completionPct}%` }} />
+              <div className={`h-full rounded-full transition-all ${completionPct >= 100 ? 'bg-emerald-500' : 'bg-gradient-gold'}`} style={{ width: `${completionPct}%` }} />
             </div>
 
             <div className="space-y-2.5 text-xs text-text-secondary">
               <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-                <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> Basic Information</span>
-                <span className="text-success font-semibold">Done</span>
+                <span className="flex items-center gap-1.5">
+                  {hasBasicInfo ? <CheckCircle2 className="w-3.5 h-3.5 text-success" /> : <Star className="w-3.5 h-3.5 text-warning" />}
+                  Basic Information
+                </span>
+                {hasBasicInfo ? (
+                  <span className="text-success font-semibold">Done</span>
+                ) : (
+                  <Link to="/profile/edit" state={{ section: 'basic' }} className="text-primary hover:underline font-bold">Add Now</Link>
+                )}
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-                <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> Verified Photos</span>
-                <span className="text-success font-semibold">Done</span>
+                <span className="flex items-center gap-1.5">
+                  {hasPhotos ? <CheckCircle2 className="w-3.5 h-3.5 text-success" /> : <Star className="w-3.5 h-3.5 text-warning" />}
+                  Verified Photos
+                </span>
+                {hasPhotos ? (
+                  <span className="text-success font-semibold">Done</span>
+                ) : (
+                  <Link to="/profile/edit" state={{ section: 'photos' }} className="text-primary hover:underline font-bold">Add Now</Link>
+                )}
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-                <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-success" /> Education & Career</span>
-                <span className="text-success font-semibold">Done</span>
+                <span className="flex items-center gap-1.5">
+                  {hasEducationCareer ? <CheckCircle2 className="w-3.5 h-3.5 text-success" /> : <Star className="w-3.5 h-3.5 text-warning" />}
+                  Education & Career
+                </span>
+                {hasEducationCareer ? (
+                  <span className="text-success font-semibold">Done</span>
+                ) : (
+                  <Link to="/profile/edit" state={{ section: 'education' }} className="text-primary hover:underline font-bold">Add Now</Link>
+                )}
               </div>
               <div className="flex justify-between items-center py-1.5">
-                <span className="flex items-center gap-1.5"><Star className="w-3.5 h-3.5 text-warning" /> Horoscope Details</span>
-                <Link to="/profile/edit" className="text-primary hover:underline font-bold">Add Now</Link>
+                <span className="flex items-center gap-1.5">
+                  {hasHoroscope ? <CheckCircle2 className="w-3.5 h-3.5 text-success" /> : <Star className="w-3.5 h-3.5 text-warning" />}
+                  Horoscope Details
+                </span>
+                {hasHoroscope ? (
+                  <span className="text-success font-semibold">Done</span>
+                ) : (
+                  <Link to="/profile/edit" state={{ section: 'horoscope' }} className="text-primary hover:underline font-bold">Add Now</Link>
+                )}
               </div>
             </div>
           </div>
 
           <div className="card p-6 bg-white">
-            <h2 className="text-text-primary font-bold text-sm mb-4 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-secondary" /> Recent Activity
-            </h2>
-            <div className="space-y-3 text-xs text-text-secondary">
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/60">
-                <Heart className="w-4 h-4 text-rose-500 mt-0.5 flex-shrink-0 animate-pulse" />
-                <div>
-                  <p className="text-text-primary font-semibold">New interest from Kavitha Rajan</p>
-                  <p className="text-text-muted text-[10px]">10 minutes ago</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/60">
-                <Eye className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-text-primary font-semibold">5 profiles viewed your profile</p>
-                  <p className="text-text-muted text-[10px]">2 hours ago</p>
-                </div>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-text-primary font-bold text-sm flex items-center gap-2">
+                <Activity className="w-4 h-4 text-secondary" /> Recent Activity
+              </h2>
+              {dashStats?.recentActivities && dashStats.recentActivities.length > 0 && (
+                <span className="text-[10px] bg-secondary/10 text-secondary-dark px-2 py-0.5 rounded-full font-bold">
+                  Live
+                </span>
+              )}
             </div>
+
+            {dashStats?.recentActivities && dashStats.recentActivities.length > 0 ? (
+              <div className="max-h-[172px] overflow-y-auto pr-1.5 space-y-2.5 text-xs text-text-secondary custom-scrollbar overscroll-contain">
+                {dashStats.recentActivities.map((act: any) => {
+                  const ActivityIcon =
+                    act.type === 'INTEREST_RECEIVED'
+                      ? Heart
+                      : act.type === 'INTEREST_ACCEPTED'
+                      ? Sparkles
+                      : act.type === 'PROFILE_VIEW'
+                      ? Eye
+                      : act.type === 'MESSAGE'
+                      ? MessageSquare
+                      : act.type === 'PAYMENT'
+                      ? Crown
+                      : act.type === 'VERIFICATION'
+                      ? ShieldCheck
+                      : Sparkles;
+
+                  const iconColor =
+                    act.type === 'INTEREST_RECEIVED'
+                      ? 'text-rose-500'
+                      : act.type === 'INTEREST_ACCEPTED'
+                      ? 'text-emerald-500'
+                      : act.type === 'PROFILE_VIEW'
+                      ? 'text-primary'
+                      : act.type === 'MESSAGE'
+                      ? 'text-cyan-600'
+                      : act.type === 'PAYMENT'
+                      ? 'text-amber-500'
+                      : act.type === 'VERIFICATION'
+                      ? 'text-emerald-600'
+                      : 'text-primary';
+
+                  const Content = (
+                    <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/60 hover:bg-slate-100/70 hover:border-slate-300 transition-colors group">
+                      <ActivityIcon className={`w-4 h-4 ${iconColor} mt-0.5 flex-shrink-0 ${act.type === 'INTEREST_RECEIVED' ? 'animate-pulse' : ''}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-text-primary font-semibold truncate group-hover:text-primary transition-colors">
+                          {act.title}
+                        </p>
+                        {act.description && (
+                          <p className="text-text-secondary text-[11px] truncate mt-0.5">
+                            {act.description}
+                          </p>
+                        )}
+                        <p className="text-text-muted text-[10px] mt-1 font-medium">
+                          {act.timeAgo || 'Recently'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+
+                  return act.link ? (
+                    <Link key={act.id} to={act.link} className="block">
+                      {Content}
+                    </Link>
+                  ) : (
+                    <div key={act.id}>{Content}</div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-text-muted">
+                <Activity className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                <p className="font-semibold text-slate-600 text-xs">No recent activity yet</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Explore matches to connect with prospective partners!</p>
+                <Link to="/search" className="btn btn-primary btn-xs mt-3 inline-flex items-center gap-1 font-bold">
+                  Search Matches
+                </Link>
+              </div>
+            )}
           </div>
 
         </div>

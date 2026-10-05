@@ -19,6 +19,9 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   body {
@@ -31,6 +34,21 @@
       radial-gradient(circle at 50% 50%, rgba(217, 119, 6, 0.03) 0%, transparent 70%);
     background-attachment: fixed;
     min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100vh;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  img, video {
+    max-width: 100%;
+    height: auto;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -62,14 +80,23 @@
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(230, 57, 86, 0.6);
   }
+
+  /* Hide scrollbar utility */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 @layer components {
   /* ---- Classic Elegant Buttons ---- */
   .btn {
-    @apply inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl font-medium 
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:px-6 sm:py-3 rounded-xl font-medium 
            transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 
-           focus:ring-offset-bg-dark disabled:opacity-50 disabled:cursor-not-allowed select-none text-sm tracking-wide;
+           focus:ring-offset-bg-dark disabled:opacity-50 disabled:cursor-not-allowed select-none text-xs sm:text-sm tracking-wide;
   }
 
   .btn-primary {
@@ -120,7 +147,7 @@
   }
 
   .stat-card {
-    @apply card p-5 flex items-center gap-4 hover:border-primary/30 transition-all duration-300 cursor-pointer;
+    @apply card p-3 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-4 hover:border-primary/30 transition-all duration-300 cursor-pointer min-w-0;
   }
 
   .stat-icon {
@@ -211,12 +238,17 @@
 
   /* ---- Classic Tabs ---- */
   .tab-bar {
-    @apply flex items-center p-1.5 bg-slate-100 border border-slate-200 rounded-2xl gap-1;
+    @apply flex items-center p-1.5 bg-slate-100 border border-slate-200 rounded-2xl gap-1 overflow-x-auto max-w-full;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar {
+    display: none;
   }
 
   .tab {
-    @apply flex-1 py-2.5 px-4 rounded-xl text-xs md:text-sm font-medium text-text-secondary 
-           transition-all duration-200 text-center cursor-pointer hover:text-text-primary;
+    @apply flex-1 whitespace-nowrap py-2 px-3 sm:py-2.5 sm:px-4 rounded-xl text-xs md:text-sm font-medium text-text-secondary 
+           transition-all duration-200 text-center cursor-pointer hover:text-text-primary flex-shrink-0;
   }
 
   .tab-active {
@@ -274,12 +306,7 @@
   .glass-card h3.text-white,
   .glass-card h4.text-white,
   .glass-card p.text-white,
-  .glass-card span.text-white,
-  main h1.text-white,
-  main h2.text-white,
-  main h3.text-white,
-  main h4.text-white,
-  header h1.text-white {
+  .glass-card span.text-white {
     color: #0F172A !important;
   }
 
@@ -365,3 +392,28 @@
   transform: translateY(-4px);
   box-shadow: 0 20px 35px -10px rgba(230, 57, 86, 0.25);
 }
+
+/* Custom sleek scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(203, 213, 225, 0.8) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(203, 213, 225, 0.8);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 1);
+}
+

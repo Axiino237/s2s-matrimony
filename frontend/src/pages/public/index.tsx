@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { adminApi } from '../../services/admin.service';
 import { paymentsApi } from '../../services/payments.service';
+import { contactApi } from '../../services/contact.service';
 import api from '../../services/api';
+import { useAuthStore } from '../../store/auth.store';
+import { useSettingsStore } from '../../store/settings.store';
 
 
 // Stub pages for public routes
@@ -126,6 +130,8 @@ export const SuccessStoriesPage = () => {
 
 export const MembershipPage = () => {
   const [dbPlans, setDbPlans] = useState<any[]>([]);
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     paymentsApi.getPlans().then((res) => {
@@ -138,9 +144,9 @@ export const MembershipPage = () => {
 
   const defaultPlans = [
     { name: 'Free', price: '₹0', features: ['5 Daily Interests', 'Basic Search', '5 Profile Views/day'] },
-    { name: 'Silver', price: '₹599', period: '/month', features: ['50 Interests/day', 'Advanced Search', '50 Contact Views'] },
+    { name: 'Silver', price: '₹599', period: '/month', features: ['50 Interests/day', '50 Contact Views', 'Direct Chat'] },
     { name: 'Elite', price: '₹999', period: '/3 months', features: ['Unlimited Interests', 'Chat Access', '100 Contact Views', 'Priority Listing'] },
-    { name: 'Platinum', price: '₹1,799', period: '/6 months', features: ['Everything in Elite', 'Unlimited Contacts', 'AI Match Score', 'Video Profile', 'Dedicated Manager'] },
+    { name: 'Platinum', price: '₹1,799', period: '/6 months', features: ['Everything in Elite', 'Unlimited Contacts', 'AI Match Score', 'Horoscope Report'] },
   ];
 
   const rawPlans = dbPlans.length > 0 ? dbPlans : defaultPlans;
@@ -167,13 +173,54 @@ export const MembershipPage = () => {
     return priceA - priceB;
   });
 
-  const plansToRender = sortedPlans.map((p) => ({
-    name: p.name === 'Diamond Plan' || p.name === 'Diamond' ? 'Elite Plan' : p.name,
-    price: `₹${parseFloat(String(p.price).replace(/[^\d.]/g, '') || '0')}`,
-    period: p.period || p.duration || (p.durationMonths ? `/${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : ''),
-    features: Array.isArray(p.features) ? p.features : typeof p.features === 'string' ? JSON.parse(p.features) : ['Unlimited Profile Access', 'Direct Chat'],
-    isPopular: p.isPopular || (p.tier === 'ELITE' && !sortedPlans.some((x: any) => x.isPopular && x.id !== p.id)),
-  }));
+  const forbiddenFeatures = [
+    'whatsapp connect',
+    'dedicated manager',
+    'dedicated match manager',
+    'dedicated relationship manager',
+    'video profile',
+    'video profile highlight',
+    'video highlight',
+    'advanced search',
+  ];
+
+  const plansToRender = sortedPlans.map((p) => {
+    const rawFeats: any[] = Array.isArray(p.features)
+      ? p.features
+      : typeof p.features === 'string'
+      ? JSON.parse(p.features)
+      : ['Unlimited Profile Access', 'Direct Chat'];
+
+    const filteredFeats = rawFeats.filter((f) => {
+      const text = (typeof f === 'string' ? f : f?.text || '').toLowerCase().trim();
+      return !forbiddenFeatures.some((k) => text.includes(k) || k.includes(text));
+    });
+
+    return {
+      id: p.id,
+      tier: p.tier,
+      name: p.name === 'Diamond Plan' || p.name === 'Diamond' ? 'Elite Plan' : p.name,
+      price: `₹${parseFloat(String(p.price).replace(/[^\d.]/g, '') || '0')}`,
+      period: p.period || p.duration || (p.durationMonths ? `/${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : ''),
+      features: filteredFeats,
+      isPopular: p.isPopular || (p.tier === 'ELITE' && !sortedPlans.some((x: any) => x.isPopular && x.id !== p.id)),
+    };
+  });
+
+  const handleSelectPlan = (plan: any) => {
+    if (isAuthenticated) {
+      navigate('/premium');
+    } else {
+      navigate('/register', {
+        state: {
+          selectedPlan: plan.name,
+          planId: plan.id,
+          tier: plan.tier,
+          from: { pathname: '/premium' },
+        },
+      });
+    }
+  };
 
   return (
     <div className="pt-20 min-h-screen flex justify-center w-full">
@@ -182,14 +229,15 @@ export const MembershipPage = () => {
           <h1 className="section-title mb-4">Membership <span className="text-gradient">Plans</span></h1>
           <p className="section-subtitle">Choose the plan that fits you</p>
         </div>
-        <div className="flex flex-wrap justify-center items-stretch gap-6 max-w-6xl mx-auto">
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${plansToRender.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-6 max-w-6xl mx-auto w-full`}>
           {plansToRender.map((plan: any, i: number) => {
             const isPopular = plan.isPopular || (plansToRender.length === 3 && i === 2) || (plansToRender.length === 4 && i === 2);
             return (
               <div
                 key={i}
-                className={`plan-card w-full sm:w-[280px] md:w-[300px] lg:w-[310px] max-w-[340px] flex-1 ${
-                  isPopular ? 'plan-card-popular border-2 border-primary/60 shadow-xl scale-[1.02] z-10' : ''
+                onClick={() => handleSelectPlan(plan)}
+                className={`plan-card w-full cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl ${
+                  isPopular ? 'plan-card-popular border-2 border-primary/60 shadow-xl lg:scale-[1.02] z-10' : ''
                 }`}
               >
                 {isPopular && (
@@ -215,13 +263,31 @@ export const MembershipPage = () => {
                       ))}
                     </ul>
                   </div>
-                  <button className={`btn w-full font-bold py-3 mt-4 ${isPopular ? 'btn-primary shadow-md' : 'btn-secondary'}`}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectPlan(plan);
+                    }}
+                    className={`btn w-full font-bold py-3 mt-4 ${isPopular ? 'btn-primary shadow-md' : 'btn-secondary'}`}
+                  >
                     Choose {plan.name}
                   </button>
                 </div>
               </div>
             );
           })}
+        </div>
+
+        <div className="mt-12 text-center text-sm text-text-secondary">
+          Already registered?{' '}
+          <Link
+            to="/login"
+            state={{ from: { pathname: '/premium' } }}
+            className="text-primary font-semibold hover:underline"
+          >
+            Log in to upgrade your membership
+          </Link>
         </div>
       </div>
     </div>
@@ -309,14 +375,15 @@ export const BlogListPage = () => {
   const postsToRender = useMemo(() => {
     return dbBlogs.length > 0 ? dbBlogs.map((b) => ({
       id: b.id,
+      slug: b.slug || b.id,
       title: b.title,
       category: b.category?.name || 'Matrimony Advice',
       readTime: '5 min read',
       date: b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently Published',
       author: 'S2S Editorial Team',
       image: b.coverImage || '/images/ceremony.png',
-      excerpt: b.content ? b.content.slice(0, 140) + '...' : b.title,
-    })) : defaultPosts;
+      excerpt: b.excerpt || (b.content ? b.content.slice(0, 140) + '...' : b.title),
+    })) : defaultPosts.map((p) => ({ ...p, slug: p.id }));
   }, [dbBlogs]);
 
   const categories = useMemo(() => {
@@ -449,7 +516,7 @@ export const BlogListPage = () => {
             {filteredPosts.map((post, idx) => (
               <Link
                 key={idx}
-                to={`/blog/${post.id || 'post-1'}`}
+                to={`/blog/${post.slug || post.id}`}
                 className="card bg-white rounded-3xl overflow-hidden border border-slate-200 hover:border-primary/40 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
               >
                 <div className="aspect-video relative overflow-hidden bg-slate-100">
@@ -488,53 +555,139 @@ export const BlogListPage = () => {
   );
 };
 
-export const BlogDetailPage = () => (
-  <div className="pt-24 pb-16 min-h-screen bg-slate-50">
-    <div className="container mx-auto px-4 md:px-8 max-w-3xl">
-      <Link to="/blog" className="text-primary text-xs font-bold mb-6 inline-flex items-center gap-1 hover:underline">
-        ← Back to Blog & Tips
-      </Link>
-      <div className="card bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-xl space-y-6">
-        <span className="bg-primary/10 text-primary-dark text-xs font-bold px-3 py-1 rounded-full inline-block">
-          Profile Advice
-        </span>
-        <h1 className="font-sans text-3xl sm:text-4xl font-black text-slate-900 leading-tight">
-          How to Write the Perfect Matrimony Profile
-        </h1>
-        <div className="flex items-center gap-4 text-xs text-text-muted border-b border-slate-100 pb-4">
-          <span>By Dr. Swaminathan</span> • <span>July 15, 2026</span> • <span>5 min read</span>
+export const BlogDetailPage = () => {
+  const { slug } = useParams<{ slug: string }>();
+  const [blog, setBlog] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!slug) return;
+    setLoading(true);
+    setError(null);
+    api.get(`/admin/public/blogs/${slug}`)
+      .then((res) => {
+        setBlog(res.data);
+      })
+      .catch((err) => {
+        setError(err.response?.status === 404 ? 'Blog article not found.' : 'Failed to load article.');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="pt-24 pb-16 min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-slate-500 text-sm font-medium">Loading article...</p>
         </div>
-        <div className="aspect-video rounded-2xl overflow-hidden shadow-md">
-          <img src="/images/couple_happy.png" alt="Couple" className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+
+  if (error || !blog) {
+    return (
+      <div className="pt-24 pb-16 min-h-screen bg-slate-50">
+        <div className="container mx-auto px-4 md:px-8 max-w-3xl text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm mt-8 space-y-4">
+          <div className="text-5xl">📄</div>
+          <h2 className="font-sans text-2xl font-bold text-slate-900">Article Not Found</h2>
+          <p className="text-slate-500 text-sm max-w-md mx-auto">
+            {error || 'The blog article you are looking for does not exist or may have been removed.'}
+          </p>
+          <Link to="/blog" className="btn btn-primary btn-sm font-bold mt-2 inline-flex items-center gap-2">
+            ← Back to Blog & Tips
+          </Link>
         </div>
-        <div className="text-slate-700 text-sm md:text-base leading-relaxed space-y-4 font-normal">
-          <p>
-            Creating an appealing matrimony profile is the very first step toward finding your ideal life partner. 
-            Families and candidates evaluate profiles based on clarity, authenticity, and shared cultural values.
-          </p>
-          <h2 className="text-xl font-bold text-slate-900 pt-2">1. Be Honest About Family Background & Career</h2>
-          <p>
-            Clearly mention your degree, current occupation, organization type, and native town. 
-            Genuine information builds trust immediately.
-          </p>
-          <h2 className="text-xl font-bold text-slate-900 pt-2">2. Upload Clear, Professional Photos</h2>
-          <p>
-            Profiles with high-quality photos receive up to 300% more expressed interests. 
-            Ensure you include at least one close-up and one full-length photograph.
-          </p>
+      </div>
+    );
+  }
+
+  const categoryName = blog.category?.name || 'Matrimony Advice';
+  const publishedDate = blog.publishedAt || blog.createdAt
+    ? new Date(blog.publishedAt || blog.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : 'Recently Published';
+
+  return (
+    <div className="pt-24 pb-16 min-h-screen bg-slate-50">
+      <div className="container mx-auto px-4 md:px-8 max-w-3xl">
+        <Link to="/blog" className="text-primary text-xs font-bold mb-6 inline-flex items-center gap-1 hover:underline">
+          ← Back to Blog & Tips
+        </Link>
+        <div className="card bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-xl space-y-6">
+          <span className="bg-primary/10 text-primary-dark text-xs font-bold px-3 py-1 rounded-full inline-block">
+            {categoryName}
+          </span>
+          <h1 className="font-sans text-3xl sm:text-4xl font-black text-slate-900 leading-tight">
+            {blog.title}
+          </h1>
+          <div className="flex items-center gap-4 text-xs text-text-muted border-b border-slate-100 pb-4">
+            <span>By S2S Editorial Team</span> • <span>{publishedDate}</span> • <span>5 min read</span>
+          </div>
+          {blog.coverImage && (
+            <div className="aspect-video rounded-2xl overflow-hidden shadow-md bg-slate-100">
+              <img src={blog.coverImage} alt={blog.title} className="w-full h-full object-cover" />
+            </div>
+          )}
+          {blog.excerpt && (
+            <p className="text-slate-600 text-base italic border-l-4 border-primary pl-4 py-1 font-medium bg-slate-50 rounded-r-xl">
+              {blog.excerpt}
+            </p>
+          )}
+          <div className="text-slate-700 text-sm md:text-base leading-relaxed space-y-4 font-normal whitespace-pre-line">
+            {blog.content}
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const ContactPage = () => {
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', message: '' });
+  const { contact, fetchSettings } = useSettingsStore();
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', subject: '', message: '' });
+  const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSent(true);
+    if (!formData.name.trim()) {
+      return toast.error('Please enter your name');
+    }
+    if (!formData.email.trim() || !formData.email.includes('@')) {
+      return toast.error('Please enter a valid email address');
+    }
+    if (!formData.message.trim()) {
+      return toast.error('Please describe your query or request');
+    }
+
+    setLoading(true);
+    try {
+      const res = await contactApi.sendMessage({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || undefined,
+        subject: formData.subject.trim() || undefined,
+        message: formData.message.trim(),
+      });
+      setSent(true);
+      toast.success(res?.message || 'Message delivered to S2S Support successfully!');
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.message ||
+        (Array.isArray(err?.response?.data?.message) ? err.response.data.message.join(', ') : null) ||
+        err?.message ||
+        'Failed to deliver message. Please try calling our helpline or try again.';
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -548,7 +701,8 @@ export const ContactPage = () => {
             Contact <span className="text-gradient">S2S Support</span>
           </h1>
           <p className="text-text-muted text-base max-w-lg mx-auto font-medium">
-            Have questions about membership plans, horoscope matching, or profile verification? Our team is available 24/7.
+            {contact.intro ||
+              'Have questions about membership plans, horoscope matching, or profile verification? Our team is available 24/7.'}
           </p>
         </div>
 
@@ -557,31 +711,62 @@ export const ContactPage = () => {
           <div className="md:col-span-5 space-y-6">
             <div className="card bg-white p-6 rounded-3xl border border-slate-200 shadow-md space-y-5">
               <h3 className="font-sans text-lg font-extrabold text-slate-900">Headquarters & Offices</h3>
-              
+
               <div className="space-y-4 text-xs">
-                <div>
-                  <p className="font-extrabold text-slate-900 text-sm">📍 Chennai HQ</p>
-                  <p className="text-text-muted leading-relaxed">No. 42, Usman Road, T.Nagar, Chennai - 600017</p>
-                </div>
-
-                <div>
-                  <p className="font-extrabold text-slate-900 text-sm">📍 Coimbatore Regional Office</p>
-                  <p className="text-text-muted leading-relaxed">104 DB Road, RS Puram, Coimbatore - 641002</p>
-                </div>
-
-                <div>
-                  <p className="font-extrabold text-slate-900 text-sm">📍 Madurai Regional Office</p>
-                  <p className="text-text-muted leading-relaxed">18 KK Nagar Main Road, Madurai - 625020</p>
-                </div>
+                {contact.offices.map((office, idx) => (
+                  <a
+                    key={idx}
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(office.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block group transition-colors"
+                    title={`Open ${office.title || 'Office'} in Google Maps`}
+                  >
+                    <p className="font-extrabold text-slate-900 text-sm group-hover:text-primary transition-colors flex items-center gap-1.5">
+                      <span className="group-hover:scale-110 transition-transform">📍</span> {office.title || 'Office Address'}
+                    </p>
+                    <p className="text-text-muted leading-relaxed group-hover:text-slate-800 transition-colors whitespace-pre-line">
+                      {office.address}
+                    </p>
+                  </a>
+                ))}
               </div>
 
               <div className="pt-4 border-t border-slate-100 space-y-2 text-xs">
-                <p className="flex items-center gap-2 text-slate-800 font-bold">
-                  <span>📞 Helpline:</span> <span className="text-primary font-extrabold">+91 98765 43210</span>
-                </p>
-                <p className="flex items-center gap-2 text-slate-800 font-bold">
-                  <span>✉️ Email:</span> <span className="text-secondary-dark font-bold">support@s2smatrimony.com</span>
-                </p>
+                <a
+                  href={`tel:${contact.phone.replace(/\s+/g, '')}`}
+                  className="flex items-center gap-2 text-slate-800 font-bold hover:text-primary transition-colors group"
+                  title="Call Helpline"
+                >
+                  <span>📞 Helpline:</span>
+                  <span className="text-primary font-extrabold group-hover:underline">{contact.phone}</span>
+                </a>
+                <a
+                  href={`mailto:${contact.email}`}
+                  className="flex items-center gap-2 text-slate-800 font-bold hover:text-primary transition-colors group"
+                  title="Send Email"
+                >
+                  <span>✉️ Email:</span>
+                  <span className="text-secondary-dark font-bold group-hover:underline">{contact.email}</span>
+                </a>
+                {contact.whatsapp && (
+                  <a
+                    href={`https://wa.me/${contact.whatsapp.replace(/[^0-9]/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-slate-800 font-bold hover:text-emerald-600 transition-colors group"
+                    title="Chat on WhatsApp"
+                  >
+                    <span>💬 WhatsApp:</span>
+                    <span className="text-emerald-600 font-bold group-hover:underline">{contact.whatsapp}</span>
+                  </a>
+                )}
+                {contact.officeHours && (
+                  <div className="flex items-center gap-2 text-slate-600 font-medium">
+                    <span>🕐 Hours:</span>
+                    <span>{contact.officeHours}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -596,9 +781,15 @@ export const ContactPage = () => {
                   </div>
                   <h3 className="font-sans text-2xl font-black text-slate-900">Message Sent Successfully!</h3>
                   <p className="text-text-muted text-sm max-w-sm mx-auto">
-                    Thank you for reaching out to S2S Matrimony. Our matchmaking executive will call or email you within 2 hours.
+                    Thank you for reaching out to S2S Matrimony. Your inquiry has been forwarded directly to our support inbox. Our team will get back to you shortly.
                   </p>
-                  <button onClick={() => setSent(false)} className="btn btn-primary btn-sm font-bold mt-2">
+                  <button
+                    onClick={() => {
+                      setSent(false);
+                      setFormData({ name: '', phone: '', email: '', subject: '', message: '' });
+                    }}
+                    className="btn btn-primary btn-sm font-bold mt-2"
+                  >
                     Send Another Message
                   </button>
                 </div>
@@ -608,7 +799,7 @@ export const ContactPage = () => {
                   
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Your Name</label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Your Name *</label>
                       <input
                         required
                         type="text"
@@ -621,7 +812,6 @@ export const ContactPage = () => {
                     <div>
                       <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Phone Number</label>
                       <input
-                        required
                         type="tel"
                         placeholder="+91 98765 43210"
                         value={formData.phone}
@@ -631,20 +821,32 @@ export const ContactPage = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email Address</label>
-                    <input
-                      required
-                      type="email"
-                      placeholder="your@email.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                    />
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email Address *</label>
+                      <input
+                        required
+                        type="email"
+                        placeholder="your@email.com"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Subject</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Plan inquiry, Profile help"
+                        value={formData.subject}
+                        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">How can we help?</label>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">How can we help? *</label>
                     <textarea
                       required
                       rows={4}
@@ -655,8 +857,19 @@ export const ContactPage = () => {
                     />
                   </div>
 
-                  <button type="submit" className="btn btn-primary w-full py-3 text-xs font-extrabold shadow-lg">
-                    Send Message
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="btn btn-primary w-full py-3 text-xs font-extrabold shadow-lg disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Sending Message...</span>
+                      </>
+                    ) : (
+                      'Send Message'
+                    )}
                   </button>
                 </form>
               )}
@@ -669,26 +882,7 @@ export const ContactPage = () => {
 };
 
 
-export const AboutPage = () => (
-  <div className="pt-20 min-h-screen">
-    <div className="container mx-auto px-4 md:px-8 py-16 max-w-4xl">
-      <h1 className="section-title mb-4">About <span className="text-gradient">S2S Matrimony</span></h1>
-      <p className="text-text-secondary text-lg leading-relaxed mb-6">
-        S2S Matrimony is a trusted community-based matrimony platform connecting thousands of families across India. 
-        Founded with the mission to make finding a life partner easier, safer, and community-specific, 
-        we serve 200+ communities with verified profiles and AI-powered matching.
-      </p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[['50K+', 'Members'], ['10K+', 'Marriages'], ['200+', 'Communities'], ['2019', 'Founded']].map(([num, label]) => (
-          <div key={label} className="card p-4 text-center">
-            <p className="text-gradient font-display font-bold text-2xl">{num}</p>
-            <p className="text-text-secondary text-sm">{label}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
+export { AboutPage } from './AboutPage';
 
 export const NotFoundPage = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -701,26 +895,40 @@ export const NotFoundPage = () => (
   </div>
 );
 
-export const UnauthorizedPage = () => (
-  <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-    <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center">
-      <div className="w-20 h-20 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">
-        🔒
-      </div>
-      <h1 className="font-display text-3xl font-bold text-slate-900 mb-3">Access Restricted</h1>
-      <p className="text-slate-600 text-sm mb-8 leading-relaxed">
-        You do not have sufficient role permissions to view this section. If you believe this is an error, please switch to an admin account or return to your dashboard.
-      </p>
-      <div className="flex flex-col sm:flex-row gap-3 justify-center">
-        <Link to="/" className="px-5 py-3 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors">
-          Home Page
-        </Link>
-        <Link to="/dashboard" className="px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 text-white text-sm font-semibold hover:opacity-95 shadow-md transition-all">
-          Go to Dashboard
-        </Link>
+export const UnauthorizedPage = () => {
+  const { isSuperAdmin, isAdmin } = useAuthStore();
+  const dashboardLink = isSuperAdmin()
+    ? '/super-admin/dashboard'
+    : isAdmin()
+    ? '/admin/dashboard'
+    : '/dashboard';
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+      <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center">
+        <div className="w-20 h-20 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">
+          🔒
+        </div>
+        <h1 className="font-display text-3xl font-bold text-slate-900 mb-3">Access Restricted</h1>
+        <p className="text-slate-600 text-sm mb-8 leading-relaxed">
+          You do not have sufficient role permissions to view this section. If you believe this is an error, please switch to an admin account or return to your dashboard.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Link to="/" className="px-5 py-3 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors">
+            Home Page
+          </Link>
+          <Link to={dashboardLink} className="px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 text-white text-sm font-semibold hover:opacity-95 shadow-md transition-all">
+            Go to Dashboard
+          </Link>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
+
+export { TermsPage } from './TermsPage';
+export { PrivacyPage } from './PrivacyPage';
+export { FaqPage } from './FaqPage';
+export { SitemapPage } from './SitemapPage';
 
 export default {};

@@ -42,16 +42,25 @@ export const AiBiodataModal = ({ isOpen, onClose, onApplyExtracted }: AiBiodataM
   const [parsing, setParsing] = useState(false);
   const [extractedData, setExtractedData] = useState<any>(null);
 
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+
   if (!isOpen) return null;
 
   const handleParse = async () => {
     if (activeTab === 'text' && !rawText.trim()) {
       return toast.error('Please paste or type biodata text first');
     }
+    if (activeTab === 'file' && !imageBase64 && !rawText.trim()) {
+      return toast.error('Please select a biodata file first');
+    }
 
     setParsing(true);
     try {
-      const data = await profilesApi.parseBiodata(rawText);
+      const data = await profilesApi.parseBiodata(
+        rawText,
+        imageBase64 || undefined
+      );
       setExtractedData(data);
       toast.success('✨ AI extracted all biodata fields successfully!');
     } catch {
@@ -65,13 +74,27 @@ export const AiBiodataModal = ({ isOpen, onClose, onApplyExtracted }: AiBiodataM
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      setRawText(content || file.name);
-      toast.success(`Loaded document: ${file.name}`);
-    };
-    reader.readAsText(file);
+    setSelectedFileName(file.name);
+    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        setImageBase64(base64);
+        setRawText('');
+        toast.success(`Loaded file: ${file.name}`);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setImageBase64(null);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string;
+        setRawText(content || file.name);
+        toast.success(`Loaded document: ${file.name}`);
+      };
+      reader.readAsText(file);
+    }
+    e.target.value = '';
   };
 
   const handleApply = () => {
@@ -160,9 +183,16 @@ export const AiBiodataModal = ({ isOpen, onClose, onApplyExtracted }: AiBiodataM
                 className="hidden"
                 id="biodata-file-input"
               />
-              <label htmlFor="biodata-file-input" className="btn btn-secondary btn-sm cursor-pointer inline-flex items-center gap-2">
-                Browse Files
-              </label>
+              {selectedFileName && (
+                <div className="text-xs text-primary font-semibold bg-primary/10 py-1.5 px-3 rounded-lg inline-block">
+                  Selected: {selectedFileName}
+                </div>
+              )}
+              <div>
+                <label htmlFor="biodata-file-input" className="btn btn-secondary btn-sm cursor-pointer inline-flex items-center gap-2">
+                  Browse Files
+                </label>
+              </div>
             </div>
           )}
 

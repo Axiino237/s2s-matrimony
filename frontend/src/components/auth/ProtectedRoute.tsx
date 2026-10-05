@@ -3,7 +3,7 @@ import { useAuthStore } from '../../store/auth.store';
 import type { Role } from '../../types';
 
 interface ProtectedRouteProps {
-  roles?: Role[];
+  roles?: (Role | string)[];
   permissions?: string[];
 }
 
@@ -15,7 +15,17 @@ const ProtectedRoute = ({ roles, permissions }: ProtectedRouteProps) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (roles && !hasAnyRole(...roles)) {
+  const userRole = (
+    user.role ||
+    user.roles?.[0] ||
+    (user as any).userRoles?.[0]?.role?.name ||
+    'MEMBER'
+  ).toString().toUpperCase();
+
+  const isStaff = !['MEMBER', 'GUEST'].includes(userRole);
+  const allowsAdmin = roles?.some((r) => ['ADMIN'].includes(r));
+
+  if (roles && !hasAnyRole(...(roles as Role[])) && !(allowsAdmin && isStaff)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

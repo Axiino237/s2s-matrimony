@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Save, ArrowLeft, Printer, Sparkles, CheckCircle2, Upload, FileText, KeyRound, Eye, EyeOff, ShieldCheck, RotateCcw, Share2, MessageCircle } from 'lucide-react';
+import { Save, ArrowLeft, Printer, Sparkles, CheckCircle2, Upload, FileText, KeyRound, Eye, EyeOff, ShieldCheck, RotateCcw, Share2, MessageCircle, Loader2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../services/api';
+import { profilesApi } from '../../../services/profiles.service';
 import { useAuthStore } from '../../../store/auth.store';
 import { useSettingsStore } from '../../../store/settings.store';
 import { STARS, RASIS, DOSHAMS, CASTE_SUBCASTES } from '../../../constants/index';
@@ -148,43 +149,57 @@ export default function BiodataEntryPage() {
       open: true,
       type,
       target: val,
-      generatedOtp: '123456',
+      generatedOtp: '',
       enteredOtp: '',
       sending: true,
     });
 
     try {
-      if (type === 'phone') {
-        await api.post('/auth/send-otp', { phone: val });
-      }
-    } catch (e) {
-      // fallback to demo OTP
+      const res = await profilesApi.sendVerificationOtp({
+        type,
+        value: val,
+        name: form.name || 'Member',
+      });
+      const devOtp = res.devOtp || '';
+      setOtpModal((prev) => ({
+        ...prev,
+        sending: false,
+        generatedOtp: devOtp,
+        enteredOtp: devOtp,
+      }));
+      toast.success(res.message || `OTP sent to ${val}!`);
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || 'Failed to send OTP code.';
+      setOtpModal((prev) => ({ ...prev, sending: false, generatedOtp: '123456', enteredOtp: '123456' }));
+      toast.error(errMsg);
     }
-
-    setOtpModal((prev) => ({ ...prev, sending: false }));
-    toast.success(`🔐 Verification OTP sent to ${val}! (Test OTP: 123456)`);
   };
 
-  const handleVerifyOtpSubmit = () => {
-    if (!otpModal.enteredOtp || otpModal.enteredOtp.trim().length < 4) {
+  const handleVerifyOtpSubmit = async () => {
+    if (!otpModal.enteredOtp || otpModal.enteredOtp.trim().length !== 6) {
       toast.error('Please enter the 6-digit OTP code!');
       return;
     }
 
-    if (otpModal.enteredOtp.trim() !== '123456' && otpModal.enteredOtp.trim() !== otpModal.generatedOtp) {
-      toast.error('Invalid OTP code! (Use demo OTP: 123456)');
-      return;
-    }
+    try {
+      await profilesApi.verifyContactOtp({
+        type: otpModal.type,
+        value: otpModal.target,
+        otp: otpModal.enteredOtp.trim(),
+      });
 
-    if (otpModal.type === 'phone') {
-      handleSet('isPhoneVerified', true);
-      toast.success('🎉 Mobile Number verified successfully via OTP!');
-    } else {
-      handleSet('isEmailVerified', true);
-      toast.success('🎉 Email Address verified successfully via OTP!');
-    }
+      if (otpModal.type === 'phone') {
+        handleSet('isPhoneVerified', true);
+        toast.success('🎉 Mobile Number verified successfully!');
+      } else {
+        handleSet('isEmailVerified', true);
+        toast.success('🎉 Email Address verified successfully!');
+      }
 
-    setOtpModal((prev) => ({ ...prev, open: false, enteredOtp: '' }));
+      setOtpModal((prev) => ({ ...prev, open: false, enteredOtp: '' }));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Invalid or expired OTP code!');
+    }
   };
 
   const handleClearForm = () => {
@@ -248,14 +263,14 @@ export default function BiodataEntryPage() {
           fatherJob: p.family?.fatherOccupation || '',
           motherName: p.family?.motherName || '',
           motherJob: p.family?.motherOccupation || '',
-          elderBrother: p.family?.elderBrothers !== undefined ? String(p.family.elderBrothers) : '0',
-          marriedElderBrother: p.family?.elderBrothersMarried !== undefined ? String(p.family.elderBrothersMarried) : '0',
-          youngerBrother: p.family?.youngerBrothers !== undefined ? String(p.family.youngerBrothers) : '0',
-          marriedYoungerBrother: p.family?.youngerBrothersMarried !== undefined ? String(p.family.youngerBrothersMarried) : '0',
-          elderSister: p.family?.elderSisters !== undefined ? String(p.family.elderSisters) : '0',
-          marriedElderSister: p.family?.elderSistersMarried !== undefined ? String(p.family.elderSistersMarried) : '0',
-          youngerSister: p.family?.youngerSisters !== undefined ? String(p.family.youngerSisters) : '0',
-          marriedYoungerSister: p.family?.youngerSistersMarried !== undefined ? String(p.family.youngerSistersMarried) : '0',
+          elderBrother: String(Math.max(0, Number(p.family?.elderBrothers ?? 0))),
+          marriedElderBrother: String(Math.max(0, Number(p.family?.elderBrothersMarried ?? 0))),
+          youngerBrother: String(Math.max(0, Number(p.family?.youngerBrothers ?? 0))),
+          marriedYoungerBrother: String(Math.max(0, Number(p.family?.youngerBrothersMarried ?? 0))),
+          elderSister: String(Math.max(0, Number(p.family?.elderSisters ?? 0))),
+          marriedElderSister: String(Math.max(0, Number(p.family?.elderSistersMarried ?? 0))),
+          youngerSister: String(Math.max(0, Number(p.family?.youngerSisters ?? 0))),
+          marriedYoungerSister: String(Math.max(0, Number(p.family?.youngerSistersMarried ?? 0))),
           resident: p.residentStatus || '',
           property: p.propertyDetails || '',
           residencePlace: p.city || '',
@@ -272,8 +287,8 @@ export default function BiodataEntryPage() {
           phone: p.user?.phone || p.phone || p.mobile || '',
           isEmailVerified: Boolean(p.user?.isEmailVerified ?? p.isEmailVerified ?? false),
           isPhoneVerified: Boolean(p.user?.isPhoneVerified ?? p.isPhoneVerified ?? false),
-          rasiChart: hData.rasiChart || {},
-          amsamChart: hData.amsamChart || {},
+          rasiChart: p.rasiChart || p.horoscope?.rasiChart || hData.rasiChart || {},
+          amsamChart: p.amsamChart || p.horoscope?.amsamChart || hData.amsamChart || (hData as any).navamsamChart || {},
         }));
       }
     } catch (err) {
@@ -286,6 +301,37 @@ export default function BiodataEntryPage() {
   const handleSet = (key: string, val: any) => {
     setForm((prev) => ({ ...prev, [key]: val }));
   };
+
+  const siblingErrors = useMemo(() => {
+    const eb = Number(form.elderBrother || 0);
+    const ebm = Number(form.marriedElderBrother || 0);
+    const yb = Number(form.youngerBrother || 0);
+    const ybm = Number(form.marriedYoungerBrother || 0);
+    const es = Number(form.elderSister || 0);
+    const esm = Number(form.marriedElderSister || 0);
+    const ys = Number(form.youngerSister || 0);
+    const ysm = Number(form.marriedYoungerSister || 0);
+
+    return {
+      marriedElderBrother: ebm > eb ? 'Married elder brothers cannot be greater than elder brothers.' : '',
+      marriedYoungerBrother: ybm > yb ? 'Married younger brothers cannot be greater than younger brothers.' : '',
+      marriedElderSister: esm > es ? 'Married elder sisters cannot be greater than elder sisters.' : '',
+      marriedYoungerSister: ysm > ys ? 'Married younger sisters cannot be greater than younger sisters.' : '',
+    };
+  }, [
+    form.elderBrother,
+    form.marriedElderBrother,
+    form.youngerBrother,
+    form.marriedYoungerBrother,
+    form.elderSister,
+    form.marriedElderSister,
+    form.youngerSister,
+    form.marriedYoungerSister,
+  ]);
+
+  const hasSiblingErrors = useMemo(() => {
+    return Object.values(siblingErrors).some(Boolean);
+  }, [siblingErrors]);
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -319,6 +365,12 @@ export default function BiodataEntryPage() {
 
     if (form.email.trim() && !form.isEmailVerified) {
       toast.error('⚠️ Email Address must be verified via OTP before saving details!');
+      return;
+    }
+
+    if (hasSiblingErrors) {
+      const firstError = Object.values(siblingErrors).find(Boolean);
+      toast.error(firstError || 'Please correct sibling count errors before saving.');
       return;
     }
 
@@ -378,6 +430,8 @@ export default function BiodataEntryPage() {
         timeOfBirth: form.birthTime || undefined,
         placeOfBirth: form.birthPlace || undefined,
         aboutPartner: form.expectation || undefined,
+        rasiChart: form.rasiChart,
+        amsamChart: form.amsamChart,
         horoscopeData: {
           rasiChart: form.rasiChart,
           amsamChart: form.amsamChart,
@@ -423,7 +477,7 @@ export default function BiodataEntryPage() {
   const togglePlanet = (chartType: 'rasiChart' | 'amsamChart', houseId: string, planetName: string) => {
     const currentChart = { ...form[chartType] };
     const currentHouseStr = currentChart[houseId] || '';
-    const currentList = currentHouseStr ? currentHouseStr.split(', ').filter(Boolean) : [];
+    const currentList = currentHouseStr ? currentHouseStr.split(/[, ]+/).filter(Boolean) : [];
 
     let updatedList: string[];
     const shortPlanet = planetName.split(' ')[0]; // e.g. "சூரி"
@@ -457,6 +511,16 @@ export default function BiodataEntryPage() {
           *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           html, body, .min-h-screen { margin: 0 !important; padding: 0 !important; background: white !important; height: auto !important; overflow: visible !important; }
           .no-print, nav, header, button { display: none !important; }
+          
+          /* Hide all input and textarea placeholders in print preview & printing */
+          input::placeholder,
+          textarea::placeholder,
+          ::placeholder {
+            color: transparent !important;
+            opacity: 0 !important;
+            -webkit-text-fill-color: transparent !important;
+          }
+
           .mb-6 { margin-bottom: 8px !important; }
           .mb-5 { margin-bottom: 6px !important; }
           .mb-4 { margin-bottom: 6px !important; }
@@ -476,22 +540,27 @@ export default function BiodataEntryPage() {
       `}</style>
       {/* Top Bar Actions (Only rendered for logged in Admin / Member routes, hidden on public /fill-biodata share link) */}
       {location.pathname !== '/fill-biodata' && (
-        <div className="no-print max-w-5xl mx-auto mb-5 flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div className="no-print max-w-5xl mx-auto mb-5 flex items-center justify-between gap-2 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 min-w-0">
           <button
             onClick={() => navigate('/profile/edit')}
-            className="flex items-center gap-2 text-slate-700 font-semibold hover:text-rose-600 transition"
+            aria-label="Back to Edit Profile"
+            title="Back to Edit Profile"
+            className="flex items-center gap-2 text-slate-700 font-semibold hover:text-rose-600 transition shrink-0"
           >
-            <ArrowLeft className="w-5 h-5" /> Back to Edit Profile
+            <ArrowLeft className="w-5 h-5 shrink-0" />
+            <span className="hidden sm:inline text-sm">Back to Edit Profile</span>
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             {isAdminRoute && (
               <>
                 <button
                   onClick={handleClearForm}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-sm font-semibold transition"
+                  aria-label="Clear / New Form"
+                  title="Clear / New Form"
+                  className="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl transition shadow-xs flex items-center justify-center shrink-0"
                 >
-                  <RotateCcw className="w-4 h-4" /> Clear / New Form
+                  <RotateCcw className="w-4 h-4 shrink-0" />
                 </button>
 
                 <button
@@ -500,51 +569,59 @@ export default function BiodataEntryPage() {
                     navigator.clipboard.writeText(link);
                     toast.success('📋 Form link copied to clipboard!\nShare with client: ' + link);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-sm font-semibold transition"
+                  aria-label="Share Form Link"
+                  title="Share Form Link"
+                  className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl transition shadow-xs flex items-center justify-center shrink-0"
                 >
-                  <Share2 className="w-4 h-4 text-emerald-600" /> Share Form Link
+                  <Share2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 </button>
 
                 <a
                   href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Vanakkam! Please fill out your Matrimony Biodata entry form using this link:\n${window.location.origin}/fill-biodata`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold transition shadow-sm"
+                  aria-label="Send via WhatsApp"
+                  title="Send via WhatsApp"
+                  className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition shadow-xs flex items-center justify-center shrink-0"
                 >
-                  <MessageCircle className="w-4 h-4" /> Send via WhatsApp
+                  <MessageCircle className="w-4 h-4 shrink-0" />
                 </a>
               </>
             )}
 
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-semibold transition"
+              aria-label="Print / PDF"
+              title="Print / PDF"
+              className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl transition shadow-xs flex items-center justify-center shrink-0"
             >
-              <Printer className="w-4 h-4" /> Print / PDF
+              <Printer className="w-4 h-4 shrink-0" />
             </button>
 
             <button
               onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-bold rounded-lg shadow-md transition disabled:opacity-50"
+              disabled={saving || hasSiblingErrors}
+              aria-label={saving ? 'Saving to Profile Table...' : 'Save to Profile Table'}
+              title={hasSiblingErrors ? 'Please fix sibling count errors' : (saving ? 'Saving to Profile Table...' : 'Save to Profile Table')}
+              className="p-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-bold rounded-xl shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shrink-0"
             >
-              <Save className="w-4 h-4" /> {saving ? 'Saving to DB...' : 'Save to Profile Table'}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Save className="w-4 h-4 shrink-0" />}
             </button>
           </div>
         </div>
       )}
 
       {/* Traditional Biodata Form Sheet (Danam Standard Styling) */}
-      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-2xl border-4 border-rose-950 p-4 sm:p-8 font-sans print:shadow-none print:border-2 relative overflow-hidden">
+      <div className="max-w-5xl mx-auto bg-white rounded-xl shadow-2xl border-2 sm:border-4 border-rose-950 p-3 sm:p-8 font-sans print:shadow-none print:border-2 relative overflow-hidden">
         {/* Background Watermark Logo */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.08] z-0 overflow-hidden">
-          <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Watermark" className="w-[540px] h-[540px] object-contain select-none" />
+          <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Watermark" className="w-[300px] sm:w-[540px] h-[300px] sm:h-[540px] object-contain select-none" />
         </div>
 
         {/* Document Border Frame Header */}
         <div className="text-center border-b-2 border-rose-900 pb-4 mb-6 relative z-10">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="text-left space-y-1">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+            <div className="flex flex-col sm:items-start items-center space-y-1">
               <div className="bg-rose-900 text-white px-2.5 py-0.5 text-xs font-black rounded inline-block shadow-sm">
                 Regn No. - <span className="text-amber-300 font-extrabold">{form.memberId || `S2S${String(Math.floor(100000 + Math.random() * 900000))}`}</span>
               </div>
@@ -555,19 +632,19 @@ export default function BiodataEntryPage() {
 
             <div className="text-center flex flex-col items-center">
               <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-12 h-12 object-contain mb-1 rounded-full shadow-sm border border-amber-300 relative z-10" />
-              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-rose-900 uppercase">
+              <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight text-rose-900 uppercase">
                 S2S MATRIMONY
               </h1>
-              <p className="text-xs text-amber-800 font-semibold tracking-widest uppercase">Traditional Single Page Biodata Form</p>
+              <p className="text-[10px] sm:text-xs text-amber-800 font-semibold tracking-widest uppercase">Traditional Single Page Biodata Form</p>
             </div>
 
-            <div className="text-right">
-              <span className="text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1 rounded">
+            <div className="text-center sm:text-right">
+              <span className="text-xs font-semibold bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1 rounded inline-block">
                 BRANCH - {form.branch || 'Chennai'}
               </span>
               <input
                 type="text"
-                className="mt-1 block text-right text-xs border-b border-slate-300 focus:outline-none w-28 ml-auto"
+                className="mt-1 block text-center sm:text-right text-xs border-b border-slate-300 focus:outline-none w-28 mx-auto sm:ml-auto"
                 value={form.branch}
                 onChange={(e) => handleSet('branch', e.target.value)}
                 placeholder="Branch Name"
@@ -576,11 +653,11 @@ export default function BiodataEntryPage() {
           </div>
 
           {/* Full Name Banner */}
-          <div className="mt-4 pt-3 border-t border-rose-100 flex items-center justify-center gap-3">
+          <div className="mt-4 pt-3 border-t border-rose-100 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
             <label className="text-sm font-bold text-rose-950">NAME:</label>
             <input
               type="text"
-              className="text-lg sm:text-xl font-extrabold text-rose-950 uppercase border-b-2 border-rose-700 focus:outline-none w-full sm:w-96 text-center"
+              className="text-base sm:text-xl font-extrabold text-rose-950 uppercase border-b-2 border-rose-700 focus:outline-none w-full sm:w-96 text-center"
               value={form.name}
               onChange={(e) => handleSet('name', e.target.value)}
               placeholder="e.g. S.SHREE NIVEDITA"
@@ -642,7 +719,7 @@ export default function BiodataEntryPage() {
             <div>
               <span className="font-bold text-rose-900 block">Marital Status: </span>
               <select
-                className="font-bold text-slate-800 border-b border-rose-300 bg-transparent focus:outline-none w-full py-0.5"
+                className={`font-bold text-slate-800 border-b border-rose-300 bg-transparent focus:outline-none w-full py-0.5 ${!form.maritalStatus ? 'print:text-transparent' : ''}`}
                 value={form.maritalStatus}
                 onChange={(e) => handleSet('maritalStatus', e.target.value)}
               >
@@ -662,9 +739,25 @@ export default function BiodataEntryPage() {
             PERSONAL DETAILS
           </h2>
 
-          <div className="grid grid-cols-3 gap-4 border-2 border-rose-900 border-t-0 p-4 rounded-b-md">
-            {/* Left 2 Columns: Inputs */}
-            <div className="col-span-2 grid grid-cols-2 gap-3 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 gap-4 border-2 border-rose-900 border-t-0 p-3 sm:p-4 rounded-b-md">
+            {/* Mobile: Photo at Top / Desktop & Print: Right Column */}
+            <div className="order-first md:order-last print:order-last col-span-1 flex flex-col items-center justify-center border-2 border-dashed border-rose-300 print:border-solid print:border-rose-900 bg-rose-50/40 print:bg-transparent p-4 rounded-lg min-h-[180px] sm:min-h-[220px]">
+              <div className="w-28 h-36 bg-slate-100 rounded border-2 border-rose-900 overflow-hidden shadow-sm relative flex items-center justify-center">
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Profile Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-bold text-center px-1 no-print">No Photo Uploaded</span>
+                )}
+              </div>
+
+              <label className="no-print mt-2 cursor-pointer bg-rose-900 hover:bg-rose-950 text-white text-[11px] font-bold py-1 px-2.5 rounded shadow-sm transition flex items-center gap-1">
+                <Upload className="w-3 h-3" /> Upload Photo
+                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+              </label>
+            </div>
+
+            {/* Inputs: 1 column on mobile, 2 columns on tablet/desktop */}
+            <div className="order-last md:order-first print:order-first col-span-1 md:col-span-2 print:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="border-b border-slate-200 pb-1">
                 <span className="font-bold text-slate-700">Date of Birth: </span>
                 <input
@@ -722,7 +815,7 @@ export default function BiodataEntryPage() {
               <div className="border-b border-slate-200 pb-1">
                 <span className="font-bold text-slate-700">Diet: </span>
                 <select
-                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1"
+                  className={`font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1 ${!form.diet ? 'print:text-transparent' : ''}`}
                   value={form.diet}
                   onChange={(e) => handleSet('diet', e.target.value)}
                 >
@@ -823,22 +916,6 @@ export default function BiodataEntryPage() {
                 />
               </div>
             </div>
-
-            {/* Right Column: Traditional Full-Height Photo Box (Matching UI & PDF) */}
-            <div className="col-span-1 flex flex-col items-center justify-center border-2 border-dashed border-rose-300 bg-rose-50/40 p-4 rounded-lg h-full min-h-[220px]">
-              <div className="w-28 h-36 bg-slate-100 rounded border-2 border-rose-900 overflow-hidden shadow-sm relative flex items-center justify-center">
-                {photoPreview ? (
-                  <img src={photoPreview} alt="Profile Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-[10px] text-slate-400 font-bold text-center px-1">No Photo Uploaded</span>
-                )}
-              </div>
-
-              <label className="mt-2 cursor-pointer bg-rose-900 hover:bg-rose-950 text-white text-[11px] font-bold py-1 px-2.5 rounded shadow-sm transition flex items-center gap-1">
-                <Upload className="w-3 h-3" /> Upload Photo
-                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
-              </label>
-            </div>
           </div>
         </div>
 
@@ -904,15 +981,23 @@ export default function BiodataEntryPage() {
               />
             </div>
 
-            <div className="border-b border-slate-200 pb-1">
+            <div className={`border-b pb-1 ${siblingErrors.marriedElderBrother ? 'border-red-400 bg-red-50/50 p-1.5 rounded' : 'border-slate-200'}`}>
               <span className="font-bold text-slate-700">No. of Married Elder Brother: </span>
               <input
                 type="number"
                 min="0"
-                className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 w-12 ml-1"
+                className={`font-semibold text-slate-900 focus:outline-none border-b w-12 ml-1 ${
+                  siblingErrors.marriedElderBrother ? 'border-red-500 text-red-700 bg-white' : 'border-slate-300'
+                }`}
                 value={form.marriedElderBrother}
                 onChange={(e) => handleSet('marriedElderBrother', e.target.value)}
               />
+              {siblingErrors.marriedElderBrother && (
+                <p className="text-[11px] font-semibold text-red-600 mt-1 flex items-center gap-1 leading-snug">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-600" />
+                  <span>{siblingErrors.marriedElderBrother}</span>
+                </p>
+              )}
             </div>
 
             <div className="border-b border-slate-200 pb-1">
@@ -926,15 +1011,23 @@ export default function BiodataEntryPage() {
               />
             </div>
 
-            <div className="border-b border-slate-200 pb-1">
+            <div className={`border-b pb-1 ${siblingErrors.marriedYoungerBrother ? 'border-red-400 bg-red-50/50 p-1.5 rounded' : 'border-slate-200'}`}>
               <span className="font-bold text-slate-700">No. of Married Younger Brother: </span>
               <input
                 type="number"
                 min="0"
-                className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 w-12 ml-1"
+                className={`font-semibold text-slate-900 focus:outline-none border-b w-12 ml-1 ${
+                  siblingErrors.marriedYoungerBrother ? 'border-red-500 text-red-700 bg-white' : 'border-slate-300'
+                }`}
                 value={form.marriedYoungerBrother}
                 onChange={(e) => handleSet('marriedYoungerBrother', e.target.value)}
               />
+              {siblingErrors.marriedYoungerBrother && (
+                <p className="text-[11px] font-semibold text-red-600 mt-1 flex items-center gap-1 leading-snug">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-600" />
+                  <span>{siblingErrors.marriedYoungerBrother}</span>
+                </p>
+              )}
             </div>
 
             <div className="border-b border-slate-200 pb-1">
@@ -948,15 +1041,23 @@ export default function BiodataEntryPage() {
               />
             </div>
 
-            <div className="border-b border-slate-200 pb-1">
+            <div className={`border-b pb-1 ${siblingErrors.marriedElderSister ? 'border-red-400 bg-red-50/50 p-1.5 rounded' : 'border-slate-200'}`}>
               <span className="font-bold text-slate-700">No. of Married Elder Sister: </span>
               <input
                 type="number"
                 min="0"
-                className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 w-12 ml-1"
+                className={`font-semibold text-slate-900 focus:outline-none border-b w-12 ml-1 ${
+                  siblingErrors.marriedElderSister ? 'border-red-500 text-red-700 bg-white' : 'border-slate-300'
+                }`}
                 value={form.marriedElderSister}
                 onChange={(e) => handleSet('marriedElderSister', e.target.value)}
               />
+              {siblingErrors.marriedElderSister && (
+                <p className="text-[11px] font-semibold text-red-600 mt-1 flex items-center gap-1 leading-snug">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-600" />
+                  <span>{siblingErrors.marriedElderSister}</span>
+                </p>
+              )}
             </div>
 
             <div className="border-b border-slate-200 pb-1">
@@ -970,21 +1071,29 @@ export default function BiodataEntryPage() {
               />
             </div>
 
-            <div className="border-b border-slate-200 pb-1">
+            <div className={`border-b pb-1 ${siblingErrors.marriedYoungerSister ? 'border-red-400 bg-red-50/50 p-1.5 rounded' : 'border-slate-200'}`}>
               <span className="font-bold text-slate-700">No. of Married Younger Sister: </span>
               <input
                 type="number"
                 min="0"
-                className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 w-12 ml-1"
+                className={`font-semibold text-slate-900 focus:outline-none border-b w-12 ml-1 ${
+                  siblingErrors.marriedYoungerSister ? 'border-red-500 text-red-700 bg-white' : 'border-slate-300'
+                }`}
                 value={form.marriedYoungerSister}
                 onChange={(e) => handleSet('marriedYoungerSister', e.target.value)}
               />
+              {siblingErrors.marriedYoungerSister && (
+                <p className="text-[11px] font-semibold text-red-600 mt-1 flex items-center gap-1 leading-snug">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-600" />
+                  <span>{siblingErrors.marriedYoungerSister}</span>
+                </p>
+              )}
             </div>
           </div>
         </div>
 
         {/* Section 3: Financial & Ancestral & Horoscope Details */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-4 mb-4">
           {/* Left: Financial & Ancestral */}
           <div>
             <h2 className="bg-rose-900 text-white font-bold text-xs sm:text-sm tracking-wider uppercase px-3 py-1.5 rounded-t-md">
@@ -995,10 +1104,11 @@ export default function BiodataEntryPage() {
               <div>
                 <span className="font-bold text-slate-700">Resident: </span>
                 <select
-                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1 bg-transparent"
+                  className={`font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1 bg-transparent ${!form.resident ? 'print:text-transparent' : ''}`}
                   value={form.resident}
                   onChange={(e) => handleSet('resident', e.target.value)}
                 >
+                  <option value="">Select Resident</option>
                   <option value="Own House">Own House</option>
                   <option value="Rent House">Rent House</option>
                   <option value="Lease">Lease</option>
@@ -1084,10 +1194,11 @@ export default function BiodataEntryPage() {
               <div>
                 <span className="font-bold text-slate-700">Natchathiram Padham: </span>
                 <select
-                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1 bg-transparent"
+                  className={`font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1 bg-transparent ${!form.natchathiramPadham ? 'print:text-transparent' : ''}`}
                   value={form.natchathiramPadham}
                   onChange={(e) => handleSet('natchathiramPadham', e.target.value)}
                 >
+                  <option value="">Select Padham</option>
                   <option value="1">1</option>
                   <option value="2">2</option>
                   <option value="3">3</option>
@@ -1117,15 +1228,21 @@ export default function BiodataEntryPage() {
                 />
               </div>
 
-              <div>
-                <span className="font-bold text-slate-700">Dosham: </span>
-                <input
-                  type="text"
-                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1"
+              <div className="flex items-center">
+                <span className="font-bold text-slate-700 mr-1 flex-shrink-0">Dosham: </span>
+                <select
+                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1 bg-transparent py-0.5 text-xs flex-1"
                   value={form.dosham}
                   onChange={(e) => handleSet('dosham', e.target.value)}
-                  placeholder="Clean / Chevvai"
-                />
+                >
+                  <option value="">-- Select Dosham --</option>
+                  {DOSHAMS.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                  {form.dosham && !DOSHAMS.includes(form.dosham) && (
+                    <option value={form.dosham}>{form.dosham} (Custom)</option>
+                  )}
+                </select>
               </div>
 
               <div>
@@ -1142,13 +1259,13 @@ export default function BiodataEntryPage() {
           </div>
         </div>
 
-        {/* Section 4: Interactive 12-Box Rasi & Navamsam Grid Charts (Forced 2 columns side by side) */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Section 4: Interactive 12-Box Rasi & Navamsam Grid Charts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-4 mb-4">
           {/* RASI CHART */}
           <div className="border-2 border-rose-900 rounded-lg overflow-hidden">
             <div className="bg-rose-900 text-white font-bold text-xs uppercase px-3 py-1.5 flex items-center justify-between">
               <span>RASI CHART (ராசி கட்டம்)</span>
-              <span className="text-[10px] text-amber-200">Click box to add/remove planets</span>
+              <span className="text-[10px] text-amber-200 no-print">Click box to add/remove planets</span>
             </div>
 
             <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 aspect-square text-[10px]">
@@ -1165,11 +1282,11 @@ export default function BiodataEntryPage() {
                     </div>
 
                     <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[10px]">
-                      {planetsStr || <span className="text-slate-300 text-[8px] font-normal">+ add</span>}
+                      {planetsStr || <span className="text-slate-300 text-[8px] font-normal no-print">+ add</span>}
                     </div>
 
                     {/* Quick Planet Selector Buttons */}
-                    <div className="flex flex-wrap gap-0.5 justify-center mt-1">
+                    <div className="flex flex-wrap gap-0.5 justify-center mt-1 no-print">
                       {PLANETS.map((p) => {
                         const short = p.split(' ')[0];
                         const active = (planetsStr || '').includes(short);
@@ -1204,7 +1321,7 @@ export default function BiodataEntryPage() {
           <div className="border-2 border-rose-900 rounded-lg overflow-hidden">
             <div className="bg-rose-900 text-white font-bold text-xs uppercase px-3 py-1.5 flex items-center justify-between">
               <span>NAVAMSAM CHART (அம்ச கட்டம்)</span>
-              <span className="text-[10px] text-amber-200">Click box to add/remove planets</span>
+              <span className="text-[10px] text-amber-200 no-print">Click box to add/remove planets</span>
             </div>
 
             <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 aspect-square text-[10px]">
@@ -1221,11 +1338,11 @@ export default function BiodataEntryPage() {
                     </div>
 
                     <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[10px]">
-                      {planetsStr || <span className="text-slate-300 text-[8px] font-normal">+ add</span>}
+                      {planetsStr || <span className="text-slate-300 text-[8px] font-normal no-print">+ add</span>}
                     </div>
 
                     {/* Quick Planet Selector Buttons */}
-                    <div className="flex flex-wrap gap-0.5 justify-center mt-1">
+                    <div className="flex flex-wrap gap-0.5 justify-center mt-1 no-print">
                       {PLANETS.map((p) => {
                         const short = p.split(' ')[0];
                         const active = (planetsStr || '').includes(short);
@@ -1372,17 +1489,18 @@ export default function BiodataEntryPage() {
         </div>
 
         {/* Bottom Save Action Footer (Hidden on Print) */}
-        <div className="no-print mt-8 pt-4 border-t-2 border-rose-900 flex items-center justify-between">
-          <p className="text-xs text-slate-500 font-medium">
+        <div className="no-print mt-8 pt-4 border-t-2 border-rose-900 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-slate-500 font-medium text-center sm:text-left">
             * All data entered here is automatically synced to your main S2S Matrimony profile database record.
           </p>
 
           <button
             onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-rose-700 to-amber-700 hover:from-rose-800 hover:to-amber-800 text-white font-extrabold text-sm rounded-lg shadow-lg transition disabled:opacity-50"
+            disabled={saving || hasSiblingErrors}
+            aria-label="Save All Details To Profile Table"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-rose-700 to-amber-700 hover:from-rose-800 hover:to-amber-800 text-white font-extrabold text-sm rounded-lg shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
           >
-            <Save className="w-4 h-4" /> {saving ? 'Saving Profile...' : 'Save All Details To Profile Table'}
+            <Save className="w-4 h-4 shrink-0" /> {saving ? 'Saving Profile...' : 'Save All Details To Profile Table'}
           </button>
         </div>
       </div>
@@ -1415,11 +1533,6 @@ export default function BiodataEntryPage() {
               We have sent a 6-digit OTP code to <strong className="text-rose-900 font-bold">{otpModal.target}</strong>. Please enter the code below to verify.
             </p>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-900 flex items-center justify-between font-medium">
-              <span>💡 Demo Testing OTP:</span>
-              <span className="bg-amber-200 text-amber-950 px-2.5 py-0.5 rounded-md font-mono font-extrabold tracking-wider">123456</span>
-            </div>
-
             <div className="mb-5">
               <label className="block text-xs font-bold text-slate-700 mb-1">Enter 6-Digit OTP Code:</label>
               <input
@@ -1449,6 +1562,18 @@ export default function BiodataEntryPage() {
                 ✓ Verify OTP Code
               </button>
             </div>
+
+            {/* Development OTP display directly below button */}
+            {import.meta.env.DEV && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-center shadow-xs">
+                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-0.5">
+                  Development OTP
+                </p>
+                <p className="text-lg font-mono font-black text-rose-600 tracking-widest">
+                  {otpModal.generatedOtp || '123456'}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

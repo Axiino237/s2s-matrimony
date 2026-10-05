@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RequirePermissions } from '../common/decorators/rbac.decorator';
+import { Permission } from '../common/enums/rbac.enum';
 import { MessagesService } from './messages.service';
 import { MessagesGateway } from './messages.gateway';
 
@@ -8,6 +10,7 @@ import { MessagesGateway } from './messages.gateway';
 @Controller('messages')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
+@RequirePermissions(Permission.MEMBER_MESSAGES)
 export class MessagesController {
   constructor(
     private readonly messagesService: MessagesService,

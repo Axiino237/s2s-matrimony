@@ -54,7 +54,6 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
       items: [
         { icon: Crown, label: 'Membership Plans', href: '/super-admin/plans' },
         { icon: CreditCard, label: 'Payments', href: '/super-admin/payments' },
-        { icon: DollarSign, label: 'Banners', href: '/super-admin/banners' },
       ],
     },
     {
@@ -115,7 +114,7 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
   };
 
   return (
-    <aside className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-slate-200 z-40
+    <aside className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-slate-200 z-50
       transition-transform duration-300 flex flex-col shadow-xl
       ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
     >
@@ -214,7 +213,6 @@ const SuperAdminLayout = () => {
       '/super-admin/profiles': 'Profile Moderation',
       '/super-admin/plans': 'Membership Plans',
       '/super-admin/payments': 'Payments',
-      '/super-admin/banners': 'Banners & Promotions',
       '/super-admin/blogs': 'Blogs & CMS',
       '/super-admin/success-stories': 'Success Stories',
       '/super-admin/ai-biodata': 'AI Biodata Engine',
@@ -228,16 +226,16 @@ const SuperAdminLayout = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-100">
+    <div className="min-h-screen flex bg-slate-100 w-full max-w-full">
       <SuperAdminSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/60 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
-        {/* Topbar */}
-        <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-xl border-b border-slate-200 h-16 flex items-center px-4 md:px-6 gap-4 shadow-sm">
+      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0 max-w-full">
+        {/* Fixed Topbar */}
+        <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-200 h-16 flex items-center px-4 md:px-6 gap-4 shadow-sm">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="lg:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
@@ -259,7 +257,10 @@ const SuperAdminLayout = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-6 lg:p-8">
+        {/* Header spacer to prevent page content from hiding under fixed header */}
+        <div className="h-16 flex-shrink-0" aria-hidden="true" />
+
+        <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 min-w-0 max-w-full">
           <Outlet />
         </main>
       </div>

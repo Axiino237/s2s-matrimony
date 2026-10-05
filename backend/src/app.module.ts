@@ -11,7 +11,9 @@ import { AdminModule } from './admin/admin.module';
 import { CommunitiesModule } from './communities/communities.module';
 import { MessagesModule } from './messages/messages.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { MailModule } from './mail/mail.module';
 import { SuperAdminModule } from './super-admin/super-admin.module';
+import { EntitlementsModule } from './common/entitlements.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -25,6 +27,8 @@ import { AppService } from './app.service';
       envFilePath: '.env',
     }),
     PrismaModule,
+    EntitlementsModule,
+    MailModule,
     AuthModule,
     ProfilesModule,
     SearchModule,

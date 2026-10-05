@@ -6,6 +6,7 @@ import {
   TrendingUp, Activity, UserX, Download,
 } from 'lucide-react';
 import { adminApi } from '../../services/admin.service';
+import { exportToCSV, getExportTimestamp } from '../../utils/export.utils';
 
 const PAGE_SIZE = 10;
 
@@ -52,6 +53,7 @@ const SuperAdminUsers = () => {
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [viewUser, setViewUser] = useState<UserRecord | null>(null);
 
   const fetchUsers = useCallback(async (pg = 1, q = '') => {
@@ -118,7 +120,7 @@ const SuperAdminUsers = () => {
   const activeCount  = users.filter((u) => u.isActive).length;
   const bannedCount  = users.filter((u) => !u.isActive).length;
   const memberCount  = users.filter((u) => getUserRole(u) === 'MEMBER').length;
-  const adminCount   = users.filter((u) => ['ADMIN', 'SUPER_ADMIN', 'MODERATOR'].includes(getUserRole(u))).length;
+  const adminCount   = users.filter((u) => ['ADMIN', 'SUPER_ADMIN'].includes(getUserRole(u))).length;
 
   const statCards = [
     { label: 'Total Users',   value: totalUsers,   icon: Users,    color: 'from-primary to-primary-dark', bg: 'bg-primary-50', text: 'text-primary-dark' },
@@ -127,6 +129,53 @@ const SuperAdminUsers = () => {
     { label: 'Members',       value: memberCount,  icon: User,     color: 'from-secondary-light to-secondary', bg: 'bg-teal-50', text: 'text-teal-700' },
     { label: 'Staff/Admins',  value: adminCount,   icon: Shield,   color: 'from-gold to-gold-dark', bg: 'bg-gold-50', text: 'text-gold-dark' },
   ];
+
+  const handleExportUsers = () => {
+    if (!users || users.length === 0) {
+      toast.error('No users available to export');
+      return;
+    }
+    setExporting(true);
+    try {
+      const dataToExport = filtered.length > 0 ? filtered : users;
+      const formatted = dataToExport.map((u) => ({
+        id: u.id,
+        name: u.profile?.firstName ? `${u.profile.firstName} ${u.profile.lastName || ''}`.trim() : 'N/A',
+        email: u.email,
+        phone: u.phone,
+        role: getUserRole(u),
+        gender: u.profile?.gender || 'N/A',
+        community: (u.profile?.community as any)?.name || 'N/A',
+        status: u.isActive ? 'ACTIVE' : 'SUSPENDED',
+        verification: u.profile?.verificationStatus || 'PENDING',
+        completion: `${u.profile?.profileCompletionPercent || 0}%`,
+        createdAt: new Date(u.createdAt).toLocaleDateString('en-IN'),
+      }));
+
+      const headers = {
+        id: 'User ID',
+        name: 'Full Name',
+        email: 'Email',
+        phone: 'Phone',
+        role: 'Role',
+        gender: 'Gender',
+        community: 'Community',
+        status: 'Account Status',
+        verification: 'Verification Status',
+        completion: 'Profile Completion',
+        createdAt: 'Registration Date',
+      };
+
+      const dateStamp = getExportTimestamp();
+      exportToCSV(formatted, `s2s_users_${dateStamp}`, headers);
+      toast.success(`Exported ${formatted.length} users to CSV!`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to export users');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -148,8 +197,13 @@ const SuperAdminUsers = () => {
           >
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
-          <button className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 transition-colors">
-            <Download className="w-4 h-4" /> Export CSV
+          <button
+            onClick={handleExportUsers}
+            disabled={exporting}
+            className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Download className="w-4 h-4" />}
+            Export CSV
           </button>
         </div>
       </div>
@@ -187,8 +241,6 @@ const SuperAdminUsers = () => {
           <option value="All">All Roles</option>
           <option value="SUPER_ADMIN">Super Admin</option>
           <option value="ADMIN">Admin</option>
-          <option value="MODERATOR">Moderator</option>
-          <option value="SUPPORT_AGENT">Support Agent</option>
           <option value="MEMBER">Member</option>
         </select>
         <select

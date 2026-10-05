@@ -17,6 +17,8 @@ interface AuthStore {
   logout: () => Promise<void>;
   fetchMe: () => Promise<void>;
 
+  updateEntitlements: (entitlements: any) => void;
+
   // Helpers
   hasRole: (role: Role) => boolean;
   hasAnyRole: (...roles: Role[]) => boolean;
@@ -24,6 +26,7 @@ interface AuthStore {
   isAdmin: () => boolean;
   isSuperAdmin: () => boolean;
   isPremium: () => boolean;
+  getMembershipTier: () => string;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -83,11 +86,13 @@ export const useAuthStore = create<AuthStore>()(
       fetchMe: async () => {
         try {
           const res = await api.get('/auth/me');
-          const user = res.data;
+          const data = res.data;
+          const user = data.user || data;
           if (user && user.membershipTier && !user.membershipStatus) {
             user.membershipStatus = user.membershipTier;
           }
-          set({ user, isAuthenticated: true });
+          const accessToken = data.accessToken || user.accessToken || get().accessToken;
+          set({ user, accessToken, isAuthenticated: true });
         } catch {
           // If token fails or is invalid, clear state
           set({ user: null, accessToken: null, isAuthenticated: false });
@@ -131,20 +136,11 @@ export const useAuthStore = create<AuthStore>()(
           'MEMBER'
         ).toString().toUpperCase();
 
-        if (mainRole === 'SUPER_ADMIN') return true;
+        const allRoles: string[] = Array.isArray(user.roles)
+          ? user.roles.map((r: any) => (typeof r === 'string' ? r : r?.name || '').toUpperCase())
+          : [mainRole];
 
-        const savedMapStr = localStorage.getItem('s2s_role_permissions');
-        if (savedMapStr) {
-          try {
-            const map = JSON.parse(savedMapStr);
-            const rolePerms = map[mainRole];
-            if (Array.isArray(rolePerms)) {
-              return rolePerms.includes(perm);
-            }
-          } catch {
-            // fallback
-          }
-        }
+        if (allRoles.includes('SUPER_ADMIN') || mainRole === 'SUPER_ADMIN') return true;
 
         if (user.permissions && Array.isArray(user.permissions)) {
           return user.permissions.includes(perm);
@@ -153,9 +149,38 @@ export const useAuthStore = create<AuthStore>()(
         return false;
       },
 
+      updateEntitlements: (entitlements: any) => {
+        const currentUser = get().user;
+        if (currentUser) {
+          set({
+            user: {
+              ...currentUser,
+              membershipStatus: entitlements?.tier || currentUser.membershipStatus,
+              membershipTier: entitlements?.tier || currentUser.membershipTier,
+              entitlements,
+            },
+          });
+        }
+      },
+
       isAdmin: () => get().hasAnyRole('ADMIN', 'SUPER_ADMIN'),
       isSuperAdmin: () => get().hasRole('SUPER_ADMIN'),
-      isPremium: () => ['SILVER', 'GOLD', 'ELITE', 'PLATINUM'].includes(get().user?.membershipStatus ?? ''),
+      isPremium: () => {
+        const user = get().user;
+        if (!user) return false;
+        const ent = user.entitlements;
+        if (ent?.isStaff) return true;
+        const tier = (ent?.tier || user.membershipTier || user.membershipStatus || 'FREE').toUpperCase();
+        if (tier === 'FREE' || tier === 'NONE' || !tier) return false;
+        if (ent && ent.isActive === false) return false;
+        return true;
+      },
+      getMembershipTier: () => {
+        const user = get().user;
+        if (!user) return 'FREE';
+        const tier = (user.entitlements?.tier || user.membershipTier || user.membershipStatus || 'FREE').toUpperCase();
+        return tier;
+      },
     }),
     {
       name: 's2s-auth-store',

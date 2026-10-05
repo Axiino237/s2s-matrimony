@@ -25,13 +25,13 @@ const StatCard = ({ icon: Icon, label, value, color }: {
   icon: any; label: string; value: string; color: string;
 }) => (
   <div className="stat-card hover:border-primary/40 transition-all group cursor-pointer">
-    <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center transition-transform group-hover:scale-110`}>
-      <Icon className="w-6 h-6" />
+    <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl ${color} flex items-center justify-center transition-transform group-hover:scale-110 flex-shrink-0`}>
+      <Icon className="w-4 h-4 sm:w-6 sm:h-6" />
     </div>
-    <div className="flex-1">
-      <p className="text-text-secondary text-xs font-semibold uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-text-primary text-2xl font-bold font-display">{value}</p>
-      <p className="text-xs mt-1 font-medium text-emerald-600">
+    <div className="min-w-0 flex-1">
+      <p className="text-text-secondary text-[11px] sm:text-xs font-semibold uppercase tracking-wider mb-0.5 sm:mb-1 leading-tight break-words">{label}</p>
+      <p className="text-text-primary text-xl sm:text-2xl font-bold font-display leading-tight">{value}</p>
+      <p className="text-[10px] sm:text-xs mt-0.5 sm:mt-1 font-medium text-emerald-600">
         Live DB Data
       </p>
     </div>

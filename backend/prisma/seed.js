@@ -652,16 +652,6 @@ async function main() {
         update: { displayName: 'Admin', description: 'Platform Administrator' },
         create: { name: 'ADMIN', displayName: 'Admin', description: 'Platform Administrator', isSystem: true },
     });
-    const moderatorRole = await prisma.role.upsert({
-        where: { name: 'MODERATOR' },
-        update: { displayName: 'Moderator', description: 'Photo & Verification Moderator' },
-        create: { name: 'MODERATOR', displayName: 'Moderator', description: 'Photo & Verification Moderator', isSystem: true },
-    });
-    const supportRole = await prisma.role.upsert({
-        where: { name: 'SUPPORT_AGENT' },
-        update: { displayName: 'Support Agent', description: 'Customer Support Representative' },
-        create: { name: 'SUPPORT_AGENT', displayName: 'Support Agent', description: 'Customer Support Representative', isSystem: true },
-    });
     const memberRole = await prisma.role.upsert({
         where: { name: 'MEMBER' },
         update: { displayName: 'Member', description: 'Standard Registered User' },
@@ -778,12 +768,6 @@ async function main() {
         'payments:view', 'communities:read', 'communities:write',
         'blogs:read', 'blogs:write', 'blogs:publish',
         'reports:view', 'reports:handle', 'settings:read',
-    ]);
-    await assignPermissions(moderatorRole.id, [
-        'profiles:read', 'profiles:verify', 'profiles:moderate', 'reports:view', 'reports:handle',
-    ]);
-    await assignPermissions(supportRole.id, [
-        'users:read', 'profiles:read', 'reports:view', 'payments:view',
     ]);
     await assignPermissions(memberRole.id, ['profiles:read']);
     console.log('✅ Roles & Exhaustive RBAC Permissions seeded');

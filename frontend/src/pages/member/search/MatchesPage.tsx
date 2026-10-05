@@ -53,7 +53,10 @@ const MatchesPage = () => {
       const filtered = list.filter((p: any) => {
         if (p.userId === user?.id || p.id === user?.id) return false;
         if (targetGender && p.gender && p.gender.toUpperCase() !== targetGender) return false;
-        return true;
+        const isAccountActive = p.user ? p.user.isActive !== false : p.isActive !== false;
+        const isProfileVerified = p.isVerified === true && (!p.verificationStatus || p.verificationStatus === 'VERIFIED');
+        const isProfileActive = !p.status || p.status === 'ACTIVE';
+        return isAccountActive && isProfileVerified && isProfileActive;
       });
       setMatches(filtered);
     } catch {
@@ -68,36 +71,34 @@ const MatchesPage = () => {
     fetchMatches();
   }, [fetchMatches]);
 
-  useEffect(() => {
-    fetchMatches();
-  }, [fetchMatches]);
-
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-text-primary flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-primary" /> Your Matches
+    <div className="animate-fade-in space-y-6 w-full max-w-full min-w-0">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-text-primary flex items-center gap-2 truncate">
+            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-primary flex-shrink-0" /> Your Matches
           </h1>
-          <p className="text-text-secondary text-sm mt-1">
+          <p className="text-text-secondary text-xs sm:text-sm mt-0.5 sm:mt-1 truncate">
             {loading ? 'Loading matches...' : `${matches.length} matches found from live database`}
           </p>
         </div>
-        <button onClick={fetchMatches} className="btn btn-ghost btn-sm text-text-muted hover:text-primary">
+        <button onClick={fetchMatches} className="btn btn-ghost btn-sm text-text-muted hover:text-primary flex-shrink-0" aria-label="Refresh matches">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="tab-bar max-w-lg">
-        {(['Recommended', 'Recently Joined', 'Mutual', 'Near You'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`tab text-xs ${tab === activeTab ? 'tab-active' : ''}`}
-          >
-            {tab}
-          </button>
-        ))}
+      <div className="w-full max-w-full overflow-x-auto no-scrollbar pb-1">
+        <div className="tab-bar flex max-w-full">
+          {(['Recommended', 'Recently Joined', 'Mutual', 'Near You'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`tab text-xs whitespace-nowrap flex-shrink-0 ${tab === activeTab ? 'tab-active' : ''}`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -105,13 +106,13 @@ const MatchesPage = () => {
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       ) : matches.length === 0 ? (
-        <div className="card p-16 text-center text-text-muted bg-white border border-slate-200">
+        <div className="card p-8 sm:p-16 text-center text-text-muted bg-white border border-slate-200">
           <Sparkles className="w-12 h-12 mx-auto mb-3 text-slate-300" />
           <p className="text-text-primary font-bold text-lg">No matches found</p>
           <p className="text-text-secondary text-sm mt-1">Complete your partner preferences to discover compatible matches!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {matches.map((profile) => {
             const name = getDisplayName(profile);
             const city = getCityName(profile);

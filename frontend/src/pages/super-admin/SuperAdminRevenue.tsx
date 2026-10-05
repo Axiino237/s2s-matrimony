@@ -38,10 +38,10 @@ const SuperAdminRevenue = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="card p-5 text-center">
+            <div key={i} className="card p-4 sm:p-5 text-center">
               <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
             </div>
           ))
@@ -50,23 +50,23 @@ const SuperAdminRevenue = () => {
           { label: 'Last Month', val: fmt(Number(lastMonth)), color: 'text-emerald-600' },
           { label: 'Total Platform Revenue', val: fmt(Number(stats?.totalRevenue ?? 0)), color: 'text-amber-600' },
         ].map((s) => (
-          <div key={s.label} className="card p-5 text-center">
-            <p className={`text-3xl font-bold font-display ${s.color}`}>{s.val}</p>
-            <p className="text-text-muted mt-1">{s.label}</p>
+          <div key={s.label} className="card p-4 sm:p-5 text-center flex flex-col justify-center">
+            <p className={`text-2xl sm:text-3xl font-bold font-display leading-tight ${s.color}`}>{s.val}</p>
+            <p className="text-text-muted text-xs sm:text-sm font-medium mt-1 leading-snug">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Revenue Chart */}
-      <div className="card p-6 md:p-8 bg-white border border-slate-200 shadow-sm rounded-2xl">
-        <div className="flex items-center justify-between mb-8">
+      <div className="card p-4 sm:p-6 md:p-8 bg-white border border-slate-200 shadow-sm rounded-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
           <div>
-            <h2 className="font-display text-xl font-bold text-text-primary flex items-center gap-2">
+            <h2 className="font-display text-lg sm:text-xl font-bold text-text-primary flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" /> Monthly Revenue Trend
             </h2>
             <p className="text-text-secondary text-xs mt-0.5">Detailed monthly income breakdown</p>
           </div>
-          <span className="badge bg-rose-50 text-primary border-rose-200 text-xs font-semibold px-3 py-1 flex items-center gap-1 shadow-sm">
+          <span className="badge bg-rose-50 text-primary border-rose-200 text-xs font-semibold px-3 py-1 flex items-center gap-1 shadow-sm w-fit">
             Total {fmt(totalRevenue)}
           </span>
         </div>

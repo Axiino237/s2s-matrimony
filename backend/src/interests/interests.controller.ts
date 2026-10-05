@@ -2,10 +2,13 @@ import { Controller, Post, Patch, Get, Body, Param, UseGuards, Req } from '@nest
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { InterestsService } from './interests.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RequirePermissions } from '../common/decorators/rbac.decorator';
+import { Permission } from '../common/enums/rbac.enum';
 
 @ApiTags('Interests')
 @Controller('interests')
 @UseGuards(JwtAuthGuard)
+@RequirePermissions(Permission.MEMBER_INTERESTS)
 @ApiBearerAuth()
 export class InterestsController {
   constructor(private readonly interestsService: InterestsService) {}

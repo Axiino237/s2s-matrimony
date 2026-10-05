@@ -2,43 +2,31 @@ import api from './api';
 
 export const paymentsApi = {
   getPlans: async () => {
-    try {
-      const res = await api.get('/payments/plans');
-      return res.data;
-    } catch {
-      return [
-        { id: 'plan-free', name: 'Free', price: '0', duration: 'Lifetime', tier: 'FREE', contactLimit: 5, features: ['5 Interests/day', 'Basic Search', '5 Contact Views'] },
-        { id: 'plan-silver', name: 'Silver', price: '599', duration: '1 month', tier: 'SILVER', contactLimit: 50, features: ['50 Interests/day', 'Advanced Search', '50 Contacts', 'Chat Access'] },
-        { id: 'plan-elite', name: 'Elite', price: '999', duration: '3 months', tier: 'ELITE', isPopular: true, contactLimit: 100, features: ['Unlimited Interests', 'All Features', '100 Contacts', 'Priority Listing', 'AI Match'] },
-        { id: 'plan-platinum', name: 'Platinum', price: '1799', duration: '6 months', tier: 'PLATINUM', contactLimit: 999, features: ['Everything+', 'Unlimited Contacts', 'Video Profile', 'Dedicated Manager'] },
-      ];
-    }
+    const res = await api.get('/payments/plans');
+    return res.data;
   },
 
   createPlan: async (data: any) => {
-    try {
-      const res = await api.post('/payments/plans', data);
-      return res.data;
-    } catch {
-      return data;
-    }
+    const res = await api.post('/payments/plans', data);
+    return res.data;
   },
 
   updatePlan: async (planId: string, patch: any) => {
-    try {
-      const res = await api.put(`/payments/plans/${planId}`, patch);
-      return res.data;
-    } catch {
-      return { ...patch, id: planId };
-    }
+    const res = await api.put(`/payments/plans/${planId}`, patch);
+    return res.data;
   },
 
   deletePlan: async (planId: string) => {
+    const res = await api.delete(`/payments/plans/${planId}`);
+    return res.data;
+  },
+
+  getEntitlements: async () => {
     try {
-      const res = await api.delete(`/payments/plans/${planId}`);
+      const res = await api.get('/payments/entitlements');
       return res.data;
     } catch {
-      return { success: true, id: planId };
+      return null;
     }
   },
 
@@ -47,7 +35,7 @@ export const paymentsApi = {
       const res = await api.get('/payments/contacts/unlocked');
       return res.data;
     } catch {
-      return { tier: 'FREE', contactLimit: 5, usedCount: 0, remaining: 5, unlockedIds: [] };
+      return { tier: 'FREE', planName: 'Free Plan', contactLimit: 0, usedCount: 0, remaining: 0, unlockedIds: [] };
     }
   },
 
@@ -61,22 +49,30 @@ export const paymentsApi = {
     }
   },
 
-  createOrder: async (planId: string) => {
-    try {
-      const res = await api.post('/payments/create-order', { planId });
-      return res.data;
-    } catch {
-      return { orderId: `order_${Date.now()}`, amount: 99900, currency: 'INR' };
-    }
+  activateFreePlan: async (planId?: string) => {
+    const res = await api.post('/payments/activate-free', { planId });
+    return res.data;
   },
 
-  verifyPayment: async (data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) => {
-    try {
-      const res = await api.post('/payments/verify', data);
-      return res.data;
-    } catch {
-      return { success: true, message: 'Payment verified successfully!' };
-    }
+  createOrder: async (input: string | { planId?: string; amount?: number; currency?: string; receipt?: string }) => {
+    const payload = typeof input === 'string' ? { planId: input } : input;
+    const res = await api.post('/payments/create-order', payload);
+    return res.data;
+  },
+
+  verifyPayment: async (data: {
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
+    razorpay_order_id?: string;
+    razorpay_payment_id?: string;
+    razorpay_signature?: string;
+    order_id?: string;
+    payment_id?: string;
+    signature?: string;
+  }) => {
+    const res = await api.post('/payments/verify-payment', data);
+    return res.data;
   },
 
   getMyHistory: async () => {

@@ -3,16 +3,18 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useSettingsStore } from './store/settings.store';
+import { useAuthStore } from './store/auth.store';
 
 // Layouts
 import PublicLayout from './components/layout/PublicLayout';
 import MemberLayout from './components/layout/MemberLayout';
-import AdminLayout from './components/layout/AdminLayout';
+import AdminLayout, { AdminLandingRedirect } from './components/layout/AdminLayout';
 import SuperAdminLayout from './components/layout/SuperAdminLayout';
 
 // Guards
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ProfileCompletionGuard from './components/auth/ProfileCompletionGuard';
+import ScrollToTop from './components/common/ScrollToTop';
 
 // Public Pages
 import LandingPage from './pages/public/LandingPage';
@@ -23,6 +25,10 @@ import BlogListPage from './pages/public/BlogListPage';
 import BlogDetailPage from './pages/public/BlogDetailPage';
 import ContactPage from './pages/public/ContactPage';
 import AboutPage from './pages/public/AboutPage';
+import TermsPage from './pages/public/TermsPage';
+import PrivacyPage from './pages/public/PrivacyPage';
+import FaqPage from './pages/public/FaqPage';
+import SitemapPage from './pages/public/SitemapPage';
 
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
@@ -54,7 +60,6 @@ import AdminProfiles from './pages/admin/AdminProfiles';
 import AdminCommunities from './pages/admin/AdminCommunities';
 import AdminPlans from './pages/admin/AdminPlans';
 import AdminPayments from './pages/admin/AdminPayments';
-import AdminBanners from './pages/admin/AdminBanners';
 import AdminBlogs from './pages/admin/AdminBlogs';
 import AdminSuccessStories from './pages/admin/AdminSuccessStories';
 import AdminReports from './pages/admin/AdminReports';
@@ -96,11 +101,16 @@ const queryClient = new QueryClient({
 function App() {
   useEffect(() => {
     useSettingsStore.getState().fetchSettings();
+    const { isAuthenticated, accessToken, fetchMe } = useAuthStore.getState();
+    if (isAuthenticated || accessToken) {
+      fetchMe().catch(() => null);
+    }
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           {/* ── Public & Auth Routes ── */}
           <Route element={<PublicLayout />}>
@@ -112,6 +122,12 @@ function App() {
             <Route path="/blog/:slug" element={<BlogDetailPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/terms-and-conditions" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/privacy-policy" element={<PrivacyPage />} />
+            <Route path="/faq" element={<FaqPage />} />
+            <Route path="/sitemap" element={<SitemapPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
           </Route>
@@ -135,40 +151,57 @@ function App() {
               
               {/* Profile-gated routes */}
               <Route element={<ProfileCompletionGuard />}>
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/profile" element={<ProfileViewPage />} />
-                <Route path="/profile/:id" element={<ProfileViewPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/matches" element={<MatchesPage />} />
-                <Route path="/messages" element={<MessagesPage />} />
-                <Route path="/messages/:chatId" element={<ChatPage />} />
-                <Route path="/interests" element={<InterestsPage />} />
-                <Route path="/profile-viewers" element={<ProfileViewersPage />} />
+                <Route element={<ProtectedRoute permissions={['member:dashboard']} />}>
+                  <Route path="/dashboard" element={<DashboardPage />} />
+                </Route>
+                <Route element={<ProtectedRoute permissions={['member:profile']} />}>
+                  <Route path="/profile" element={<ProfileViewPage />} />
+                  <Route path="/profile/:id" element={<ProfileViewPage />} />
+                </Route>
+                <Route element={<ProtectedRoute permissions={['member:search']} />}>
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/matches" element={<MatchesPage />} />
+                </Route>
+                <Route element={<ProtectedRoute permissions={['member:messages']} />}>
+                  <Route path="/messages" element={<MessagesPage />} />
+                  <Route path="/messages/:chatId" element={<ChatPage />} />
+                </Route>
+                <Route element={<ProtectedRoute permissions={['member:interests']} />}>
+                  <Route path="/interests" element={<InterestsPage />} />
+                </Route>
+                <Route element={<ProtectedRoute permissions={['member:viewers']} />}>
+                  <Route path="/profile-viewers" element={<ProfileViewersPage />} />
+                </Route>
                 <Route path="/notifications" element={<DashboardPage />} />
-                <Route path="/contact-history" element={<DashboardPage />} />
-                <Route path="/payment-history" element={<PaymentHistoryPage />} />
+                <Route path="/contact-history" element={<Navigate to="/dashboard" replace />} />
+                <Route element={<ProtectedRoute permissions={['member:payments']} />}>
+                  <Route path="/payment-history" element={<PaymentHistoryPage />} />
+                </Route>
                 <Route path="/settings" element={<ProfileEditPage />} />
               </Route>
 
               {/* Edit profile — accessible even if not 100% complete */}
-              <Route path="/profile/edit" element={<ProfileEditPage />} />
-              <Route path="/profile/biodata-form" element={<BiodataEntryPage />} />
-              <Route path="/premium" element={<PremiumPage />} />
+              <Route element={<ProtectedRoute permissions={['member:profile']} />}>
+                <Route path="/profile/edit" element={<ProfileEditPage />} />
+                <Route path="/profile/biodata-form" element={<BiodataEntryPage />} />
+              </Route>
+              <Route element={<ProtectedRoute permissions={['member:upgrade']} />}>
+                <Route path="/premium" element={<PremiumPage />} />
+              </Route>
               <Route path="/payment/success" element={<PaymentSuccessPage />} />
             </Route>
           </Route>
 
           {/* ── Admin Routes (Protected) ── */}
-          <Route element={<ProtectedRoute roles={['ADMIN', 'MODERATOR', 'SUPPORT_AGENT', 'SUPER_ADMIN']} />}>
+          <Route element={<ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']} />}>
             <Route element={<AdminLayout />}>
-              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="/admin" element={<AdminLandingRedirect />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/profiles" element={<AdminProfiles />} />
               <Route path="/admin/communities" element={<AdminCommunities />} />
               <Route path="/admin/plans" element={<AdminPlans />} />
               <Route path="/admin/payments" element={<AdminPayments />} />
-              <Route path="/admin/banners" element={<AdminBanners />} />
               <Route path="/admin/blogs" element={<AdminBlogs />} />
               <Route path="/admin/success-stories" element={<AdminSuccessStories />} />
               <Route path="/admin/reports" element={<AdminReports />} />
@@ -195,7 +228,6 @@ function App() {
               <Route path="/super-admin/profiles" element={<AdminProfiles />} />
               <Route path="/super-admin/plans" element={<SuperAdminPlans />} />
               <Route path="/super-admin/payments" element={<AdminPayments />} />
-              <Route path="/super-admin/banners" element={<AdminBanners />} />
               <Route path="/super-admin/ai-biodata" element={<AdminAiBiodata />} />
               <Route path="/super-admin/biodata-entry" element={<BiodataEntryPage />} />
               <Route path="/super-admin/biodata-list" element={<AdminBiodataListPage />} />

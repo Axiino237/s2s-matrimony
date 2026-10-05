@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth.store';
+import { profilesApi } from '../../services/profiles.service';
+import { MembershipBadge } from '../common/MembershipBadge';
 import {
   LayoutDashboard, User, Search, Heart, Mail, MessageSquare,
   Crown, Settings, LogOut, Bell, Sparkles, ExternalLink,
   Star, BookOpen, CheckCircle2, AlertCircle, CreditCard,
-  Phone, Shield, ChevronRight, FileText, Users, BarChart2
+  Shield, ChevronRight, Users, BarChart2, X
 } from 'lucide-react';
 import api from '../../services/api';
 
@@ -25,20 +28,65 @@ interface NavGroup {
   items: NavItem[];
 }
 
+export const MEMBER_ROUTE_PERMISSIONS: Record<string, string> = {
+  '/dashboard': 'member:dashboard',
+  '/profile': 'member:profile',
+  '/profile/edit': 'member:profile',
+  '/search': 'member:search',
+  '/matches': 'member:search',
+  '/interests': 'member:interests',
+  '/messages': 'member:messages',
+  '/premium': 'member:upgrade',
+  '/payment-history': 'member:payments',
+  '/profile-viewers': 'member:viewers',
+  '/blog': 'blogs:read',
+  '/success-stories': 'stories:read',
+};
+
 import { useSettingsStore } from '../../store/settings.store';
 
 // ─── MemberSidebar ─────────────────────────────────────────────────────
-const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: number }) => {
+const MemberSidebar = ({
+  isOpen,
+  unreadCount,
+  onClose,
+  myProfile,
+}: {
+  isOpen: boolean;
+  unreadCount: number;
+  onClose?: () => void;
+  myProfile?: any;
+}) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isPremium, logout, hasPermission, isSuperAdmin } = useAuthStore();
   const logoUrl = useSettingsStore((s) => s.logoUrl);
   const [, setRefreshKey] = useState(0);
 
-  const profileCompletion = (user as any)?.profileCompletionPercent ?? 0;
+  const profileCompletion = myProfile?.profileCompletionPercent ?? (user as any)?.profileCompletionPercent ?? 0;
   const isProfileComplete = profileCompletion >= 100;
-  const memberTier = user?.membershipStatus || 'FREE';
-  const isPrem = isPremium();
+
+  const rawTier = (
+    myProfile?.membershipTier ||
+    myProfile?.membership?.tier ||
+    user?.membershipTier ||
+    user?.membershipStatus ||
+    user?.entitlements?.tier ||
+    'FREE'
+  ).toUpperCase();
+  const isPrem = isPremium() && rawTier !== 'FREE';
+  const memberTier = isPrem ? rawTier : 'FREE';
+
+  const resolvedFirstName = myProfile?.firstName || user?.firstName || '';
+  const resolvedLastName = myProfile?.lastName || user?.lastName || '';
+  const displayName = resolvedFirstName
+    ? `${resolvedFirstName} ${resolvedLastName}`.trim()
+    : user?.displayName || user?.email?.split('@')[0] || 'Member';
+
+  const avatarPhoto =
+    myProfile?.photos?.find((p: any) => p.isMain && p.status !== 'REJECTED')?.url ||
+    myProfile?.photos?.[0]?.url;
+  const initialChar = resolvedFirstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'M';
 
   useEffect(() => {
     const handlePermUpdate = () => setRefreshKey((k) => k + 1);
@@ -46,24 +94,12 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
     return () => window.removeEventListener('s2s_permissions_updated', handlePermUpdate);
   }, []);
 
-  const tierColors: Record<string, string> = {
-    FREE: 'bg-slate-200 text-slate-600',
-    SILVER: 'bg-gradient-to-r from-slate-400 to-slate-500 text-white',
-    GOLD: 'bg-gradient-to-r from-amber-400 to-yellow-500 text-white',
-    ELITE: 'bg-gradient-to-r from-violet-500 to-purple-600 text-white',
-    PLATINUM: 'bg-gradient-to-r from-cyan-400 to-teal-500 text-white',
-    DIAMOND: 'bg-gradient-to-r from-blue-400 to-indigo-600 text-white',
-  };
-
-  const enableBiodataForm = useSettingsStore((s) => s.enableBiodataForm);
-
   const navGroups: NavGroup[] = [
     {
       title: 'Main',
       items: [
         { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', locked: !isProfileComplete, requiredPermission: 'member:dashboard' },
         { icon: User, label: 'My Profile', href: '/profile', locked: !isProfileComplete, requiredPermission: 'member:profile' },
-        ...(enableBiodataForm !== false ? [{ icon: FileText, label: 'Biodata Form', href: '/profile/biodata-form', requiredPermission: 'member:profile' }] : []),
       ],
     },
     {
@@ -86,7 +122,6 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
       items: [
         { icon: Crown, label: 'Upgrade Plan', href: '/premium', badge: !isPrem ? 'Upgrade' : undefined, badgeColor: 'bg-gradient-to-r from-amber-400 to-yellow-500', requiredPermission: 'member:upgrade' },
         { icon: CreditCard, label: 'Payment History', href: '/payment-history', locked: !isProfileComplete, requiredPermission: 'member:payments' },
-        { icon: Phone, label: 'Contact View History', href: '/contact-history', locked: !isProfileComplete, requiredPermission: 'member:contacts' },
       ],
     },
     {
@@ -120,46 +155,59 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
     }))
     .filter((group) => group.items.length > 0);
 
+  const displayNavGroups = visibleNavGroups;
+
   const isActive = (href: string) =>
     location.pathname === href || (location.pathname.startsWith(href) && href.length > 1 && href !== '/dashboard');
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-slate-200 z-40
+      className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-slate-200 z-50
         transition-transform duration-300 flex flex-col shadow-xl
         ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
     >
-      {/* Logo */}
-      <div className="p-5 border-b border-slate-100 flex-shrink-0">
-        <Link to="/" className="flex items-center gap-3">
-          <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony" className="w-12 h-12 object-contain rounded-xl shadow-md" />
-          <div>
+      {/* Logo + Mobile Close */}
+      <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+        <Link to="/" onClick={onClose} className="flex items-center gap-3 min-w-0">
+          <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony" className="w-10 h-10 sm:w-12 sm:h-12 object-contain rounded-xl shadow-md flex-shrink-0" />
+          <div className="truncate">
             <span className="font-display font-bold text-lg text-text-primary">S2S</span>
             <span className="text-primary font-bold text-lg"> Matrimony</span>
           </div>
         </Link>
+        <button
+          onClick={onClose}
+          className="lg:hidden p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors"
+          aria-label="Close menu"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Member Profile Card */}
       <div className="px-3 pt-3 pb-2 flex-shrink-0">
         <div className="bg-gradient-to-br from-primary-50 to-secondary-50 border border-primary-100/80 rounded-2xl p-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary text-white font-bold flex items-center justify-center text-sm flex-shrink-0 shadow-md">
-              {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary text-white font-bold flex items-center justify-center text-sm flex-shrink-0 shadow-md overflow-hidden">
+              {avatarPhoto ? (
+                <img src={avatarPhoto} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                initialChar
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-text-primary text-xs font-bold truncate">
-                {user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.email || 'Member'}
+                {displayName}
               </p>
-              <span className={`inline-block text-[10px] mt-0.5 px-2 py-0.5 rounded-full font-semibold ${tierColors[memberTier] || tierColors.FREE}`}>
-                {isPrem ? `★ ${memberTier}` : 'Free Member'}
-              </span>
+              <div className="mt-0.5">
+                <MembershipBadge tier={memberTier} size="xs" />
+              </div>
             </div>
           </div>
 
           {/* Profile Completion Progress Bar */}
           {!isProfileComplete && (
-            <Link to="/complete-profile" className="block mt-3">
+            <Link to="/complete-profile" onClick={onClose} className="block mt-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-semibold text-primary">Profile Completion</span>
                 <span className="text-[10px] font-bold text-primary">{profileCompletion}%</span>
@@ -187,7 +235,7 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
 
       {/* Navigation Groups */}
       <nav className="flex-1 px-3 py-2 flex flex-col gap-3 overflow-y-auto">
-        {visibleNavGroups.map((group) => (
+        {displayNavGroups.map((group) => (
           <div key={group.title}>
             <p className="px-3 text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">{group.title}</p>
             <div className="flex flex-col gap-0.5">
@@ -198,6 +246,7 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
                   <Link
                     key={item.href}
                     to={item.locked ? '/complete-profile' : item.href}
+                    onClick={onClose}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 group
                       ${active
                         ? 'bg-gradient-to-r from-primary to-secondary text-white shadow-md shadow-primary/20'
@@ -230,6 +279,7 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
         {user?.roles?.some(r => ['SUPER_ADMIN', 'ADMIN'].includes(r)) && (
           <Link
             to={user.roles.includes('SUPER_ADMIN') ? '/super-admin/dashboard' : '/admin/dashboard'}
+            onClick={onClose}
             className="flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-all"
           >
             <BarChart2 className="w-4 h-4 text-amber-600" />
@@ -238,7 +288,10 @@ const MemberSidebar = ({ isOpen, unreadCount }: { isOpen: boolean; unreadCount: 
           </Link>
         )}
         <button
-          onClick={handleLogout}
+          onClick={() => {
+            onClose?.();
+            handleLogout();
+          }}
           className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 transition-all text-left"
         >
           <LogOut className="w-4 h-4" />
@@ -257,6 +310,24 @@ const MemberLayout = () => {
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
   const location = useLocation();
   const { user } = useAuthStore();
+
+  const { data: myProfile } = useQuery({
+    queryKey: ['my-profile'],
+    queryFn: profilesApi.getMyProfile,
+    staleTime: 30000,
+    retry: false,
+  });
+
+  const resolvedFirstName = myProfile?.firstName || user?.firstName || '';
+  const resolvedLastName = myProfile?.lastName || user?.lastName || '';
+  const displayName = resolvedFirstName
+    ? `${resolvedFirstName} ${resolvedLastName}`.trim()
+    : user?.displayName || user?.email?.split('@')[0] || 'Member';
+
+  const avatarPhoto =
+    myProfile?.photos?.find((p: any) => p.isMain && p.status !== 'REJECTED')?.url ||
+    myProfile?.photos?.[0]?.url;
+  const initialChar = resolvedFirstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'M';
 
   const fetchNotifications = async () => {
     try {
@@ -280,20 +351,30 @@ const MemberLayout = () => {
 
     if (!isMember) return;
 
-    const completion = (user as any)?.profileCompletionPercent ?? 0;
+    const completion = myProfile?.profileCompletionPercent ?? (user as any)?.profileCompletionPercent ?? 0;
     const hasBeenRedirected = sessionStorage.getItem('onboarding_auto_redirected');
 
     if (completion < 100 && !hasBeenRedirected && location.pathname !== '/complete-profile') {
       sessionStorage.setItem('onboarding_auto_redirected', 'true');
       navigate('/complete-profile', { replace: true });
     }
-  }, [user, location.pathname, navigate]);
+  }, [user, myProfile, location.pathname, navigate]);
 
   useEffect(() => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Refresh user permissions from DB on layout mount, route change, and window focus
+  useEffect(() => {
+    const refreshPermissions = () => {
+      useAuthStore.getState().fetchMe().catch(() => null);
+    };
+    refreshPermissions();
+    window.addEventListener('focus', refreshPermissions);
+    return () => window.removeEventListener('focus', refreshPermissions);
+  }, [location.pathname]);
 
   // Auto-mark notifications as read when opening Interests, Notifications, or Messages pages
   useEffect(() => {
@@ -323,7 +404,6 @@ const MemberLayout = () => {
       '/notifications': 'Notifications',
       '/premium': 'Membership Plans',
       '/payment-history': 'Payment History',
-      '/contact-history': 'Contact View History',
       '/profile-viewers': 'Profile Visitors',
       '/settings': 'Privacy & Settings',
       '/blog': 'Blogs',
@@ -333,18 +413,23 @@ const MemberLayout = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50 text-text-primary">
-      <MemberSidebar isOpen={sidebarOpen} unreadCount={unreadCount} />
+    <div className="min-h-screen flex bg-slate-50 text-text-primary w-full max-w-full">
+      <MemberSidebar
+        isOpen={sidebarOpen}
+        unreadCount={unreadCount}
+        onClose={() => setSidebarOpen(false)}
+        myProfile={myProfile}
+      />
 
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Main Content */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
-        {/* Topbar */}
-        <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-xl border-b border-slate-200 h-16 flex items-center px-4 md:px-6 gap-4 shadow-sm">
+      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen min-w-0 max-w-full w-full">
+        {/* Fixed Topbar */}
+        <header className="fixed top-0 right-0 left-0 lg:left-64 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-200 h-16 flex items-center px-4 md:px-6 gap-4 shadow-sm w-full max-w-full">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="lg:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
@@ -355,10 +440,10 @@ const MemberLayout = () => {
             </svg>
           </button>
 
-          <h1 className="text-text-primary font-bold text-base">{getPageTitle()}</h1>
+          <h1 className="text-text-primary font-bold text-base truncate">{getPageTitle()}</h1>
           <div className="flex-1" />
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {/* View Public Site */}
             <Link
               to="/"
@@ -387,7 +472,7 @@ const MemberLayout = () => {
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50">
+                <div className="absolute right-0 mt-2 w-[calc(100vw-32px)] max-w-sm sm:w-80 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50">
                   <div className="flex items-center justify-between p-4 border-b border-slate-100">
                     <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
                       <Bell className="w-4 h-4 text-primary" /> Notifications
@@ -437,13 +522,24 @@ const MemberLayout = () => {
             </div>
 
             {/* User Avatar */}
-            <Link to="/profile" className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-rose-500 text-white font-bold flex items-center justify-center text-xs shadow-md hover:scale-110 transition-transform flex-shrink-0">
-              {user?.firstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
+            <Link
+              to="/profile"
+              aria-label="My Profile"
+              className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-rose-500 text-white font-bold flex items-center justify-center text-xs shadow-md hover:scale-110 transition-transform flex-shrink-0 overflow-hidden"
+            >
+              {avatarPhoto ? (
+                <img src={avatarPhoto} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                initialChar
+              )}
             </Link>
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-6 lg:p-8">
+        {/* Header spacer to prevent page content from hiding under fixed header */}
+        <div className="h-16 flex-shrink-0" aria-hidden="true" />
+
+        <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 min-w-0 max-w-full">
           <Outlet />
         </main>
       </div>

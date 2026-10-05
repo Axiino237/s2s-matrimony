@@ -63,10 +63,15 @@ export interface DevUser {
 export interface DevPlan {
   id: string;
   name: string;
-  tier: 'FREE' | 'SILVER' | 'GOLD' | 'ELITE';
+  tier: 'FREE' | 'SILVER' | 'GOLD' | 'DIAMOND' | 'ELITE' | 'PLATINUM';
   price: string;
   duration: string;
   contactLimit: number;
+  maxContacts?: number;
+  maxInterests?: number;
+  hasChat?: boolean;
+  hasAiMatch?: boolean;
+  hasVideoProfile?: boolean;
   members?: string;
   features: string[];
   isActive: boolean;
@@ -178,9 +183,12 @@ export const devPlansStore: DevPlan[] = [
     tier: 'FREE',
     price: '0',
     duration: 'Lifetime',
-    contactLimit: 5,
+    contactLimit: 0,
+    maxContacts: 0,
+    maxInterests: 0,
+    hasChat: false,
     members: '0',
-    features: ['5 Daily Interests', 'Basic Search Filters', '5 Profile Views'],
+    features: ['Basic Search Filters', 'View Profiles', 'Receive and Reply to Interests'],
     isActive: true,
     isPopular: false,
   },
@@ -221,3 +229,8 @@ export const devPlansStore: DevPlan[] = [
     isPopular: false,
   },
 ];
+
+export const devChatsStore = new Map<string, { user1Id: string; user2Id: string }>();
+
+/** Dev-mode OTP store for forgot-password flow (keyed by lowercase email) */
+export const devOtpStore = new Map<string, { otp: string; expiresAt: Date }>();

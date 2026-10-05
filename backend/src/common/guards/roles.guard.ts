@@ -31,10 +31,25 @@ export class RolesGuard implements CanActivate {
 
     if (userRole === 'SUPER_ADMIN') return true;
 
+    const isSuperAdminOnly = requiredRoles.length === 1 && requiredRoles[0] === Role.SUPER_ADMIN;
+    if (isSuperAdminOnly) {
+      if (userRole !== 'SUPER_ADMIN') {
+        throw new ForbiddenException(`Insufficient role [${userRole}] for this action`);
+      }
+      return true;
+    }
+
     const hasRole = requiredRoles.some(
-      (role) => role.toString().toUpperCase() === userRole || (Array.isArray(user?.roles) && user.roles.includes(role))
+      (role) => role.toString().toUpperCase() === userRole || (Array.isArray(user?.roles) && user.roles.map((r: any) => r.toString().toUpperCase()).includes(role.toString().toUpperCase()))
     );
-    if (!hasRole) throw new ForbiddenException(`Insufficient role [${userRole}] for this action`);
+
+    // If endpoint allows admin/staff roles and the user has a custom staff role, allow them through to PermissionsGuard
+    const allowsAdminStaff = requiredRoles.some((r) => [Role.ADMIN].includes(r));
+    const isStaffRole = !['MEMBER', 'GUEST'].includes(userRole);
+
+    if (!hasRole && !(allowsAdminStaff && isStaffRole)) {
+      throw new ForbiddenException(`Insufficient role [${userRole}] for this action`);
+    }
 
     return true;
   }

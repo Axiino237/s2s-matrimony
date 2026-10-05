@@ -47,13 +47,27 @@ export const profilesApi = {
     return res.data.data || res.data;
   },
 
-  deletePhoto: async (photoId: string) => {
-    const res = await api.delete(`/profiles/photos/${photoId}`);
+  deletePhoto: async (photoId?: string, photoUrl?: string) => {
+    if (photoId && !photoId.includes('/') && !photoId.startsWith('data:')) {
+      const res = await api.delete(`/profiles/photos/${photoId}`);
+      return res.data.data || res.data;
+    }
+    const res = await api.delete('/profiles/photos', { data: { id: photoId, url: photoUrl } });
     return res.data.data || res.data;
   },
 
   parseBiodata: async (text: string, imageBase64?: string) => {
     const res = await api.post('/profiles/parse-biodata', { text, imageBase64 });
+    return res.data.data || res.data;
+  },
+
+  sendVerificationOtp: async (data: { type: 'phone' | 'email'; value: string; name?: string }) => {
+    const res = await api.post('/profiles/send-verification-otp', data);
+    return res.data.data || res.data;
+  },
+
+  verifyContactOtp: async (data: { type: 'phone' | 'email'; value: string; otp: string }) => {
+    const res = await api.post('/profiles/verify-contact-otp', data);
     return res.data.data || res.data;
   },
 

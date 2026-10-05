@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Delete, Param, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Delete, Param, Body, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ProfilesService } from './profiles.service';
 import { BiodataParserService } from './biodata-parser.service';
@@ -20,19 +20,36 @@ export class ProfilesController {
   @Post('parse-biodata')
   @ApiOperation({ summary: 'Parse matrimony biodata text/OCR and extract structured JSON' })
   async parseBiodata(@Body() body: { text?: string; imageBase64?: string }) {
-    const rawText = body.text || '';
-    return this.biodataParserService.parseText(rawText);
+    return this.biodataParserService.parseBiodata(body);
+  }
+
+  @Post('send-verification-otp')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @RequirePermissions(Permission.PROFILES_WRITE)
+  @ApiOperation({ summary: 'Send OTP to verify member mobile number or email for biodata engine' })
+  async sendVerificationOtp(@Body() body: { type: 'phone' | 'email'; value: string; name?: string }) {
+    return this.profilesService.sendVerificationOtp(body);
+  }
+
+  @Post('verify-contact-otp')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @RequirePermissions(Permission.PROFILES_WRITE)
+  @ApiOperation({ summary: 'Verify OTP code submitted for member mobile or email' })
+  async verifyContactOtp(@Body() body: { type: 'phone' | 'email'; value: string; otp: string }) {
+    return this.profilesService.verifyContactOtp(body);
   }
 
   @Post('save-parsed-profile')
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @RequirePermissions(Permission.PROFILES_WRITE)
   @ApiOperation({ summary: 'Save/Import parsed AI biodata JSON into PostgreSQL Database' })
-  async saveParsedProfile(@Body() body: { extractedData: any }) {
-    return this.profilesService.saveParsedProfile(body.extractedData);
+  async saveParsedProfile(@Body() body: any) {
+    const extractedData = body?.extractedData !== undefined ? body.extractedData : body;
+    return this.profilesService.saveParsedProfile(extractedData);
   }
 
   @Get('dashboard-stats')
+  @RequirePermissions(Permission.MEMBER_DASHBOARD)
   @ApiOperation({ summary: 'Get member dashboard statistics' })
   async getDashboardStats(@Req() req: any) {
     const userId = req.user.sub || req.user.id;
@@ -40,6 +57,7 @@ export class ProfilesController {
   }
 
   @Get('viewers')
+  @RequirePermissions(Permission.MEMBER_VIEWERS)
   @ApiOperation({ summary: 'Get list of users who viewed my profile' })
   async getProfileViewers(@Req() req: any) {
     const userId = req.user.sub || req.user.id;
@@ -54,6 +72,7 @@ export class ProfilesController {
   }
 
   @Get('me')
+  @RequirePermissions(Permission.MEMBER_PROFILE)
   @ApiOperation({ summary: 'Get current user profile' })
   async getMyProfile(@Req() req: any) {
     const userId = req.user.sub || req.user.id;
@@ -62,11 +81,15 @@ export class ProfilesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get profile by ID' })
-  async getProfileById(@Param('id') id: string) {
-    return this.profilesService.getProfileById(id);
+  async getProfileById(@Req() req: any, @Param('id') id: string) {
+    const requesterUserId = req.user?.sub || req.user?.id;
+    const roles = req.user?.roles || [];
+    const isStaff = roles.some((r: string) => ['ADMIN', 'SUPER_ADMIN'].includes(r));
+    return this.profilesService.getProfileById(id, requesterUserId, isStaff);
   }
 
   @Patch('me')
+  @RequirePermissions(Permission.MEMBER_PROFILE)
   @ApiOperation({ summary: 'Update profile details' })
   async updateProfile(@Req() req: any, @Body() data: any) {
     const userId = req.user.sub || req.user.id;
@@ -85,6 +108,18 @@ export class ProfilesController {
   async deletePhoto(@Req() req: any, @Param('id') photoId: string) {
     const userId = req.user.sub || req.user.id;
     return this.profilesService.deletePhoto(userId, photoId);
+  }
+
+  @Delete('photos')
+  @ApiOperation({ summary: 'Delete a profile photo by body or query' })
+  async deletePhotoBody(
+    @Req() req: any,
+    @Body() body: { id?: string; photoId?: string; url?: string },
+    @Query('id') queryId?: string,
+  ) {
+    const userId = req.user.sub || req.user.id;
+    const targetId = body?.id || body?.photoId || queryId;
+    return this.profilesService.deletePhoto(userId, targetId, body?.url);
   }
 
   @Post(':id/favorite')
@@ -127,6 +162,7 @@ export class ProfilesController {
   }
 
   @Post(':id/unlock-contact')
+  @RequirePermissions(Permission.MEMBER_CONTACTS)
   @ApiOperation({ summary: 'Unlock contact information (phone & email) for a profile' })
   async unlockContact(@Req() req: any, @Param('id') profileId: string) {
     const userId = req.user.sub || req.user.id;

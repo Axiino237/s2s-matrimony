@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuthStore } from '../../../store/auth.store';
+import { communitiesApi, CommunityData } from '../../../services/communities.service';
 
 // ─── Step Configuration (Unified S2S Brand Palette) ────────────────────
 const STEPS = [
@@ -38,7 +39,17 @@ const CASTE_SUBCASTES: Record<string, string[]> = {
 
 const STARS = ['Ashwini','Bharani','Krittika','Rohini','Mrigashirsha','Ardra','Punarvasu','Pushya','Ashlesha','Magha','Purva Phalguni','Uttara Phalguni','Hasta','Chitra','Swati','Vishakha','Anuradha','Jyeshtha','Mula','Purva Ashadha','Uttara Ashadha','Shravana','Dhanishta','Shatabhisha','Purva Bhadrapada','Uttara Bhadrapada','Revati'];
 const RASIS = ['Mesha','Rishabha','Mithuna','Kataka','Simha','Kanya','Tula','Vrischika','Dhanu','Makara','Kumbha','Meena'];
-const DOSHAMS = ['No Dosham','Chevvai Dosham','Raagu Dosham','Kethu Dosham','Sarpa Dosham','Kalathra Dosham'];
+const DOSHAMS = [
+  'No Dosham',
+  'Sevvai Dosham (செவ்வாய் தோஷம்)',
+  'Rahu Kethu Dosham (ராகு கேது தோஷம்)',
+  'Kaala Sarpa Dosham (கால சர்ப்ப தோஷம்)',
+  'Pithru Dosham (பித்ரு தோஷம்)',
+  'Kalathira Dosham (களத்திர தோஷம்)',
+  'Naga Dosham (நாக தோஷம்)',
+  'Sani Dosham (சனி தோஷம்)',
+  'Guru Dosham (குரு தோஷம்)',
+];
 
 // Planet choices for 12-box chart grids
 const PLANETS = ['சூரி', 'சந்', 'செவ்', 'புத', 'குரு', 'சுக்', 'சனி', 'ராகு', 'கேது', 'லக்'];
@@ -147,6 +158,7 @@ const ProfileCompletePage = () => {
     // Step 2: Education & Career
     education: '',
     educationDetail: '',
+    college: '',
     occupation: '',
     employedIn: 'PRIVATE',
     companyName: '',
@@ -191,7 +203,7 @@ const ProfileCompletePage = () => {
     prefAgeMax: 30,
     prefHeightMin: 155,
     prefHeightMax: 178,
-    prefMaritalStatus: 'Never Married',
+    prefMaritalStatus: '',
     prefReligion: 'Hindu',
     prefCaste: '',
     prefLocation: '',
@@ -203,6 +215,40 @@ const ProfileCompletePage = () => {
     rasiChart: {} as Record<string, string>,
     amsamChart: {} as Record<string, string>,
   });
+
+  const [dbCommunities, setDbCommunities] = useState<CommunityData[]>([]);
+
+  useEffect(() => {
+    communitiesApi.getCommunities().then((comms) => {
+      if (Array.isArray(comms) && comms.length > 0) {
+        setDbCommunities(comms);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const mainCommunities = useMemo(() => {
+    return dbCommunities.filter((c) => !c.parentId && c.isActive !== false);
+  }, [dbCommunities]);
+
+  const casteOptions = useMemo(() => {
+    const fallbackList = [
+      'Nadar', 'Mudaliar', 'Chettiar', 'Gounder', 'Pillai', 'Vellalar',
+      'Iyengar', 'Iyer', 'Thevar', 'Vanniyar', 'Naidu', 'Reddy',
+      'Kongu Vellalar', 'Kongu Vellala Gounder', 'Viswakarma', 'Sengunthar',
+      'Yadav', 'Devendra Kula Vellalar'
+    ];
+    if (mainCommunities.length === 0) {
+      return Array.from(new Set([...fallbackList, 'Other', form.caste].filter(Boolean)));
+    }
+    const cleanList = mainCommunities.map((c) => c.name.replace(/\s+Matrimony$/i, '').trim());
+    const unique = Array.from(new Set(cleanList)).filter((name) => name !== 'Other');
+    unique.sort((a, b) => a.localeCompare(b));
+    unique.push('Other');
+    if (form.caste && !unique.includes(form.caste)) {
+      unique.unshift(form.caste);
+    }
+    return unique;
+  }, [mainCommunities, form.caste]);
 
   // Load real profile from DB or AuthStore when component mounts
   useEffect(() => {
@@ -242,11 +288,12 @@ const ProfileCompletePage = () => {
             timeOfBirth: p.horoscope?.timeOfBirth || p.timeOfBirth || prev.timeOfBirth,
             placeOfBirth: p.horoscope?.placeOfBirth || p.placeOfBirth || prev.placeOfBirth,
             education: p.education?.degree || p.education?.qualification || (typeof p.education === 'string' ? p.education : prev.education),
-            educationDetail: p.education?.college || p.educationDetail || prev.educationDetail,
+            educationDetail: p.education?.fieldOfStudy || p.educationDetail || prev.educationDetail,
+            college: p.education?.college || prev.college || '',
             occupation: p.occupation?.designation || p.occupation?.title || (typeof p.occupation === 'string' ? p.occupation : prev.occupation),
             employedIn: p.occupation?.employmentType || prev.employedIn || 'PRIVATE',
             companyName: p.occupation?.company || prev.companyName,
-            annualIncome: p.occupation?.annualIncome ? String(p.occupation.annualIncome) : prev.annualIncome,
+            annualIncome: p.occupation?.salaryMin ? String(p.occupation.salaryMin) : (p.occupation?.annualIncome ? String(p.occupation.annualIncome) : prev.annualIncome),
             country: p.country || prev.country || 'India',
             state: p.state || prev.state,
             city: p.city || prev.city,
@@ -261,14 +308,14 @@ const ProfileCompletePage = () => {
             nativePlace: p.family?.nativePlace || p.nativePlace || prev.nativePlace,
             brothers: p.family?.brothers !== undefined ? p.family.brothers : prev.brothers,
             sisters: p.family?.sisters !== undefined ? p.family.sisters : prev.sisters,
-            elderBrothers: p.family?.elderBrothers !== undefined ? p.family.elderBrothers : prev.elderBrothers,
-            elderBrothersMarried: p.family?.elderBrothersMarried !== undefined ? p.family.elderBrothersMarried : prev.elderBrothersMarried,
-            youngerBrothers: p.family?.youngerBrothers !== undefined ? p.family.youngerBrothers : prev.youngerBrothers,
-            youngerBrothersMarried: p.family?.youngerBrothersMarried !== undefined ? p.family.youngerBrothersMarried : prev.youngerBrothersMarried,
-            elderSisters: p.family?.elderSisters !== undefined ? p.family.elderSisters : prev.elderSisters,
-            elderSistersMarried: p.family?.elderSistersMarried !== undefined ? p.family.elderSistersMarried : prev.elderSistersMarried,
-            youngerSisters: p.family?.youngerSisters !== undefined ? p.family.youngerSisters : prev.youngerSisters,
-            youngerSistersMarried: p.family?.youngerSistersMarried !== undefined ? p.family.youngerSistersMarried : prev.youngerSistersMarried,
+            elderBrothers: Math.max(0, Number(p.family?.elderBrothers !== undefined ? p.family.elderBrothers : (prev.elderBrothers ?? 0))),
+            elderBrothersMarried: Math.max(0, Number(p.family?.elderBrothersMarried !== undefined ? p.family.elderBrothersMarried : (prev.elderBrothersMarried ?? 0))),
+            youngerBrothers: Math.max(0, Number(p.family?.youngerBrothers !== undefined ? p.family.youngerBrothers : (prev.youngerBrothers ?? 0))),
+            youngerBrothersMarried: Math.max(0, Number(p.family?.youngerBrothersMarried !== undefined ? p.family.youngerBrothersMarried : (prev.youngerBrothersMarried ?? 0))),
+            elderSisters: Math.max(0, Number(p.family?.elderSisters !== undefined ? p.family.elderSisters : (prev.elderSisters ?? 0))),
+            elderSistersMarried: Math.max(0, Number(p.family?.elderSistersMarried !== undefined ? p.family.elderSistersMarried : (prev.elderSistersMarried ?? 0))),
+            youngerSisters: Math.max(0, Number(p.family?.youngerSisters !== undefined ? p.family.youngerSisters : (prev.youngerSisters ?? 0))),
+            youngerSistersMarried: Math.max(0, Number(p.family?.youngerSistersMarried !== undefined ? p.family.youngerSistersMarried : (prev.youngerSistersMarried ?? 0))),
             familyType: p.family?.familyType || prev.familyType || 'NUCLEAR',
             familyStatus: p.family?.familyStatus || prev.familyStatus || 'MIDDLE',
             familyValues: p.family?.familyValues || prev.familyValues || 'MODERATE',
@@ -279,7 +326,21 @@ const ProfileCompletePage = () => {
             prefAgeMax: p.partnerPreference?.ageMax || prev.prefAgeMax,
             prefHeightMin: p.partnerPreference?.heightMin || prev.prefHeightMin,
             prefHeightMax: p.partnerPreference?.heightMax || prev.prefHeightMax,
-            prefMaritalStatus: p.partnerPreference?.maritalStatus?.[0] || prev.prefMaritalStatus,
+            prefMaritalStatus: (() => {
+              let parsedMarital = '';
+              try {
+                if (p.partnerPreference?.aboutPartner) {
+                  const parsed = JSON.parse(p.partnerPreference.aboutPartner);
+                  parsedMarital = parsed.maritalStatus || '';
+                }
+              } catch {}
+              const raw = (p as any).prefMaritalStatus || p.partnerPreference?.maritalStatus?.[0] || parsedMarital || prev.prefMaritalStatus || '';
+              if (!raw) return '';
+              const clean = String(raw).trim().toUpperCase().replace(/\s+/g, '_');
+              if (['NEVER_MARRIED', 'DIVORCED', 'WIDOWED', 'SEPARATED'].includes(clean)) return clean;
+              if (clean === 'ANY' || clean === 'ALL' || clean === 'ANY_STATUS') return 'ANY';
+              return raw;
+            })(),
             prefReligion: p.partnerPreference?.religion || prev.prefReligion,
             prefCaste: p.partnerPreference?.caste || prev.prefCaste,
             prefLocation: p.partnerPreference?.location || prev.prefLocation,
@@ -307,6 +368,47 @@ const ProfileCompletePage = () => {
     setForm(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
   };
+
+  const handleSiblingChange = (field: string, delta: number) => {
+    setForm((prev) => {
+      const current = Math.max(0, Number(prev[field as keyof typeof prev] || 0));
+      return {
+        ...prev,
+        [field]: Math.max(0, current + delta),
+      };
+    });
+  };
+
+  const siblingErrors = useMemo(() => {
+    const eb = Number(form.elderBrothers || 0);
+    const ebm = Number(form.elderBrothersMarried || 0);
+    const yb = Number(form.youngerBrothers || 0);
+    const ybm = Number(form.youngerBrothersMarried || 0);
+    const es = Number(form.elderSisters || 0);
+    const esm = Number(form.elderSistersMarried || 0);
+    const ys = Number(form.youngerSisters || 0);
+    const ysm = Number(form.youngerSistersMarried || 0);
+
+    return {
+      elderBrothersMarried: ebm > eb ? 'Married elder brothers cannot be greater than elder brothers.' : '',
+      youngerBrothersMarried: ybm > yb ? 'Married younger brothers cannot be greater than younger brothers.' : '',
+      elderSistersMarried: esm > es ? 'Married elder sisters cannot be greater than elder sisters.' : '',
+      youngerSistersMarried: ysm > ys ? 'Married younger sisters cannot be greater than younger sisters.' : '',
+    };
+  }, [
+    form.elderBrothers,
+    form.elderBrothersMarried,
+    form.youngerBrothers,
+    form.youngerBrothersMarried,
+    form.elderSisters,
+    form.elderSistersMarried,
+    form.youngerSisters,
+    form.youngerSistersMarried,
+  ]);
+
+  const hasSiblingErrors = useMemo(() => {
+    return Object.values(siblingErrors).some(Boolean);
+  }, [siblingErrors]);
 
   const togglePlanetChart = (chartKey: 'rasiChart' | 'amsamChart', houseId: string, planet: string) => {
     setForm(prev => {
@@ -349,6 +451,12 @@ const ProfileCompletePage = () => {
     if (step === 3) {
       if (!form.city.trim()) errs.city = 'City is required';
     }
+    if (step === 4) {
+      if (hasSiblingErrors) {
+        const firstError = Object.values(siblingErrors).find(Boolean);
+        errs.siblings = firstError || 'Please correct sibling count errors.';
+      }
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -384,6 +492,7 @@ const ProfileCompletePage = () => {
       amsamChart: form.amsamChart,
       education: form.education,
       educationDetail: form.educationDetail,
+      college: form.college,
       occupation: form.occupation,
       employedIn: form.employedIn,
       companyName: form.companyName,
@@ -431,6 +540,11 @@ const ProfileCompletePage = () => {
   };
 
   const next = async () => {
+    if (currentStep === 4 && hasSiblingErrors) {
+      const firstError = Object.values(siblingErrors).find(Boolean);
+      toast.error(firstError || 'Please correct sibling count errors before continuing.');
+      return;
+    }
     if (!validateStep(currentStep)) return;
     setSaving(true);
     try {
@@ -450,6 +564,11 @@ const ProfileCompletePage = () => {
   };
 
   const saveDraft = async () => {
+    if (hasSiblingErrors) {
+      const firstError = Object.values(siblingErrors).find(Boolean);
+      toast.error(firstError || 'Please correct sibling count errors before saving.');
+      return;
+    }
     setSaving(true);
     try {
       await saveCurrentStepData();
@@ -461,79 +580,12 @@ const ProfileCompletePage = () => {
     }
   };
 
-  const handleAutoFill = async () => {
-    setSaving(true);
-    const filledForm = {
-      ...form,
-      firstName: form.firstName || user?.firstName || 'Member',
-      lastName: form.lastName || user?.lastName || '',
-      gender: form.gender || user?.gender || 'MALE',
-      dateOfBirth: form.dateOfBirth || (user?.dateOfBirth ? String(user.dateOfBirth).split('T')[0] : '1998-06-15'),
-      maritalStatus: form.maritalStatus || 'NEVER_MARRIED',
-      motherTongue: form.motherTongue || 'Tamil',
-      heightCm: form.heightCm || '175',
-      weightKg: form.weightKg || '70',
-      complexion: form.complexion || 'Fair',
-      bodyType: form.bodyType || 'Athletic',
-      aboutMe: form.aboutMe || 'Looking for a caring, well-educated and family-oriented life partner.',
-      religion: form.religion || 'Hindu',
-      caste: form.caste || 'Kongu Vellalar',
-      subcaste: form.subcaste || 'Gounder',
-      gothram: form.gothram || 'Shiva',
-      star: form.star || 'Rohini',
-      rasi: form.rasi || 'Rishabha',
-      education: form.education || 'B.E / B.Tech',
-      educationDetail: form.educationDetail || 'Computer Science & Engineering',
-      occupation: form.occupation || 'Software Engineer',
-      companyName: form.companyName || 'MNC',
-      annualIncome: form.annualIncome || '1200000',
-      country: form.country || 'India',
-      state: form.state || 'Tamil Nadu',
-      city: form.city || 'Chennai',
-      fatherName: form.fatherName || 'Father',
-      motherName: form.motherName || 'Mother',
-      aboutPartner: form.aboutPartner || 'Looking for an educated, well-cultured life partner.',
-    };
-
-    setForm(filledForm);
-
-    try {
-      await api.patch('/profiles/me', {
-        ...filledForm,
-        dateOfBirth: filledForm.dateOfBirth ? new Date(filledForm.dateOfBirth).toISOString() : undefined,
-        heightCm: Number(filledForm.heightCm),
-        weightKg: Number(filledForm.weightKg),
-        annualIncome: Number(filledForm.annualIncome),
-        brothers: Number(filledForm.brothers),
-        sisters: Number(filledForm.sisters),
-        prefAgeMin: Number(filledForm.prefAgeMin),
-        prefAgeMax: Number(filledForm.prefAgeMax),
-        prefHeightMin: Number(filledForm.prefHeightMin),
-        prefHeightMax: Number(filledForm.prefHeightMax),
-        smoking: filledForm.smoking === 'true',
-        drinking: filledForm.drinking === 'true',
-      });
-
-      const currentUser = useAuthStore.getState().user;
-      if (currentUser) {
-        useAuthStore.getState().setUser({
-          ...currentUser,
-          profileCompletionPercent: 100,
-        });
-      }
-
-      await fetchMe().catch(() => null);
-      toast.success('🎉 Profile auto-filled & saved successfully!');
-      navigate('/dashboard');
-    } catch {
-      toast.success('🎉 Profile saved! Redirecting to dashboard...');
-      navigate('/dashboard');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleSubmit = async () => {
+    if (hasSiblingErrors) {
+      const firstError = Object.values(siblingErrors).find(Boolean);
+      toast.error(firstError || 'Please correct sibling count errors before submitting.');
+      return;
+    }
     setSaving(true);
     try {
       await saveCurrentStepData();
@@ -659,35 +711,31 @@ const ProfileCompletePage = () => {
   );
 
   const renderStep1 = () => {
-    const casteOptions = Array.from(
-      new Set([
-        ...Object.keys(CASTE_SUBCASTES),
-        'Kongu Vellalar',
-        'Kongu Vellala Gounder',
-        'Vellalar',
-        'Nadar',
-        'Mudaliar',
-        'Chettiar',
-        'Gounder',
-        'Pillai',
-        'Iyengar',
-        'Iyer',
-        'Thevar',
-        'Vanniyar',
-        'Naidu',
-        'Reddy',
-        'Other',
-        form.caste,
-      ].filter(Boolean))
-    );
+    const matchedCommunity = form.caste
+      ? mainCommunities.find(
+          (c) =>
+            c.name.toLowerCase().trim() === form.caste.toLowerCase().trim() ||
+            c.name.replace(/\s+Matrimony$/i, '').toLowerCase().trim() === form.caste.toLowerCase().trim() ||
+            form.caste.toLowerCase().trim().includes(c.name.toLowerCase().trim())
+        ) || null
+      : null;
 
-    const matchedSubcastes = CASTE_SUBCASTES[form.caste] ||
+    const dbSubCastes = matchedCommunity?.children?.map((sub) => sub.name) || [];
+    const matchedSubcastes =
+      CASTE_SUBCASTES[form.caste] ||
       Object.entries(CASTE_SUBCASTES).find(([k]) => form.caste && form.caste.toLowerCase().includes(k.toLowerCase()))?.[1] ||
       [];
 
     const availableSubcastes = Array.from(
-      new Set([...matchedSubcastes, 'General', 'Other', form.subcaste].filter(Boolean))
+      new Set([...dbSubCastes, ...matchedSubcastes, 'General', 'Other', form.subcaste].filter(Boolean))
     );
+    availableSubcastes.sort((a, b) => {
+      if (a === 'General') return -1;
+      if (b === 'General') return 1;
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return a.localeCompare(b);
+    });
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -811,7 +859,9 @@ const ProfileCompletePage = () => {
         ))}
       </Select>
 
-      <Input label="Degree / Specialization Detail" value={form.educationDetail} onChange={(e: any) => set('educationDetail', e.target.value)} placeholder="e.g. Computer Science, Mechanical" />
+      <Input label="Degree / Specialization Detail" value={form.educationDetail} onChange={(e: any) => set('educationDetail', e.target.value)} placeholder="e.g. Computer Science, General Medicine" />
+
+      <Input label="College / University" value={form.college} onChange={(e: any) => set('college', e.target.value)} placeholder="e.g. Madras Medical College, Anna University" />
 
       <Select label="Occupation" required value={form.occupation} onChange={(e: any) => set('occupation', e.target.value)} error={errors.occupation}>
         <option value="">Select Occupation</option>
@@ -883,48 +933,122 @@ const ProfileCompletePage = () => {
         {/* Brothers */}
         <div className="mb-3">
           <p className="text-[11px] font-bold text-rose-900 uppercase tracking-widest mb-2">Brothers (சகோதரன்)</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {([
-              { label: 'மூத்த சகோதரன் (Elder Brother)', field: 'elderBrothers' as const },
-              { label: 'மணமான மூத்த சகோதரன் (Married Elder)', field: 'elderBrothersMarried' as const },
-              { label: 'தம்பி (Younger Brother)', field: 'youngerBrothers' as const },
-              { label: 'மணமான தம்பி (Married Younger)', field: 'youngerBrothersMarried' as const },
-            ]).map(({ label, field }) => (
-              <div key={field} className="bg-rose-50 rounded-xl border border-rose-100 p-3 flex flex-col gap-1.5">
-                <span className="text-[10px] font-semibold text-slate-600 leading-tight">{label}</span>
-                <div className="flex items-center gap-2 mt-auto">
-                  <button type="button" onClick={() => set(field, Math.max(0, Number(form[field]) - 1))}
-                    className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">−</button>
-                  <span className="flex-1 text-center text-lg font-black text-rose-900">{form[field] ?? 0}</span>
-                  <button type="button" onClick={() => set(field, Number(form[field]) + 1)}
-                    className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">+</button>
+              { label: 'மூத்த சகோதரன் (Elder Brother)', field: 'elderBrothers' as const, isMarried: false },
+              { label: 'மணமான மூத்த சகோதரன் (Married Elder)', field: 'elderBrothersMarried' as const, isMarried: true },
+              { label: 'தம்பி (Younger Brother)', field: 'youngerBrothers' as const, isMarried: false },
+              { label: 'மணமான தம்பி (Married Younger)', field: 'youngerBrothersMarried' as const, isMarried: true },
+            ]).map(({ label, field, isMarried }) => {
+              const currentVal = form[field] ?? 0;
+              const err = isMarried ? siblingErrors[field as keyof typeof siblingErrors] : '';
+
+              return (
+                <div 
+                  key={field} 
+                  className={`rounded-xl border p-3 flex flex-col gap-1.5 transition-all ${
+                    err ? 'bg-red-50/70 border-red-300 ring-1 ring-red-300' : 'bg-rose-50 border-rose-100'
+                  }`}
+                >
+                  <span className={`text-[10px] font-semibold leading-tight ${err ? 'text-red-700' : 'text-slate-600'}`}>{label}</span>
+                  <div className="flex items-center gap-2 mt-auto">
+                    <button
+                      type="button"
+                      disabled={Number(currentVal) <= 0}
+                      onClick={() => handleSiblingChange(field, -1)}
+                      className={`w-8 h-8 rounded-lg font-bold text-base flex items-center justify-center transition ${Number(currentVal) <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-900 text-white hover:bg-rose-800'}`}
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min="0"
+                      value={currentVal}
+                      onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))}
+                      className={`flex-1 text-center text-lg font-black rounded-lg py-1 border transition-colors focus:outline-none ${
+                        err
+                          ? 'bg-white border-red-400 text-red-700 focus:ring-2 focus:ring-red-400'
+                          : 'bg-white/80 border-rose-200 text-rose-900 focus:ring-2 focus:ring-rose-400'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSiblingChange(field, 1)}
+                      className="w-8 h-8 rounded-lg font-bold text-base flex items-center justify-center transition bg-rose-900 text-white hover:bg-rose-800"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {err && (
+                    <p className="text-[11px] font-semibold text-red-600 mt-1 flex items-center gap-1 leading-snug">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-600" />
+                      <span>{err}</span>
+                    </p>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         {/* Sisters */}
         <div>
           <p className="text-[11px] font-bold text-rose-900 uppercase tracking-widest mb-2">Sisters (சகோதரி)</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {([
-              { label: 'அக்கா (Elder Sister)', field: 'elderSisters' as const },
-              { label: 'மணமான அக்கா (Married Elder)', field: 'elderSistersMarried' as const },
-              { label: 'தங்கை (Younger Sister)', field: 'youngerSisters' as const },
-              { label: 'மணமான தங்கை (Married Younger)', field: 'youngerSistersMarried' as const },
-            ]).map(({ label, field }) => (
-              <div key={field} className="bg-pink-50 rounded-xl border border-pink-100 p-3 flex flex-col gap-1.5">
-                <span className="text-[10px] font-semibold text-slate-600 leading-tight">{label}</span>
-                <div className="flex items-center gap-2 mt-auto">
-                  <button type="button" onClick={() => set(field, Math.max(0, Number(form[field]) - 1))}
-                    className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">−</button>
-                  <span className="flex-1 text-center text-lg font-black text-rose-900">{form[field] ?? 0}</span>
-                  <button type="button" onClick={() => set(field, Number(form[field]) + 1)}
-                    className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">+</button>
+              { label: 'அக்கா (Elder Sister)', field: 'elderSisters' as const, isMarried: false },
+              { label: 'மணமான அக்கா (Married Elder)', field: 'elderSistersMarried' as const, isMarried: true },
+              { label: 'தங்கை (Younger Sister)', field: 'youngerSisters' as const, isMarried: false },
+              { label: 'மணமான தங்கை (Married Younger)', field: 'youngerSistersMarried' as const, isMarried: true },
+            ]).map(({ label, field, isMarried }) => {
+              const currentVal = form[field] ?? 0;
+              const err = isMarried ? siblingErrors[field as keyof typeof siblingErrors] : '';
+
+              return (
+                <div 
+                  key={field} 
+                  className={`rounded-xl border p-3 flex flex-col gap-1.5 transition-all ${
+                    err ? 'bg-red-50/70 border-red-300 ring-1 ring-red-300' : 'bg-pink-50 border-pink-100'
+                  }`}
+                >
+                  <span className={`text-[10px] font-semibold leading-tight ${err ? 'text-red-700' : 'text-slate-600'}`}>{label}</span>
+                  <div className="flex items-center gap-2 mt-auto">
+                    <button
+                      type="button"
+                      disabled={Number(currentVal) <= 0}
+                      onClick={() => handleSiblingChange(field, -1)}
+                      className={`w-8 h-8 rounded-lg font-bold text-base flex items-center justify-center transition ${Number(currentVal) <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-900 text-white hover:bg-rose-800'}`}
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min="0"
+                      value={currentVal}
+                      onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))}
+                      className={`flex-1 text-center text-lg font-black rounded-lg py-1 border transition-colors focus:outline-none ${
+                        err
+                          ? 'bg-white border-red-400 text-red-700 focus:ring-2 focus:ring-red-400'
+                          : 'bg-white/80 border-pink-200 text-rose-900 focus:ring-2 focus:ring-rose-400'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSiblingChange(field, 1)}
+                      className="w-8 h-8 rounded-lg font-bold text-base flex items-center justify-center transition bg-rose-900 text-white hover:bg-rose-800"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {err && (
+                    <p className="text-[11px] font-semibold text-red-600 mt-1 flex items-center gap-1 leading-snug">
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-600" />
+                      <span>{err}</span>
+                    </p>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -977,10 +1101,12 @@ const ProfileCompletePage = () => {
         </div>
       </div>
       <Select label="Preferred Marital Status" value={form.prefMaritalStatus} onChange={(e: any) => set('prefMaritalStatus', e.target.value)}>
-        <option value="">Any</option>
+        <option value="">-- Select Preferred Marital Status --</option>
         <option value="NEVER_MARRIED">Never Married</option>
         <option value="DIVORCED">Divorced</option>
         <option value="WIDOWED">Widowed</option>
+        <option value="SEPARATED">Separated</option>
+        <option value="ANY">Any Status</option>
       </Select>
       <Select label="Preferred Religion" value={form.prefReligion} onChange={(e: any) => set('prefReligion', e.target.value)}>
         <option value="">Any Religion</option>
@@ -990,13 +1116,7 @@ const ProfileCompletePage = () => {
       </Select>
       <Select label="Preferred Community / Caste" value={form.prefCaste} onChange={(e: any) => set('prefCaste', e.target.value)}>
         <option value="">Any Community / Caste</option>
-        {[
-          'Nadar','Mudaliar','Gounder','Pillai','Chettiar','Vanniyar','Thevar',
-          'Naidu','Iyer','Iyengar','Vellalar','Reddiyar','Yadav / Konar',
-          'Viswakarma','Sourashtra','Nair','Christian','Muslim',
-          'Devendra Kula Vellalar','Adidravidar','Muthuraja','Naicker',
-          'Sengunthar','Kamma','Kapu','Ezhava','Brahmin','Maratha','Jain','Sikh','Other'
-        ].map(c => (
+        {casteOptions.map(c => (
           <option key={c} value={c}>{c}</option>
         ))}
       </Select>
@@ -1068,12 +1188,24 @@ const ProfileCompletePage = () => {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-900">Complete Your Profile</h1>
+              <h1 className="text-lg font-bold text-slate-900">
+                {progress >= 100 || ((user as any)?.profileCompletionPercent ?? 0) >= 100
+                  ? 'Your Profile is 100% Complete'
+                  : 'Complete Your Profile'}
+              </h1>
               <p className="text-xs text-slate-500 font-medium">Step {currentStep + 1} of {STEPS.length} — {STEPS[currentStep].label}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            {(progress >= 100 || ((user as any)?.profileCompletionPercent ?? 0) >= 100) && (
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
+              >
+                Dashboard →
+              </button>
+            )}
             <div className="text-right">
               <p className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold">Completion</p>
               <p className="text-base font-extrabold text-primary">{progress}%</p>
@@ -1146,22 +1278,11 @@ const ProfileCompletePage = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         
         {/* Warning Banner */}
-        <div className="mb-6 bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-primary flex-shrink-0" />
-            <p className="text-sm text-rose-900 font-medium">
-              <strong className="text-primary font-bold">Profile completion required.</strong> Please complete all sections to unlock your dashboard, search, and matches.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleAutoFill}
-            disabled={saving}
-            className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary via-primary-dark to-secondary text-white text-xs font-bold rounded-xl shadow-md hover:shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 transition-all"
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-amber-300" />}
-            Auto-Fill & Complete Profile (1-Click)
-          </button>
+        <div className="mb-6 bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4 flex items-center gap-3 shadow-sm">
+          <AlertCircle className="w-5 h-5 text-primary flex-shrink-0" />
+          <p className="text-sm text-rose-900 font-medium">
+            <strong className="text-primary font-bold">Profile completion required.</strong> Please complete all sections to unlock your dashboard, search, and matches.
+          </p>
         </div>
 
         {/* Step Card */}
@@ -1210,8 +1331,8 @@ const ProfileCompletePage = () => {
               <button
                 type="button"
                 onClick={saveDraft}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2.5 border border-primary/30 text-primary rounded-xl text-xs font-bold hover:bg-primary/5 disabled:opacity-50 transition-all"
+                disabled={saving || (currentStep === 4 && hasSiblingErrors)}
+                className="flex items-center gap-2 px-4 py-2.5 border border-primary/30 text-primary rounded-xl text-xs font-bold hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Save Draft
@@ -1222,8 +1343,8 @@ const ProfileCompletePage = () => {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={saving}
-                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg disabled:opacity-50 transition-all"
+                disabled={saving || hasSiblingErrors}
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 Complete Profile & Continue
@@ -1232,7 +1353,8 @@ const ProfileCompletePage = () => {
               <button
                 type="button"
                 onClick={next}
-                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all"
+                disabled={saving || (currentStep === 4 && hasSiblingErrors)}
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 Next Step
                 <ChevronRight className="w-4 h-4" />

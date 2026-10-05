@@ -1,7 +1,8 @@
 import { Controller, Get, Post, Put, Delete, Patch, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
-import { Public } from '../common/decorators/rbac.decorator';
+import { Public, RequirePermissions } from '../common/decorators/rbac.decorator';
+import { Permission } from '../common/enums/rbac.enum';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { DevPlan } from '../common/dev-store';
 
@@ -18,6 +19,7 @@ export class PaymentsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.PLANS_MANAGE)
   @Post('plans')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create new membership plan' })
@@ -26,6 +28,7 @@ export class PaymentsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.PLANS_MANAGE)
   @Put('plans/:id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update plan parameters (Super Admin)' })
@@ -34,6 +37,7 @@ export class PaymentsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.PLANS_MANAGE)
   @Patch('plans/:id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Toggle plan active status' })
@@ -42,6 +46,7 @@ export class PaymentsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.PLANS_MANAGE)
   @Delete('plans/:id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete membership plan' })
@@ -50,6 +55,17 @@ export class PaymentsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.MEMBER_UPGRADE)
+  @Get('entitlements')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user active plan entitlements and dynamic capabilities' })
+  async getEntitlements(@Req() req: any) {
+    const userId = req.user.sub || req.user.id;
+    return (await this.paymentsService.getUnlockedContacts(userId)).entitlements;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.MEMBER_CONTACTS)
   @Get('contacts/unlocked')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user contact unlock status & limits' })
@@ -59,6 +75,7 @@ export class PaymentsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.MEMBER_CONTACTS)
   @Post('contacts/unlock/:targetUserId')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Unlock target candidate contact details enforcing plan limit' })
@@ -68,27 +85,47 @@ export class PaymentsController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('create-order')
+  @RequirePermissions(Permission.MEMBER_UPGRADE)
+  @Post('activate-free')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create Razorpay payment order for plan' })
-  async createOrder(@Req() req: any, @Body() body: { planId: string }) {
-    const userId = req.user.sub || req.user.id;
-    return this.paymentsService.createRazorpayOrder(userId, body.planId);
+  @ApiOperation({ summary: 'Directly activate free membership tier without payment' })
+  async activateFreePlan(@Req() req: any, @Body() body: { planId?: string }) {
+    const userId = req.user?.sub || req.user?.id;
+    return this.paymentsService.activateFreePlan(userId, body?.planId);
   }
 
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.MEMBER_UPGRADE)
+  @Post('create-order')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create Razorpay payment order for plan or custom amount' })
+  async createOrder(@Req() req: any, @Body() body: any) {
+    const userId = req.user?.sub || req.user?.id;
+    return this.paymentsService.createRazorpayOrder(userId, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.MEMBER_UPGRADE)
   @Post('verify')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Verify Razorpay payment signature and activate membership' })
-  async verifyPayment(
-    @Req() req: any,
-    @Body() body: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string },
-  ) {
-    const userId = req.user.sub || req.user.id;
+  async verifyPayment(@Req() req: any, @Body() body: any) {
+    const userId = req.user?.sub || req.user?.id;
     return this.paymentsService.verifyPayment(userId, body);
   }
 
   @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.MEMBER_UPGRADE)
+  @Post('verify-payment')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify Razorpay payment signature (standard endpoint)' })
+  async verifyPaymentAlias(@Req() req: any, @Body() body: any) {
+    const userId = req.user?.sub || req.user?.id;
+    return this.paymentsService.verifyPayment(userId, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @RequirePermissions(Permission.MEMBER_PAYMENTS)
   @Get('my-history')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user payment & transaction history' })

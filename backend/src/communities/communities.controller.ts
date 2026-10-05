@@ -17,8 +17,11 @@ export class CommunitiesController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'Get all communities' })
-  async findAll(@Query('search') search?: string) {
-    return this.communitiesService.findAll(search);
+  async findAll(
+    @Query('search') search?: string,
+    @Query('includeInactive') includeInactive?: string
+  ) {
+    return this.communitiesService.findAll(search, includeInactive === 'true');
   }
 
   @Public()
@@ -32,7 +35,7 @@ export class CommunitiesController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @RequirePermissions(Permission.COMMUNITIES_WRITE)
   @ApiOperation({ summary: 'Create a new community (Admin only)' })
-  async create(@Body() body: { name: string; description?: string }) {
+  async create(@Body() body: { name: string; description?: string; parentId?: string }) {
     return this.communitiesService.create(body);
   }
 

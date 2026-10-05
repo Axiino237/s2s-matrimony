@@ -21,6 +21,8 @@ export interface PlanItem {
   isPopular?: boolean;
 }
 
+import { isFeatureAllowed } from '../../../components/plans/PlanFormModal';
+
 export const sortPlans = (plansList: PlanItem[]): PlanItem[] => {
   const getPlanRank = (plan: PlanItem): number => {
     const tier = (plan.tier || '').toUpperCase();
@@ -35,14 +37,19 @@ export const sortPlans = (plansList: PlanItem[]): PlanItem[] => {
     return 100; // Newly added custom plans go to the end!
   };
 
-  return [...plansList].sort((a, b) => {
-    const rankA = getPlanRank(a);
-    const rankB = getPlanRank(b);
-    if (rankA !== rankB) return rankA - rankB;
-    const pA = parseFloat(String(a.price).replace(/[^\d.]/g, '') || '0');
-    const pB = parseFloat(String(b.price).replace(/[^\d.]/g, '') || '0');
-    return pA - pB;
-  });
+  return [...plansList]
+    .map((p) => ({
+      ...p,
+      features: (Array.isArray(p.features) ? p.features : []).filter(isFeatureAllowed),
+    }))
+    .sort((a, b) => {
+      const rankA = getPlanRank(a);
+      const rankB = getPlanRank(b);
+      if (rankA !== rankB) return rankA - rankB;
+      const pA = parseFloat(String(a.price).replace(/[^\d.]/g, '') || '0');
+      const pB = parseFloat(String(b.price).replace(/[^\d.]/g, '') || '0');
+      return pA - pB;
+    });
 };
 
 const loadRazorpayScript = (): Promise<boolean> => {
@@ -63,35 +70,51 @@ const PremiumPage = () => {
   const { user, fetchMe } = useAuthStore();
   const [plans, setPlans] = useState<PlanItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchPlans = () => {
+    setLoading(true);
+    setError(null);
     paymentsApi
       .getPlans()
       .then((res) => {
         if (Array.isArray(res) && res.length > 0) {
           setPlans(sortPlans(res));
         } else {
-          setPlans(
-            sortPlans([
-              { id: 'plan-free', name: 'Free Plan', price: '0', duration: 'Lifetime', tier: 'FREE', contactLimit: 5, features: ['5 Daily Express Interests', 'Basic Profile Search Filters', '5 Verified Candidate Contact Views'] },
-              { id: 'plan-silver', name: 'Silver Plan', price: '599', duration: '1 Month', tier: 'SILVER', contactLimit: 50, features: ['50 Daily Express Interests', 'Advanced Search Filters', '50 Contact Views', 'Direct Chat Access'] },
-              { id: 'plan-gold', name: 'Gold Plan', price: '999', duration: '3 Months', tier: 'GOLD', isPopular: true, contactLimit: 100, features: ['Unlimited Express Interests', 'Advanced Search & Dosha Filters', '100 Contact Unlocks', 'Direct Chat Messaging', 'Priority Profile Ranking', 'AI Match Score'] },
-              { id: 'plan-elite', name: 'Elite Plan', price: '1799', duration: '6 Months', tier: 'ELITE', contactLimit: 999, features: ['Everything in Gold +', 'Unlimited Contact Unlocks', 'Highlighted Profile Badge', 'Dedicated Relationship Manager', 'Direct Chat & Phone Access'] },
-            ])
-          );
+          setError('No membership plans currently available. Please check back later.');
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        setError(err?.response?.data?.message || err?.message || 'Failed to load membership plans. Please check your connection.');
+      })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchPlans();
   }, []);
 
   const handleCheckout = async (plan: PlanItem) => {
-    if (plan.tier === 'FREE' || Number(plan.price) === 0) {
-      toast.success('You are currently on the Free Tier.');
+    const price = Number(String(plan.price).replace(/[^\d.]/g, '') || 0);
+
+    // Free plan -> direct activation without payment
+    if (plan.tier === 'FREE' || price === 0) {
+      setProcessingPlanId(plan.id);
+      const toastId = toast.loading('Activating Free Plan...');
+      try {
+        const res = await paymentsApi.activateFreePlan(plan.id);
+        toast.success(res.message || 'Free Plan activated successfully! 🎉', { id: toastId });
+        await fetchMe();
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || err?.message || 'Failed to activate free plan', { id: toastId });
+      } finally {
+        setProcessingPlanId(null);
+      }
       return;
     }
 
+    // Any paid plan with price > 0 -> MUST go through Razorpay payment flow
     setProcessingPlanId(plan.id);
     const toastId = toast.loading('Initializing Razorpay Checkout...');
 
@@ -99,56 +122,36 @@ const PremiumPage = () => {
       const order = await paymentsApi.createOrder(plan.id);
       const isLoaded = await loadRazorpayScript();
 
-      if (!isLoaded && !order.mock) {
+      if (!isLoaded) {
         toast.error('Failed to load Razorpay SDK. Please check your network connection.', { id: toastId });
         setProcessingPlanId(null);
         return;
       }
 
-      if (order.mock || !order.key || order.key.includes('XXXXXXXX')) {
-        toast.dismiss(toastId);
-        const confirmMock = window.confirm(
-          `Razorpay Test Mode: Standard Checkout Notice.\n\nOrder ID: ${order.razorpayOrderId}\nAmount: ₹${Number(plan.price)}\n\nClick OK to simulate successful test payment verification.`
-        );
-        if (confirmMock) {
-          const verifyRes = await paymentsApi.verifyPayment({
-            razorpayOrderId: order.razorpayOrderId,
-            razorpayPaymentId: `pay_test_sim_${Date.now()}`,
-            razorpaySignature: `sig_sim_${Date.now()}`,
-          });
-          toast.success(verifyRes.message || 'Payment simulated successfully! Membership updated. 🎉');
-          await fetchMe();
-        }
-        setProcessingPlanId(null);
-        return;
-      }
+      const razorpayKey = order.key || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TjJrVTHa9GKmXb';
+      const orderId = order.order_id || order.razorpayOrderId || order.orderId;
 
       toast.dismiss(toastId);
       const options: any = {
-        key: order.key,
+        key: razorpayKey,
         amount: order.amount,
         currency: order.currency || 'INR',
         name: 'S2S Community Matrimony',
         description: `${plan.name} Upgrade (${plan.duration || 'Standard'})`,
         image: '/images/logo.png',
-        method: {
-          upi: true,
-          card: true,
-          netbanking: true,
-          wallet: true,
-        },
         handler: async (response: any) => {
+          // This callback ONLY executes when the member successfully completes payment in the Razorpay gateway!
           const verifyToast = toast.loading('Verifying Razorpay payment signature...');
           try {
             const verifyRes = await paymentsApi.verifyPayment({
-              razorpayOrderId: response.razorpay_order_id || order.razorpayOrderId,
-              razorpayPaymentId: response.razorpay_payment_id || `pay_test_${Date.now()}`,
-              razorpaySignature: response.razorpay_signature || `sig_test_${Date.now()}`,
+              razorpay_order_id: response.razorpay_order_id || orderId,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
             });
             toast.success(verifyRes.message || 'Payment verified! Membership upgraded successfully 🎉', { id: verifyToast });
             await fetchMe();
           } catch (err: any) {
-            toast.error(err?.message || 'Payment verification failed', { id: verifyToast });
+            toast.error(err?.response?.data?.message || err?.message || 'Payment verification failed', { id: verifyToast });
           } finally {
             setProcessingPlanId(null);
           }
@@ -163,14 +166,15 @@ const PremiumPage = () => {
         },
         modal: {
           ondismiss: () => {
+            // Member cancelled or dismissed the payment gateway modal -> Plan remains inactive!
             setProcessingPlanId(null);
-            toast('Payment checkout cancelled');
+            toast('Payment checkout cancelled. Plan remains inactive.');
           },
         },
       };
 
-      if (order.razorpayOrderId && !order.razorpayOrderId.startsWith('order_mock_')) {
-        options.order_id = order.razorpayOrderId;
+      if (orderId && !orderId.startsWith('order_mock_')) {
+        options.order_id = orderId;
       }
 
       const rzp = new window.Razorpay(options);
@@ -180,7 +184,7 @@ const PremiumPage = () => {
       });
       rzp.open();
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to initiate Razorpay checkout', { id: toastId });
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to initiate Razorpay checkout', { id: toastId });
       setProcessingPlanId(null);
     }
   };
@@ -225,10 +229,20 @@ const PremiumPage = () => {
         </div>
       </div>
 
-      {/* Loading State */}
+      {/* Loading or Error State */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+      ) : error ? (
+        <div className="text-center py-16 px-4 bg-white rounded-2xl border border-rose-200 shadow-sm max-w-md mx-auto space-y-4">
+          <p className="text-rose-600 font-medium text-sm">{error}</p>
+          <button
+            onClick={fetchPlans}
+            className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl shadow hover:bg-rose-700 transition"
+          >
+            Retry Loading Plans
+          </button>
         </div>
       ) : (
         /* Plans Grid - Strictly Ordered: Free -> Silver -> Gold -> Elite -> Custom Plans */
@@ -245,11 +259,10 @@ const PremiumPage = () => {
             return (
               <div
                 key={plan.id}
-                className={`relative flex flex-col bg-white rounded-3xl p-6 border transition-all duration-300 shadow-lg hover:shadow-2xl ${
-                  isPopular
+                className={`relative flex flex-col bg-white rounded-3xl p-6 border transition-all duration-300 shadow-lg hover:shadow-2xl ${isPopular
                     ? 'border-2 border-primary shadow-primary/20 scale-[1.02] lg:-translate-y-2'
                     : 'border-slate-200 hover:border-slate-300'
-                }`}
+                  }`}
               >
                 {isPopular && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-amber-500 text-white text-[11px] font-black uppercase tracking-wider px-4 py-1 rounded-full shadow-md flex items-center gap-1.5 z-10">
@@ -292,13 +305,12 @@ const PremiumPage = () => {
                   type="button"
                   onClick={() => handleCheckout(plan)}
                   disabled={isProcessing || isCurrent}
-                  className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-md ${
-                    isCurrent
+                  className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-md ${isCurrent
                       ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                       : isPopular
-                      ? 'btn-primary shadow-primary/30'
-                      : 'bg-slate-900 hover:bg-slate-800 text-white'
-                  }`}
+                        ? 'btn-primary shadow-primary/30'
+                        : 'bg-slate-900 hover:bg-slate-800 text-white'
+                    }`}
                 >
                   {isProcessing ? (
                     <>

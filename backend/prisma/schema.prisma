@@ -30,7 +30,9 @@ enum MembershipTier {
   FREE
   SILVER
   GOLD
+  DIAMOND
   ELITE
+  PLATINUM
 }
 
 enum ProfileStatus {
@@ -72,8 +74,6 @@ enum NotificationType {
 enum AdminRole {
   SUPER_ADMIN
   ADMIN
-  MODERATOR
-  SUPPORT_AGENT
 }
 
 enum VerificationStatus {
@@ -926,7 +926,7 @@ model Admin {
   passwordHash String
   firstName    String
   lastName     String
-  role         AdminRole @default(MODERATOR)
+  role         AdminRole @default(ADMIN)
   communityId  String?   // null = all communities
   isActive     Boolean   @default(true)
   lastLogin    DateTime?

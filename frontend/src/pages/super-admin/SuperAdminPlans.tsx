@@ -1,326 +1,26 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Crown, Plus, Edit2, Trash2, CheckCircle2, XCircle, Loader2, Phone, Eye, Star, AlertCircle, Save, X } from 'lucide-react';
+import {
+  Crown,
+  Plus,
+  Edit2,
+  Trash2,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Phone,
+  Eye,
+  Star,
+  Save,
+  X,
+  MessageSquare,
+  Sparkles,
+  Video,
+  Heart,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
-interface Plan {
-  id: string;
-  name: string;
-  tier: string;
-  price: number;
-  durationMonths: number;
-  contactViewLimit: number;
-  features: string[];
-  isActive: boolean;
-  isPopular?: boolean;
-  description?: string;
-  createdAt?: string;
-}
-
-const TIERS = ['FREE', 'SILVER', 'GOLD', 'ELITE'];
-const TIER_COLORS: Record<string, string> = {
-  FREE: 'bg-slate-100 text-slate-600 font-medium',
-  SILVER: 'bg-slate-200 text-slate-700 font-medium',
-  GOLD: 'bg-amber-100 text-amber-800 font-bold border border-amber-300',
-  ELITE: 'bg-indigo-100 text-indigo-800 font-bold border border-indigo-300',
-};
-
-const PREDEFINED_FEATURES = [
-  'View contact details',
-  'Send interests',
-  'Chat messaging',
-  'Profile highlighting',
-  'Priority listing',
-  'Advanced search',
-  'Profile verification badge',
-  'Whatsapp connect',
-  'Dedicated relationship manager',
-  'AI-match recommendations',
-  'Priority support',
-  'Horoscope matching',
-];
-
-const DEFAULT_PLAN: Omit<Plan, 'id' | 'createdAt'> = {
-  name: '',
-  tier: 'SILVER',
-  price: 999,
-  durationMonths: 3,
-  contactViewLimit: 50,
-  features: ['View contact details', 'Send interests', 'Chat messaging'],
-  isActive: true,
-  isPopular: false,
-  description: '',
-};
-
-// ─── Plan Form Modal ───────────────────────────────────────────────────
-const PlanFormModal = ({
-  plan,
-  onClose,
-  onSave,
-}: {
-  plan: Partial<Plan> | null;
-  onClose: () => void;
-  onSave: (data: Partial<Plan>) => void;
-}) => {
-  const isNew = !plan?.id;
-
-  const initialForm = useMemo(() => {
-    if (!plan || !plan.id) return { ...DEFAULT_PLAN };
-    const limit = plan.contactViewLimit !== undefined 
-      ? plan.contactViewLimit 
-      : (plan as any).contactLimit !== undefined 
-      ? (plan as any).contactLimit 
-      : (plan as any).maxContacts !== undefined 
-      ? (plan as any).maxContacts 
-      : 5;
-    const dur = plan.durationMonths !== undefined ? plan.durationMonths : 0;
-    return {
-      ...DEFAULT_PLAN,
-      ...plan,
-      contactViewLimit: limit,
-      durationMonths: dur,
-    };
-  }, [plan]);
-
-  const [form, setForm] = useState(initialForm);
-  const [featureInput, setFeatureInput] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const set = (field: string, val: any) => setForm(prev => ({ ...prev, [field]: val }));
-
-  const toggleFeature = (feat: string) => {
-    const current = form.features || [];
-    if (current.includes(feat)) {
-      set('features', current.filter(f => f !== feat));
-    } else {
-      set('features', [...current, feat]);
-    }
-  };
-
-  const addCustomFeature = () => {
-    if (!featureInput.trim()) return;
-    const feat = featureInput.trim();
-    if (!form.features?.includes(feat)) {
-      set('features', [...(form.features || []), feat]);
-    }
-    setFeatureInput('');
-  };
-
-  const allFeatureOptions = useMemo(() => {
-    const set = new Set([...PREDEFINED_FEATURES, ...(form.features || [])]);
-    return Array.from(set);
-  }, [form.features]);
-
-  const handleSave = async () => {
-    if (!form.name || !form.tier || form.price === undefined || form.price === null) {
-      toast.error('Please fill plan name, tier, and price');
-      return;
-    }
-    setSaving(true);
-    try {
-      const payload = {
-        ...form,
-        contactLimit: form.contactViewLimit,
-      };
-      await onSave(payload);
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex items-center justify-between rounded-t-3xl">
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Crown className="w-5 h-5 text-amber-500" />
-            {isNew ? 'Create New Plan' : 'Edit Plan'}
-          </h2>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 transition-colors">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-
-        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {/* Plan Name */}
-          <div className="sm:col-span-2">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Plan Name *</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => set('name', e.target.value)}
-              placeholder="e.g. Elite 3 Months"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
-          </div>
-
-          {/* Tier */}
-          <div>
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Tier *</label>
-            <select
-              value={form.tier}
-              onChange={(e) => set('tier', e.target.value)}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
-            >
-              {TIERS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-
-          {/* Price */}
-          <div>
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Price (₹) *</label>
-            <input
-              type="number"
-              value={form.price}
-              onChange={(e) => set('price', isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value))}
-              min={0}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-
-          {/* Duration */}
-          <div>
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Duration (months) *</label>
-            <select
-              value={form.durationMonths}
-              onChange={(e) => set('durationMonths', parseInt(e.target.value))}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
-            >
-              {[0, 1, 2, 3, 6, 9, 12, 18, 24].map((m) => (
-                <option key={m} value={m}>
-                  {m === 0 ? 'Lifetime / Free (0 months)' : `${m} month${m > 1 ? 's' : ''}`}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Contact View Limit */}
-          <div>
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Contact View Limit</label>
-            <input
-              type="number"
-              value={form.contactViewLimit}
-              onChange={(e) => set('contactViewLimit', isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value))}
-              min={0}
-              placeholder="0 = Unlimited"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-            <p className="text-[11px] text-slate-400 mt-1">0 = Unlimited views (or set exact count e.g. 5, 50, 100)</p>
-          </div>
-
-          {/* Description */}
-          <div className="sm:col-span-2">
-            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">Description</label>
-            <textarea
-              value={form.description}
-              onChange={(e) => set('description', e.target.value)}
-              rows={2}
-              placeholder="Brief description of this plan..."
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-
-          {/* Features - Checkbox selection */}
-          <div className="sm:col-span-2">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                Select Features ({form.features?.length || 0} selected)
-              </label>
-            </div>
-
-            {/* Tick box grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 max-h-52 overflow-y-auto p-2 border border-slate-200 rounded-2xl bg-slate-50/50">
-              {allFeatureOptions.map((feat) => {
-                const isSelected = form.features?.includes(feat);
-                return (
-                  <label
-                    key={feat}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      toggleFeature(feat);
-                    }}
-                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-semibold cursor-pointer select-none transition-all ${
-                      isSelected
-                        ? 'bg-primary/10 border-primary text-primary shadow-xs'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {}}
-                      className="w-4 h-4 accent-primary rounded cursor-pointer pointer-events-none"
-                    />
-                    <span className="flex-1 truncate">{feat}</span>
-                  </label>
-                );
-              })}
-            </div>
-
-            {/* Add Custom Feature */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={featureInput}
-                onChange={(e) => setFeatureInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomFeature())}
-                placeholder="Add custom feature..."
-                className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-              <button
-                type="button"
-                onClick={addCustomFeature}
-                className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-medium hover:bg-slate-900 transition-colors"
-              >
-                + Add Feature
-              </button>
-            </div>
-          </div>
-
-          {/* Toggles */}
-          <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                onChange={(e) => set('isActive', e.target.checked)}
-                className="w-4 h-4 accent-primary rounded"
-              />
-              <span className="text-sm font-medium text-slate-700">Active</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.isPopular}
-                onChange={(e) => set('isPopular', e.target.checked)}
-                className="w-4 h-4 accent-amber-500 rounded"
-              />
-              <span className="text-sm font-medium text-slate-700">⭐ Popular</span>
-            </label>
-          </div>
-        </div>
-
-        <div className="px-6 pb-6 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-rose-500 text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all"
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {isNew ? 'Create Plan' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+import { PlanFormModal, Plan, TIERS, TIER_COLORS, isFeatureAllowed } from '../../components/plans/PlanFormModal';
 
 // ─── Main Page ─────────────────────────────────────────────────────────
 const SuperAdminPlans = () => {
@@ -328,14 +28,6 @@ const SuperAdminPlans = () => {
   const [loading, setLoading] = useState(true);
   const [modalPlan, setModalPlan] = useState<Partial<Plan> | null | undefined>(undefined);
   const [deleting, setDeleting] = useState<string | null>(null);
-
-  // Seed fallback data for display when backend not yet connected
-  const FALLBACK_PLANS: Plan[] = [
-    { id: '1', name: 'Free Plan', tier: 'FREE', price: 0, durationMonths: 0, contactViewLimit: 5, features: ['Browse profiles', 'Send interests (limited)'], isActive: true, isPopular: false },
-    { id: '2', name: 'Silver 3 Months', tier: 'SILVER', price: 999, durationMonths: 3, contactViewLimit: 50, features: ['50 contact views', 'Send unlimited interests', 'Chat messaging', 'Profile highlighting'], isActive: true, isPopular: false },
-    { id: '3', name: 'Gold 6 Months', tier: 'GOLD', price: 1999, durationMonths: 6, contactViewLimit: 100, features: ['100 contact views', 'Priority listing', 'Advanced search', 'Profile verification badge', 'Whatsapp connect'], isActive: true, isPopular: true },
-    { id: '4', name: 'Elite 12 Months', tier: 'ELITE', price: 3499, durationMonths: 12, contactViewLimit: 0, features: ['Unlimited contact views', 'Dedicated relationship manager', 'AI-match recommendations', 'All Gold features', 'Priority support'], isActive: true, isPopular: false },
-  ];
 
   useEffect(() => {
     fetchPlans();
@@ -346,18 +38,42 @@ const SuperAdminPlans = () => {
       const res = await api.get('/admin/plans');
       const data = res.data?.data || res.data || [];
       if (Array.isArray(data) && data.length > 0) {
-        const normalized: Plan[] = data.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          tier: (p.tier || 'SILVER').toUpperCase(),
-          price: Number(p.price ?? 0),
-          durationMonths: p.durationMonths !== undefined ? Number(p.durationMonths) : 0,
-          contactViewLimit: Number(p.contactViewLimit ?? p.contactLimit ?? p.maxContacts ?? 5),
-          features: Array.isArray(p.features) ? p.features : typeof p.features === 'string' ? JSON.parse(p.features) : [],
-          isActive: p.isActive !== false,
-          isPopular: p.isPopular === true,
-          description: p.description || '',
-        }));
+        const normalized: Plan[] = data.map((p: any) => {
+          const tier = (p.tier || 'SILVER').toUpperCase();
+          const contacts =
+            p.maxContacts !== undefined
+              ? Number(p.maxContacts)
+              : p.contactViewLimit !== undefined
+              ? Number(p.contactViewLimit)
+              : 0;
+
+          const interests =
+            p.maxInterests !== undefined
+              ? Number(p.maxInterests)
+              : 0;
+
+          return {
+            id: p.id,
+            name: p.name,
+            tier,
+            price: Number(p.price ?? 0),
+            durationMonths: p.durationMonths !== undefined ? Number(p.durationMonths) : 0,
+            contactViewLimit: contacts,
+            maxContacts: contacts,
+            maxInterests: interests,
+            hasChat: p.hasChat !== undefined ? Boolean(p.hasChat) : false,
+            hasAiMatch: Boolean(p.hasAiMatch),
+            hasVideoProfile: false,
+            features: (Array.isArray(p.features)
+              ? p.features
+              : typeof p.features === 'string'
+              ? JSON.parse(p.features)
+              : []).filter(isFeatureAllowed),
+            isActive: p.isActive !== false,
+            isPopular: p.isPopular === true,
+            description: p.description || '',
+          };
+        });
 
         const getPlanRank = (plan: any): number => {
           const tier = (plan.tier || '').toUpperCase();
@@ -380,11 +96,9 @@ const SuperAdminPlans = () => {
         });
 
         setPlans(sorted);
-      } else {
-        setPlans(FALLBACK_PLANS);
       }
     } catch {
-      setPlans(FALLBACK_PLANS);
+      toast.error('Failed to load plans from server');
     } finally {
       setLoading(false);
     }
@@ -392,24 +106,22 @@ const SuperAdminPlans = () => {
 
   const handleSave = async (data: Partial<Plan>) => {
     try {
+      const payload = {
+        ...data,
+        maxContacts: data.contactViewLimit,
+        contactLimit: data.contactViewLimit,
+      };
+
       if (data.id) {
-        await api.put(`/admin/plans/${data.id}`, data);
-        setPlans(prev => prev.map(p => p.id === data.id ? { ...p, ...data } as Plan : p));
-        toast.success('Plan updated successfully!');
+        await api.put(`/admin/plans/${data.id}`, payload);
+        toast.success('Plan configuration updated successfully!');
       } else {
-        const res = await api.post('/admin/plans', data);
-        const newPlan = res.data?.data || res.data;
-        setPlans(prev => [...prev, newPlan || { ...data, id: Date.now().toString() } as Plan]);
-        toast.success('Plan created successfully!');
+        await api.post('/admin/plans', payload);
+        toast.success('New plan created successfully!');
       }
-    } catch {
-      // Update locally for demo
-      if (data.id) {
-        setPlans(prev => prev.map(p => p.id === data.id ? { ...p, ...data } as Plan : p));
-      } else {
-        setPlans(prev => [...prev, { ...data, id: Date.now().toString() } as Plan]);
-      }
-      toast.success('Plan saved (demo mode)');
+      fetchPlans();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save plan');
     }
   };
 
@@ -418,11 +130,10 @@ const SuperAdminPlans = () => {
     setDeleting(id);
     try {
       await api.delete(`/admin/plans/${id}`);
-      setPlans(prev => prev.filter(p => p.id !== id));
+      setPlans((prev) => prev.filter((p) => p.id !== id));
       toast.success('Plan deleted');
     } catch {
-      setPlans(prev => prev.filter(p => p.id !== id));
-      toast.success('Plan removed (demo mode)');
+      toast.error('Failed to delete plan');
     } finally {
       setDeleting(null);
     }
@@ -431,10 +142,12 @@ const SuperAdminPlans = () => {
   const toggleActive = async (plan: Plan) => {
     try {
       await api.patch(`/admin/plans/${plan.id}`, { isActive: !plan.isActive });
-      setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, isActive: !p.isActive } : p));
+      setPlans((prev) =>
+        prev.map((p) => (p.id === plan.id ? { ...p, isActive: !p.isActive } : p)),
+      );
       toast.success(`Plan ${!plan.isActive ? 'activated' : 'deactivated'}`);
     } catch {
-      setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, isActive: !p.isActive } : p));
+      toast.error('Failed to toggle status');
     }
   };
 
@@ -452,9 +165,11 @@ const SuperAdminPlans = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <Crown className="w-6 h-6 text-amber-500" /> Membership Plans
+            <Crown className="w-6 h-6 text-amber-500" /> Membership Tiers & Plan Management
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Create and manage all membership tiers, pricing, and contact view limits</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Configure tier features, direct live chat, contact unlock quotas, and interest expression rules
+          </p>
         </div>
         <button
           onClick={() => setModalPlan({})}
@@ -468,10 +183,10 @@ const SuperAdminPlans = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: 'Total Plans', value: plans.length, icon: Crown, color: 'bg-primary-50 text-primary' },
-          { label: 'Active Plans', value: plans.filter(p => p.isActive).length, icon: CheckCircle2, color: 'bg-green-50 text-green-600' },
-          { label: 'Paid Plans', value: plans.filter(p => p.price > 0).length, icon: Star, color: 'bg-amber-50 text-amber-600' },
-          { label: 'Free Plans', value: plans.filter(p => p.price === 0).length, icon: Eye, color: 'bg-blue-50 text-blue-600' },
-        ].map(stat => {
+          { label: 'Active Plans', value: plans.filter((p) => p.isActive).length, icon: CheckCircle2, color: 'bg-green-50 text-green-600' },
+          { label: 'Paid Plans', value: plans.filter((p) => p.price > 0).length, icon: Star, color: 'bg-amber-50 text-amber-600' },
+          { label: 'Free Plans', value: plans.filter((p) => p.price === 0).length, icon: Eye, color: 'bg-blue-50 text-blue-600' },
+        ].map((stat) => {
           const Icon = stat.icon;
           return (
             <div key={stat.label} className={`rounded-2xl p-4 ${stat.color} border border-current/10`}>
@@ -488,11 +203,11 @@ const SuperAdminPlans = () => {
         {plans.map((plan) => (
           <div
             key={plan.id}
-            className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all relative overflow-hidden
+            className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between
               ${!plan.isActive ? 'opacity-60 border-slate-200' : plan.isPopular ? 'border-amber-300 shadow-amber-100' : 'border-slate-200'}`}
           >
             {plan.isPopular && (
-              <div className="absolute top-0 right-0 bg-amber-400 text-amber-900 text-[10px] font-bold px-3 py-1 rounded-bl-xl">
+              <div className="absolute top-0 right-0 bg-amber-400 text-amber-900 text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-xs">
                 ⭐ POPULAR
               </div>
             )}
@@ -505,27 +220,81 @@ const SuperAdminPlans = () => {
             <div className="p-5">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${TIER_COLORS[plan.tier] || 'bg-slate-100 text-slate-600'}`}>
+                  <span
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                      TIER_COLORS[plan.tier] || 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
                     {plan.tier}
                   </span>
                   <h3 className="text-base font-bold text-slate-900 mt-2">{plan.name}</h3>
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-slate-900">₹{plan.price.toLocaleString()}</p>
-                  {plan.durationMonths > 0 && (
+                  {plan.durationMonths > 0 ? (
                     <p className="text-xs text-slate-500">/{plan.durationMonths}mo</p>
+                  ) : (
+                    <p className="text-xs text-slate-500">Free / Lifetime</p>
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 mb-4">
-                <Phone className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-slate-700">
-                  {plan.contactViewLimit === 0 ? 'Unlimited' : plan.contactViewLimit} contact views
+              {/* Core Feature Badges */}
+              <div className="flex flex-wrap gap-1.5 my-3">
+                <span
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                    plan.hasChat
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-slate-100 text-slate-400'
+                  }`}
+                >
+                  <MessageSquare className="w-3 h-3" />
+                  {plan.hasChat ? 'Live Chat' : 'No Chat'}
+                </span>
+                <span
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                    plan.hasAiMatch
+                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                      : 'bg-slate-100 text-slate-400'
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  {plan.hasAiMatch ? 'AI Match' : 'No AI'}
                 </span>
               </div>
 
-              <ul className="space-y-1.5 mb-5">
+              {/* Limits */}
+              <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-50 rounded-xl mb-4 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Phone className="w-3.5 h-3.5 text-primary" />
+                  <span>
+                    Contacts:{' '}
+                    <strong>
+                      {plan.contactViewLimit === -1
+                        ? 'Unlimited'
+                        : plan.contactViewLimit === 0
+                        ? '0 (Paid Only)'
+                        : plan.contactViewLimit}
+                    </strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-slate-700">
+                  <Heart className="w-3.5 h-3.5 text-rose-500" />
+                  <span>
+                    Interests:{' '}
+                    <strong>
+                      {plan.maxInterests === -1
+                        ? 'Unlimited'
+                        : plan.maxInterests === 0
+                        ? '0 (Paid Only)'
+                        : plan.maxInterests}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Perks List */}
+              <ul className="space-y-1.5 mb-2">
                 {plan.features?.slice(0, 4).map((f, i) => (
                   <li key={i} className="flex items-center gap-2 text-xs text-slate-600">
                     <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
@@ -533,36 +302,44 @@ const SuperAdminPlans = () => {
                   </li>
                 ))}
                 {plan.features?.length > 4 && (
-                  <li className="text-xs text-slate-400">+{plan.features.length - 4} more features</li>
+                  <li className="text-xs text-slate-400">+{plan.features.length - 4} more perks</li>
                 )}
               </ul>
+            </div>
 
-              <div className="flex items-center gap-2 pt-4 border-t border-slate-100">
-                <button
-                  onClick={() => toggleActive(plan)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
-                    ${plan.isActive ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                >
-                  {plan.isActive ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                  {plan.isActive ? 'Active' : 'Inactive'}
-                </button>
-                <div className="flex-1" />
-                <button
-                  onClick={() => setModalPlan(plan)}
-                  className="p-2 text-slate-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                  title="Edit plan"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(plan.id)}
-                  disabled={deleting === plan.id}
-                  className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
-                  title="Delete plan"
-                >
-                  {deleting === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                </button>
-              </div>
+            <div className="flex items-center gap-2 p-4 pt-3 border-t border-slate-100 bg-slate-50/50">
+              <button
+                onClick={() => toggleActive(plan)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                  ${
+                    plan.isActive
+                      ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
+                      : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                  }`}
+              >
+                {plan.isActive ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                {plan.isActive ? 'Active' : 'Inactive'}
+              </button>
+              <div className="flex-1" />
+              <button
+                onClick={() => setModalPlan(plan)}
+                className="p-2 text-slate-500 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                title="Configure Tier Features"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleDelete(plan.id)}
+                disabled={deleting === plan.id}
+                className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
+                title="Delete plan"
+              >
+                {deleting === plan.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+              </button>
             </div>
           </div>
         ))}

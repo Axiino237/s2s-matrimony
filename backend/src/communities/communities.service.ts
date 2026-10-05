@@ -5,8 +5,11 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CommunitiesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(search?: string) {
+  async findAll(search?: string, includeInactive: boolean = false) {
     const whereClause: any = {};
+    if (!includeInactive) {
+      whereClause.isActive = true;
+    }
     if (search && search.trim()) {
       const q = search.trim();
       whereClause.OR = [
@@ -20,6 +23,7 @@ export class CommunitiesService {
         where: whereClause,
         include: {
           children: {
+            where: includeInactive ? {} : { isActive: true },
             orderBy: { name: 'asc' },
           },
           parent: true,
@@ -27,13 +31,16 @@ export class CommunitiesService {
         orderBy: { name: 'asc' },
       });
       if (dbCommunities && dbCommunities.length > 0) {
+        if (!includeInactive) {
+          return dbCommunities.filter((c) => c.isActive && (!c.parent || c.parent.isActive));
+        }
         return dbCommunities;
       }
     } catch {
       // Fallback data when DB is offline or empty
     }
 
-    return [
+    const fallbackList = [
       { id: 'comm-01', name: 'Kongu Vellalar', slug: 'kongu-vellalar', description: 'Kongu Vellalar Community', memberCount: 0, isActive: true, children: [] },
       { id: 'comm-02', name: 'Chettiar', slug: 'chettiar', description: 'Nagarathar & Chettiar Community', memberCount: 0, isActive: true, children: [] },
       { id: 'comm-03', name: 'Iyer', slug: 'iyer', description: 'Brahmin Iyer Community', memberCount: 0, isActive: true, children: [] },
@@ -45,6 +52,7 @@ export class CommunitiesService {
       { id: 'comm-09', name: 'Viswakarma', slug: 'viswakarma', description: 'Viswakarma Community', memberCount: 0, isActive: true, children: [] },
       { id: 'comm-10', name: 'Naidu', slug: 'naidu', description: 'Kamma & Balija Naidu Community', memberCount: 0, isActive: true, children: [] },
     ];
+    return includeInactive ? fallbackList : fallbackList.filter((c) => c.isActive);
   }
 
 
@@ -54,7 +62,7 @@ export class CommunitiesService {
     });
   }
 
-  async create(data: { name: string; description?: string }) {
+  async create(data: { name: string; description?: string; parentId?: string | null }) {
     const slug = data.name
       .toLowerCase()
       .trim()
@@ -66,11 +74,16 @@ export class CommunitiesService {
         name: data.name,
         slug,
         description: data.description,
+        ...(data.parentId ? { parentId: data.parentId } : {}),
+      },
+      include: {
+        children: { orderBy: { name: 'asc' } },
+        parent: true,
       },
     });
   }
 
-  async update(id: string, data: { name?: string; description?: string; isActive?: boolean }) {
+  async update(id: string, data: { name?: string; description?: string; isActive?: boolean; parentId?: string | null }) {
     const updateData: any = { ...data };
     if (data.name) {
       updateData.slug = data.name
@@ -82,6 +95,10 @@ export class CommunitiesService {
     return this.prisma.community.update({
       where: { id },
       data: updateData,
+      include: {
+        children: { orderBy: { name: 'asc' } },
+        parent: true,
+      },
     });
   }
 

@@ -128,18 +128,18 @@ const AdminBlogs = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="card p-4 text-center">
-          <p className="text-[10px] uppercase font-bold text-text-muted">Total Articles</p>
-          <p className="text-xl font-bold text-text-primary mt-1">{blogs.length}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="card p-4 sm:p-5 text-center flex flex-col justify-center">
+          <p className="text-[10px] sm:text-xs uppercase font-bold text-text-muted">Total Articles</p>
+          <p className="text-xl sm:text-2xl font-bold text-text-primary mt-1">{blogs.length}</p>
         </div>
-        <div className="card p-4 text-center">
-          <p className="text-[10px] uppercase font-bold text-text-muted">Published</p>
-          <p className="text-xl font-bold text-success mt-1">{published}</p>
+        <div className="card p-4 sm:p-5 text-center flex flex-col justify-center">
+          <p className="text-[10px] sm:text-xs uppercase font-bold text-text-muted">Published</p>
+          <p className="text-xl sm:text-2xl font-bold text-success mt-1">{published}</p>
         </div>
-        <div className="card p-4 text-center">
-          <p className="text-[10px] uppercase font-bold text-text-muted">Total Views</p>
-          <p className="text-xl font-bold text-secondary mt-1">{blogs.reduce((acc, b) => acc + (b.viewCount || 0), 0)}</p>
+        <div className="card p-4 sm:p-5 text-center flex flex-col justify-center">
+          <p className="text-[10px] sm:text-xs uppercase font-bold text-text-muted">Total Views</p>
+          <p className="text-xl sm:text-2xl font-bold text-secondary mt-1">{blogs.reduce((acc, b) => acc + (b.viewCount || 0), 0)}</p>
         </div>
       </div>
 

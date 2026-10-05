@@ -1,13 +1,16 @@
-import { useState, useEffect, useRef, ChangeEvent } from 'react';
+import { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   User, Heart, GraduationCap, Briefcase, Users, Star, Image as ImageIcon,
-  Sliders, Lock, Save, CheckCircle2, ShieldCheck, ChevronRight, Upload, Phone, Mail, Loader2, ArrowRight, Sparkles, FileText
+  Sliders, Lock, Save, CheckCircle2, ShieldCheck, ChevronRight, Upload, Phone, Mail, Loader2, ArrowRight, Sparkles, FileText, AlertCircle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { profilesApi } from '../../../services/profiles.service';
 import { useAuthStore } from '../../../store/auth.store';
 import { AiBiodataModal } from '../../../components/profile/AiBiodataModal';
+import { communitiesApi, CommunityData } from '../../../services/communities.service';
+import { DOSHAMS } from '../../../constants/index';
+
 
 const SECTIONS = [
   { id: 'basic', label: 'Basic Information', icon: User },
@@ -75,10 +78,18 @@ const formatDiet = (val?: string) => {
 };
 
 const ProfileEditPage = () => {
-  const [activeSection, setActiveSection] = useState('basic');
+  const location = useLocation();
+  const navState = location.state as { isOnboarding?: boolean; firstName?: string; lastName?: string; section?: string };
+  const [activeSection, setActiveSection] = useState(navState?.section || 'basic');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
+
+  useEffect(() => {
+    if (navState?.section) {
+      setActiveSection(navState.section);
+    }
+  }, [navState?.section]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userPhotos, setUserPhotos] = useState<{ id?: string; url: string }[]>([]);
@@ -146,7 +157,9 @@ const ProfileEditPage = () => {
     motherTongue: '',
     religion: '',
     community: '',
+    otherCommunity: '',
     subCaste: '',
+    otherSubCaste: '',
     about: '',
     heightCm: '',
     weight: '',
@@ -165,6 +178,10 @@ const ProfileEditPage = () => {
     motherName: '',
     motherOccupation: '',
     nativePlace: '',
+    place: '',
+    city: '',
+    state: '',
+    country: 'India',
     elderBrothers: '0',
     elderBrothersMarried: '0',
     youngerBrothers: '0',
@@ -202,11 +219,20 @@ const ProfileEditPage = () => {
     publicVisibility: true,
   });
 
+  const [dbCommunities, setDbCommunities] = useState<CommunityData[]>([]);
+
+  useEffect(() => {
+    communitiesApi.getCommunities().then((comms) => {
+      if (Array.isArray(comms) && comms.length > 0) {
+        setDbCommunities(comms);
+      }
+    }).catch(() => {});
+  }, []);
+
   const { user } = useAuthStore();
-  const location = useLocation();
   const navigate = useNavigate();
-  const navState = location.state as { isOnboarding?: boolean; firstName?: string; lastName?: string };
-  const isOnboarding = navState?.isOnboarding || false;
+  const isAlreadyComplete = ((user as any)?.profileCompletionPercent ?? 0) >= 100;
+  const isOnboarding = (navState?.isOnboarding || false) && !isAlreadyComplete;
 
   // Load Profile from Live Backend API
   useEffect(() => {
@@ -288,6 +314,10 @@ const ProfileEditPage = () => {
             motherName: data.family?.motherName || (data as any).motherName || prev.motherName || '',
             motherOccupation: data.family?.motherOccupation || (data as any).motherOccupation || prev.motherOccupation || '',
             nativePlace: data.family?.nativePlace || (data as any).nativePlace || prev.nativePlace || '',
+            place: (data as any).place || data.city?.name || data.city || data.family?.nativePlace || prev.place || '',
+            city: data.city?.name || data.city || (data as any).place || prev.city || '',
+            state: data.state?.name || data.state || prev.state || 'Tamil Nadu',
+            country: data.country?.name || data.country || prev.country || 'India',
             elderBrothers: data.family?.elderBrothers !== undefined ? String(data.family.elderBrothers) : prev.elderBrothers,
             elderBrothersMarried: data.family?.elderBrothersMarried !== undefined ? String(data.family.elderBrothersMarried) : prev.elderBrothersMarried,
             youngerBrothers: data.family?.youngerBrothers !== undefined ? String(data.family.youngerBrothers) : prev.youngerBrothers,
@@ -306,13 +336,29 @@ const ProfileEditPage = () => {
             dasaBalance: data.horoscope?.dasaBalance || prev.dasaBalance || '',
             timeOfBirth: data.horoscope?.birthTime || (data as any).birthTime || prev.timeOfBirth || '',
             placeOfBirth: data.horoscope?.birthPlace || (data as any).birthPlace || prev.placeOfBirth || '',
+            rasiChart: data.rasiChart || data.horoscope?.rasiChart || data.horoscope?.horoscopeData?.rasiChart || prev.rasiChart || {},
+            amsamChart: data.amsamChart || data.horoscope?.amsamChart || data.horoscope?.horoscopeData?.amsamChart || data.horoscope?.horoscopeData?.navamsamChart || prev.amsamChart || {},
             // Partner Preferences from DB
             prefGender: data.partnerPreference?.gender || aboutPartnerObj.gender || (gender === 'MALE' ? 'FEMALE' : 'MALE'),
             prefAgeMin: data.partnerPreference?.ageMin ? String(data.partnerPreference.ageMin) : '21',
             prefAgeMax: data.partnerPreference?.ageMax ? String(data.partnerPreference.ageMax) : '30',
             prefHeightMin: data.partnerPreference?.heightMin ? String(data.partnerPreference.heightMin) : '155',
             prefHeightMax: data.partnerPreference?.heightMax ? String(data.partnerPreference.heightMax) : '178',
-            prefMaritalStatus: data.partnerPreference?.maritalStatus?.[0] || 'Never Married',
+            prefMaritalStatus: (() => {
+              const raw = 
+                (data as any).prefMaritalStatus ||
+                aboutPartnerObj.maritalStatus ||
+                data.partnerPreference?.maritalStatus?.[0] ||
+                '';
+              if (!raw) return '';
+              const normalized = String(raw).trim().toUpperCase().replace(/\s+/g, '_');
+              if (normalized === 'NEVER_MARRIED') return 'NEVER_MARRIED';
+              if (normalized === 'DIVORCED') return 'DIVORCED';
+              if (normalized === 'WIDOWED') return 'WIDOWED';
+              if (normalized === 'SEPARATED') return 'SEPARATED';
+              if (normalized === 'ANY' || normalized === 'ANY_STATUS' || normalized === 'ALL') return 'ANY';
+              return raw;
+            })(),
             prefReligion: aboutPartnerObj.religion || 'Hindu',
             prefCommunity: aboutPartnerObj.community || '',
             prefEducation: aboutPartnerObj.education || '',
@@ -378,17 +424,59 @@ const ProfileEditPage = () => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleSiblingStepper = (field: string, delta: number) => {
+    setFormData((prev) => {
+      const current = Math.max(0, Number(prev[field as keyof typeof prev] || 0));
+      return {
+        ...prev,
+        [field]: String(Math.max(0, current + delta)),
+      };
+    });
+  };
+
+  const siblingErrors = useMemo(() => {
+    const eb = Number(formData.elderBrothers || 0);
+    const ebm = Number(formData.elderBrothersMarried || 0);
+    const yb = Number(formData.youngerBrothers || 0);
+    const ybm = Number(formData.youngerBrothersMarried || 0);
+    const es = Number(formData.elderSisters || 0);
+    const esm = Number(formData.elderSistersMarried || 0);
+    const ys = Number(formData.youngerSisters || 0);
+    const ysm = Number(formData.youngerSistersMarried || 0);
+
+    return {
+      elderBrothersMarried: ebm > eb ? 'Married elder brothers cannot be greater than elder brothers.' : '',
+      youngerBrothersMarried: ybm > yb ? 'Married younger brothers cannot be greater than younger brothers.' : '',
+      elderSistersMarried: esm > es ? 'Married elder sisters cannot be greater than elder sisters.' : '',
+      youngerSistersMarried: ysm > ys ? 'Married younger sisters cannot be greater than younger sisters.' : '',
+    };
+  }, [
+    formData.elderBrothers,
+    formData.elderBrothersMarried,
+    formData.youngerBrothers,
+    formData.youngerBrothersMarried,
+    formData.elderSisters,
+    formData.elderSistersMarried,
+    formData.youngerSisters,
+    formData.youngerSistersMarried,
+  ]);
+
+  const hasSiblingErrors = useMemo(() => {
+    return Object.values(siblingErrors).some(Boolean);
+  }, [siblingErrors]);
+
   const togglePlanetInChart = (chartKey: 'rasiChart' | 'amsamChart', houseId: string, planet: string) => {
     setFormData((prev) => {
       const current = (prev[chartKey] as Record<string, string>)[houseId] || '';
-      const planets = current ? current.split(' ') : [];
-      const idx = planets.indexOf(planet);
+      const planets = current ? current.split(/[, ]+/).filter(Boolean) : [];
+      const short = planet.split(' ')[0];
+      const idx = planets.indexOf(short);
       const updated = idx >= 0
-        ? planets.filter((p) => p !== planet)
-        : [...planets, planet];
+        ? planets.filter((p) => p !== short)
+        : [...planets, short];
       return {
         ...prev,
-        [chartKey]: { ...(prev[chartKey] as Record<string, string>), [houseId]: updated.join(' ') },
+        [chartKey]: { ...(prev[chartKey] as Record<string, string>), [houseId]: updated.join(', ') },
       };
     });
   };
@@ -488,6 +576,13 @@ const ProfileEditPage = () => {
   };
 
   const saveProfileData = async () => {
+    if (hasSiblingErrors) {
+      const firstError = Object.values(siblingErrors).find(Boolean);
+      toast.error(firstError || 'Please correct sibling count errors before saving.');
+      setActiveSection('family');
+      throw new Error(firstError || 'Sibling count validation error');
+    }
+
     const payload = {
       firstName: formData.firstName || undefined,
       lastName: formData.lastName || undefined,
@@ -497,8 +592,8 @@ const ProfileEditPage = () => {
       maritalStatus: formData.maritalStatus || undefined,
       motherTongue: formData.motherTongue || undefined,
       religion: formData.religion || undefined,
-      community: formData.community || undefined,
-      subCaste: formData.subCaste || undefined,
+      community: (formData.community === 'Other' && formData.otherCommunity?.trim()) ? formData.otherCommunity.trim() : (formData.community || undefined),
+      subCaste: (formData.subCaste === 'Other' && formData.otherSubCaste?.trim()) ? formData.otherSubCaste.trim() : (formData.subCaste || undefined),
       about: formData.about || undefined,
       heightCm: formData.heightCm ? Number(formData.heightCm) : undefined,
       weight: formData.weight ? Number(formData.weight) : undefined,
@@ -517,14 +612,18 @@ const ProfileEditPage = () => {
       motherName: formData.motherName || undefined,
       motherOccupation: formData.motherOccupation || undefined,
       nativePlace: formData.nativePlace || undefined,
-      elderBrothers: formData.elderBrothers !== undefined ? Number(formData.elderBrothers) : undefined,
-      elderBrothersMarried: formData.elderBrothersMarried !== undefined ? Number(formData.elderBrothersMarried) : undefined,
-      youngerBrothers: formData.youngerBrothers !== undefined ? Number(formData.youngerBrothers) : undefined,
-      youngerBrothersMarried: formData.youngerBrothersMarried !== undefined ? Number(formData.youngerBrothersMarried) : undefined,
-      elderSisters: formData.elderSisters !== undefined ? Number(formData.elderSisters) : undefined,
-      elderSistersMarried: formData.elderSistersMarried !== undefined ? Number(formData.elderSistersMarried) : undefined,
-      youngerSisters: formData.youngerSisters !== undefined ? Number(formData.youngerSisters) : undefined,
-      youngerSistersMarried: formData.youngerSistersMarried !== undefined ? Number(formData.youngerSistersMarried) : undefined,
+      place: formData.place || formData.city || undefined,
+      city: formData.city || formData.place || undefined,
+      state: formData.state || undefined,
+      country: formData.country || undefined,
+      elderBrothers: formData.elderBrothers !== undefined ? Math.max(0, Number(formData.elderBrothers)) : undefined,
+      elderBrothersMarried: formData.elderBrothersMarried !== undefined ? Math.max(0, Number(formData.elderBrothersMarried)) : undefined,
+      youngerBrothers: formData.youngerBrothers !== undefined ? Math.max(0, Number(formData.youngerBrothers)) : undefined,
+      youngerBrothersMarried: formData.youngerBrothersMarried !== undefined ? Math.max(0, Number(formData.youngerBrothersMarried)) : undefined,
+      elderSisters: formData.elderSisters !== undefined ? Math.max(0, Number(formData.elderSisters)) : undefined,
+      elderSistersMarried: formData.elderSistersMarried !== undefined ? Math.max(0, Number(formData.elderSistersMarried)) : undefined,
+      youngerSisters: formData.youngerSisters !== undefined ? Math.max(0, Number(formData.youngerSisters)) : undefined,
+      youngerSistersMarried: formData.youngerSistersMarried !== undefined ? Math.max(0, Number(formData.youngerSistersMarried)) : undefined,
       star: formData.star || undefined,
       starPadam: formData.starPadam ? Number(formData.starPadam) : undefined,
       rasi: formData.rasi || undefined,
@@ -534,9 +633,12 @@ const ProfileEditPage = () => {
       dosham: formData.dosham || undefined,
       dasaBalance: formData.dasaBalance || undefined,
       timeOfBirth: formData.timeOfBirth || undefined,
-      placeOfBirth: formData.placeOfBirth || undefined,
       rasiChart: formData.rasiChart,
       amsamChart: formData.amsamChart,
+      horoscopeData: {
+        rasiChart: formData.rasiChart,
+        amsamChart: formData.amsamChart,
+      },
       // Partner Preferences
       prefGender: formData.prefGender || undefined,
       prefAgeMin: formData.prefAgeMin || undefined,
@@ -574,6 +676,12 @@ const ProfileEditPage = () => {
 
   const handleSave = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
+    if (hasSiblingErrors) {
+      const firstError = Object.values(siblingErrors).find(Boolean);
+      toast.error(firstError || 'Please correct sibling count errors before saving.');
+      setActiveSection('family');
+      return;
+    }
     setSaving(true);
     try {
       await saveProfileData();
@@ -588,6 +696,13 @@ const ProfileEditPage = () => {
 
   const handleSaveAndGoToDashboard = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
+
+    if (hasSiblingErrors) {
+      const firstError = Object.values(siblingErrors).find(Boolean);
+      toast.error(firstError || 'Please correct sibling count errors before saving.');
+      setActiveSection('family');
+      return;
+    }
 
     const missing = validateMandatoryFields();
     if (missing.length > 0) {
@@ -647,40 +762,64 @@ const ProfileEditPage = () => {
 
   const completionPercent = calculateCompletionPercent();
 
-  const communityOptions = Array.from(
-    new Set([
-      ...Object.keys(CASTE_SUBCASTES),
-      'Kongu Vellalar',
-      'Kongu Vellala Gounder',
-      'Vellalar',
-      'Nadar',
-      'Mudaliar',
-      'Chettiar',
-      'Gounder',
-      'Pillai',
-      'Iyengar',
-      'Iyer',
-      'Thevar',
-      'Vanniyar',
-      'Naidu',
-      'Reddy',
-      'Viswakarma',
-      'Sengunthar',
-      'Yadav',
-      'Devendra Kula Vellalar',
-      'Adidravidar',
-      'Other',
-      formData.community,
-    ].filter(Boolean))
-  );
+  const mainCommunities = useMemo(() => {
+    return dbCommunities.filter((c) => !c.parentId && c.isActive !== false);
+  }, [dbCommunities]);
 
-  const matchedSubCastes = CASTE_SUBCASTES[formData.community] ||
-    Object.entries(CASTE_SUBCASTES).find(([k]) => formData.community && formData.community.toLowerCase().includes(k.toLowerCase()))?.[1] ||
-    [];
+  const communityOptions = useMemo(() => {
+    const fallbackList = [
+      'Nadar', 'Mudaliar', 'Chettiar', 'Gounder', 'Pillai', 'Vellalar',
+      'Iyengar', 'Iyer', 'Thevar', 'Vanniyar', 'Naidu', 'Reddy',
+      'Kongu Vellalar', 'Kongu Vellala Gounder', 'Viswakarma', 'Sengunthar',
+      'Yadav', 'Devendra Kula Vellalar'
+    ];
+    if (mainCommunities.length === 0) {
+      return Array.from(new Set([...fallbackList, 'Other', formData.community].filter(Boolean)));
+    }
+    const cleanList = mainCommunities.map((c) => c.name.replace(/\s+Matrimony$/i, '').trim());
+    const unique = Array.from(new Set(cleanList)).filter((name) => name !== 'Other');
+    unique.sort((a, b) => a.localeCompare(b));
+    unique.push('Other');
+    if (formData.community && !unique.includes(formData.community)) {
+      unique.unshift(formData.community);
+    }
+    return unique;
+  }, [mainCommunities, formData.community]);
 
-  const currentSubCastes = Array.from(
-    new Set([...matchedSubCastes, 'General', 'Other', formData.subCaste].filter(Boolean))
-  );
+  const matchedCommunity = useMemo(() => {
+    if (!formData.community) return null;
+    const target = formData.community.toLowerCase().trim();
+    return (
+      mainCommunities.find(
+        (c) =>
+          c.name.toLowerCase().trim() === target ||
+          c.name.replace(/\s+Matrimony$/i, '').toLowerCase().trim() === target ||
+          target.includes(c.name.toLowerCase().trim())
+      ) || null
+    );
+  }, [mainCommunities, formData.community]);
+
+  const currentSubCastes = useMemo(() => {
+    const dbSubCastes = matchedCommunity?.children?.filter((sub) => sub.isActive !== false).map((sub) => sub.name) || [];
+    const fallbackSubCastes =
+      CASTE_SUBCASTES[formData.community] ||
+      Object.entries(CASTE_SUBCASTES).find(([k]) =>
+        formData.community && formData.community.toLowerCase().includes(k.toLowerCase())
+      )?.[1] ||
+      [];
+
+    const combined = Array.from(
+      new Set([...dbSubCastes, ...fallbackSubCastes, 'General', 'Other', formData.subCaste].filter(Boolean))
+    );
+    combined.sort((a, b) => {
+      if (a === 'General') return -1;
+      if (b === 'General') return 1;
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return a.localeCompare(b);
+    });
+    return combined;
+  }, [matchedCommunity, formData.community, formData.subCaste]);
 
   return (
     <div className="flex flex-col md:flex-row gap-6 animate-fade-in">
@@ -726,7 +865,7 @@ const ProfileEditPage = () => {
       <div className="flex-1 min-w-0 space-y-6">
 
         {/* Onboarding Welcome Banner */}
-        {isOnboarding && (
+        {isOnboarding && !isAlreadyComplete && (
           <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-amber-500 text-white shadow-lg space-y-2">
             <div className="flex items-center gap-2 font-bold text-sm">
               <Sparkles className="w-5 h-5 animate-spin" />
@@ -742,7 +881,7 @@ const ProfileEditPage = () => {
         <div className="flex flex-wrap items-center justify-between gap-4 p-5 card bg-white border border-slate-200 shadow-sm">
           <div>
             <h1 className="font-display text-2xl font-bold text-text-primary">
-              {isOnboarding ? 'Complete Your Profile' : 'Edit Profile'}
+              {isOnboarding && !isAlreadyComplete ? 'Complete Your Profile' : 'Edit Profile'}
             </h1>
             <p className="text-text-secondary text-xs mt-0.5 flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -757,11 +896,19 @@ const ProfileEditPage = () => {
               <FileText className="w-4 h-4 text-amber-300" />
               <span>📄 Traditional Biodata Form</span>
             </button>
-            <button onClick={handleSave} disabled={saving} className="btn btn-secondary btn-sm flex items-center gap-1.5 border border-slate-200 shadow-sm">
+            <button 
+              onClick={handleSave} 
+              disabled={saving || hasSiblingErrors} 
+              className="btn btn-secondary btn-sm flex items-center gap-1.5 border border-slate-200 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               <span>{saving ? 'Saving...' : 'Save Changes'}</span>
             </button>
-            <button onClick={handleSaveAndGoToDashboard} disabled={saving} className="btn btn-primary btn-sm flex items-center gap-1.5 shadow-md">
+            <button 
+              onClick={handleSaveAndGoToDashboard} 
+              disabled={saving || hasSiblingErrors} 
+              className="btn btn-primary btn-sm flex items-center gap-1.5 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <span>Save & Go to Dashboard</span>
               <ArrowRight className="w-4 h-4" />
             </button>
@@ -788,9 +935,11 @@ const ProfileEditPage = () => {
             />
           </div>
           <p className="text-text-muted text-xs mt-2">
-            {completionPercent < 80
-              ? `Fill in your details above (${completionPercent}% completed). Complete profiles get 3x more match responses!`
-              : '🎉 Excellent! Your profile is strong and ready for matching!'}
+            {completionPercent >= 100
+              ? '🎉 Outstanding! Your profile is 100% complete and highly optimized for matching!'
+              : completionPercent < 80
+                ? `Fill in your details above (${completionPercent}% completed). Complete profiles get 3x more match responses!`
+                : '🎉 Excellent! Your profile is strong and ready for matching!'}
           </p>
         </div>
 
@@ -977,6 +1126,17 @@ const ProfileEditPage = () => {
                   <option value="">-- Select Community / Caste --</option>
                   {communityOptions.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
+                {formData.community === 'Other' && (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      className="input border-slate-200 text-text-primary w-full text-xs"
+                      placeholder="Specify your Community / Caste (optional, or leave as 'Other')"
+                      value={(formData as any).otherCommunity || ''}
+                      onChange={(e) => handleChange('otherCommunity', e.target.value)}
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -988,6 +1148,72 @@ const ProfileEditPage = () => {
                   <option value="">-- Select Sub Caste --</option>
                   {currentSubCastes.map(sc => <option key={sc} value={sc}>{sc}</option>)}
                 </select>
+                {formData.subCaste === 'Other' && (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      className="input border-slate-200 text-text-primary w-full text-xs"
+                      placeholder="Specify Sub Caste (optional, or leave as 'Other')"
+                      value={(formData as any).otherSubCaste || ''}
+                      onChange={(e) => handleChange('otherSubCaste', e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="input-label flex items-center justify-between">
+                  <span>Place / Current Location</span>
+                </label>
+                <input
+                  type="text"
+                  className="input border-slate-200 text-text-primary w-full"
+                  placeholder="e.g. Chennai, Coimbatore, Bangalore"
+                  value={formData.place || formData.city}
+                  onChange={(e) => {
+                    handleChange('place', e.target.value);
+                    handleChange('city', e.target.value);
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="input-label flex items-center justify-between">
+                  <span>Native Place (சொந்த ஊர்)</span>
+                </label>
+                <input
+                  type="text"
+                  className="input border-slate-200 text-text-primary w-full"
+                  placeholder="e.g. Madurai, Trichy, Salem"
+                  value={formData.nativePlace}
+                  onChange={(e) => handleChange('nativePlace', e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="input-label flex items-center justify-between">
+                  <span>State</span>
+                </label>
+                <input
+                  type="text"
+                  className="input border-slate-200 text-text-primary w-full"
+                  placeholder="e.g. Tamil Nadu, Karnataka"
+                  value={formData.state}
+                  onChange={(e) => handleChange('state', e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="input-label flex items-center justify-between">
+                  <span>Country</span>
+                </label>
+                <input
+                  type="text"
+                  className="input border-slate-200 text-text-primary w-full"
+                  placeholder="e.g. India"
+                  value={formData.country}
+                  onChange={(e) => handleChange('country', e.target.value)}
+                />
               </div>
             </div>
             <div>
@@ -1138,50 +1364,132 @@ const ProfileEditPage = () => {
                 <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">Siblings Detail (சகோதர / சகோதரி விவரம்)</p>
 
                 {/* Brothers Row */}
-                <div className="mb-3">
+                <div className="mb-4">
                   <p className="text-[11px] font-bold text-rose-900 uppercase tracking-widest mb-2">Brothers (சகோதரன்)</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {([
-                      { label: 'மூத்த சகோதரன் (Elder Brother)', field: 'elderBrothers' },
-                      { label: 'மணமான மூத்த சகோதரன் (Married Elder)', field: 'elderBrothersMarried' },
-                      { label: 'தம்பி (Younger Brother)', field: 'youngerBrothers' },
-                      { label: 'மணமான தம்பி (Married Younger)', field: 'youngerBrothersMarried' },
-                    ] as const).map(({ label, field }) => (
-                      <div key={field} className="bg-rose-50 rounded-xl border border-rose-100 p-3 flex flex-col gap-1.5">
-                        <span className="text-[10px] font-semibold text-slate-600 leading-tight">{label}</span>
-                        <div className="flex items-center gap-2 mt-auto">
-                          <button type="button" onClick={() => handleChange(field, String(Math.max(0, Number(formData[field]) - 1)))}
-                            className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">−</button>
-                          <span className="flex-1 text-center text-lg font-black text-rose-900">{formData[field] ?? 0}</span>
-                          <button type="button" onClick={() => handleChange(field, String(Number(formData[field]) + 1))}
-                            className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">+</button>
+                      { label: 'மூத்த சகோதரன் (Elder Brother)', field: 'elderBrothers' as const, isMarried: false },
+                      { label: 'மணமான மூத்த சகோதரன் (Married Elder)', field: 'elderBrothersMarried' as const, isMarried: true },
+                      { label: 'தம்பி (Younger Brother)', field: 'youngerBrothers' as const, isMarried: false },
+                      { label: 'மணமான தம்பி (Married Younger)', field: 'youngerBrothersMarried' as const, isMarried: true },
+                    ]).map(({ label, field, isMarried }) => {
+                      const currentVal = formData[field] ?? '0';
+                      const err = isMarried ? siblingErrors[field as keyof typeof siblingErrors] : '';
+
+                      return (
+                        <div
+                          key={field}
+                          className={`rounded-xl border p-3 flex flex-col gap-1.5 transition-all ${
+                            err ? 'bg-red-50/70 border-red-300 ring-1 ring-red-300' : 'bg-rose-50 border-rose-100'
+                          }`}
+                        >
+                          <span className={`text-[10px] font-semibold leading-tight ${err ? 'text-red-700' : 'text-slate-600'}`}>
+                            {label}
+                          </span>
+                          <div className="flex items-center gap-2 mt-auto">
+                            <button
+                              type="button"
+                              disabled={Number(currentVal) <= 0}
+                              onClick={() => handleSiblingStepper(field, -1)}
+                              className={`w-8 h-8 rounded-lg font-bold text-base flex items-center justify-center transition ${
+                                Number(currentVal) <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-900 text-white hover:bg-rose-800'
+                              }`}
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              value={currentVal}
+                              onChange={(e) => handleChange(field, e.target.value)}
+                              className={`flex-1 text-center text-lg font-black rounded-lg py-1 border transition-colors focus:outline-none ${
+                                err
+                                  ? 'bg-white border-red-400 text-red-700 focus:ring-2 focus:ring-red-400'
+                                  : 'bg-white/80 border-rose-200 text-rose-900 focus:ring-2 focus:ring-rose-400'
+                              }`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSiblingStepper(field, 1)}
+                              className="w-8 h-8 rounded-lg font-bold text-base flex items-center justify-center bg-rose-900 text-white hover:bg-rose-800 transition"
+                            >
+                              +
+                            </button>
+                          </div>
+                          {err && (
+                            <p className="text-[11px] font-semibold text-red-600 mt-1 flex items-center gap-1 leading-snug">
+                              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-600" />
+                              <span>{err}</span>
+                            </p>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* Sisters Row */}
                 <div>
                   <p className="text-[11px] font-bold text-rose-900 uppercase tracking-widest mb-2">Sisters (சகோதரி)</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {([
-                      { label: 'அக்கா (Elder Sister)', field: 'elderSisters' },
-                      { label: 'மணமான அக்கா (Married Elder)', field: 'elderSistersMarried' },
-                      { label: 'தங்கை (Younger Sister)', field: 'youngerSisters' },
-                      { label: 'மணமான தங்கை (Married Younger)', field: 'youngerSistersMarried' },
-                    ] as const).map(({ label, field }) => (
-                      <div key={field} className="bg-pink-50 rounded-xl border border-pink-100 p-3 flex flex-col gap-1.5">
-                        <span className="text-[10px] font-semibold text-slate-600 leading-tight">{label}</span>
-                        <div className="flex items-center gap-2 mt-auto">
-                          <button type="button" onClick={() => handleChange(field, String(Math.max(0, Number(formData[field]) - 1)))}
-                            className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">−</button>
-                          <span className="flex-1 text-center text-lg font-black text-rose-900">{formData[field] ?? 0}</span>
-                          <button type="button" onClick={() => handleChange(field, String(Number(formData[field]) + 1))}
-                            className="w-8 h-8 rounded-lg bg-rose-900 text-white font-bold text-base flex items-center justify-center hover:bg-rose-800 transition">+</button>
+                      { label: 'அக்கா (Elder Sister)', field: 'elderSisters' as const, isMarried: false },
+                      { label: 'மணமான அக்கா (Married Elder)', field: 'elderSistersMarried' as const, isMarried: true },
+                      { label: 'தங்கை (Younger Sister)', field: 'youngerSisters' as const, isMarried: false },
+                      { label: 'மணமான தங்கை (Married Younger)', field: 'youngerSistersMarried' as const, isMarried: true },
+                    ]).map(({ label, field, isMarried }) => {
+                      const currentVal = formData[field] ?? '0';
+                      const err = isMarried ? siblingErrors[field as keyof typeof siblingErrors] : '';
+
+                      return (
+                        <div
+                          key={field}
+                          className={`rounded-xl border p-3 flex flex-col gap-1.5 transition-all ${
+                            err ? 'bg-red-50/70 border-red-300 ring-1 ring-red-300' : 'bg-pink-50 border-pink-100'
+                          }`}
+                        >
+                          <span className={`text-[10px] font-semibold leading-tight ${err ? 'text-red-700' : 'text-slate-600'}`}>
+                            {label}
+                          </span>
+                          <div className="flex items-center gap-2 mt-auto">
+                            <button
+                              type="button"
+                              disabled={Number(currentVal) <= 0}
+                              onClick={() => handleSiblingStepper(field, -1)}
+                              className={`w-8 h-8 rounded-lg font-bold text-base flex items-center justify-center transition ${
+                                Number(currentVal) <= 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-rose-900 text-white hover:bg-rose-800'
+                              }`}
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              min="0"
+                              value={currentVal}
+                              onChange={(e) => handleChange(field, e.target.value)}
+                              className={`flex-1 text-center text-lg font-black rounded-lg py-1 border transition-colors focus:outline-none ${
+                                err
+                                  ? 'bg-white border-red-400 text-red-700 focus:ring-2 focus:ring-red-400'
+                                  : 'bg-white/80 border-pink-200 text-rose-900 focus:ring-2 focus:ring-rose-400'
+                              }`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSiblingStepper(field, 1)}
+                              className="w-8 h-8 rounded-lg font-bold text-base flex items-center justify-center bg-rose-900 text-white hover:bg-rose-800 transition"
+                            >
+                              +
+                            </button>
+                          </div>
+                          {err && (
+                            <p className="text-[11px] font-semibold text-red-600 mt-1 flex items-center gap-1 leading-snug">
+                              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 text-red-600" />
+                              <span>{err}</span>
+                            </p>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1210,91 +1518,179 @@ const ProfileEditPage = () => {
               <div><label className="input-label">Gothram (கோத்ரம்)</label><input className="input border-slate-200 text-text-primary w-full" value={formData.gothram} onChange={(e) => handleChange('gothram', e.target.value)} /></div>
               <div><label className="input-label">Kuladeivam (குலதெய்வம்)</label><input className="input border-slate-200 text-text-primary w-full" value={formData.kuladeivam} onChange={(e) => handleChange('kuladeivam', e.target.value)} placeholder="e.g. Angalamman, Perumal" /></div>
               <div><label className="input-label">Time of Birth (பிறந்த நேரம்)</label><input type="time" className="input border-slate-200 text-text-primary w-full" value={formData.timeOfBirth} onChange={(e) => handleChange('timeOfBirth', e.target.value)} /></div>
-              <div><label className="input-label">Place of Birth (பிறந்த இடம்)</label><input className="input border-slate-200 text-text-primary w-full" value={formData.placeOfBirth} onChange={(e) => handleChange('placeOfBirth', e.target.value)} placeholder="e.g. Chennai" /></div>
-              <div><label className="input-label">Dosham (தோஷம்)</label><input className="input border-slate-200 text-text-primary w-full" value={formData.dosham} onChange={(e) => handleChange('dosham', e.target.value)} placeholder="e.g. No Dosham / Chevvai / Rahu Ketu" /></div>
+              <div>
+                <label className="input-label flex items-center justify-between">
+                  <span>Dosham (தோஷம்)</span>
+                  {formData.dosham && formData.dosham !== 'No Dosham' && (
+                    <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      Dosham Specified
+                    </span>
+                  )}
+                  {formData.dosham === 'No Dosham' && (
+                    <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      ✓ No Dosham
+                    </span>
+                  )}
+                </label>
+                <select
+                  className="input border-slate-200 text-text-primary w-full font-medium"
+                  value={formData.dosham}
+                  onChange={(e) => handleChange('dosham', e.target.value)}
+                >
+                  <option value="">-- Select Dosham / தோஷம் தேர்ந்தெடுக்கவும் --</option>
+                  {DOSHAMS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                  {formData.dosham && !DOSHAMS.includes(formData.dosham) && (
+                    <option value={formData.dosham}>{formData.dosham} (Custom)</option>
+                  )}
+                  <option value="Other">Other / மற்றவை</option>
+                </select>
+                {formData.dosham === 'Other' && (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      className="input border-slate-200 text-text-primary w-full text-xs"
+                      placeholder="Specify custom Dosham (optional)"
+                      onChange={(e) => handleChange('dosham', e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
               <div className="sm:col-span-2">
                 <label className="input-label">Dasa Balance / Dasa Irupu (தசா இருப்பு)</label>
                 <input className="input border-slate-200 text-text-primary w-full" value={formData.dasaBalance} onChange={(e) => handleChange('dasaBalance', e.target.value)} placeholder="e.g. Guru, Year-10, Month-3, Day-14" />
               </div>
             </div>
 
-            {/* Interactive Rasi & Navamsam Chart Grids */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+            {/* Interactive Rasi & Navamsam Chart Grids - Stacked vertically for optimal breathing room */}
+            <div className="space-y-8 pt-6 border-t border-slate-100 max-w-2xl mx-auto w-full">
+              <div className="text-center sm:text-left">
+                <h3 className="font-bold text-rose-950 text-base">Astrology Charts (ஜாதக கட்டங்கள்)</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Click the planet tags in each house to add or remove planets. Changes save automatically when you save profile draft.
+                </p>
+              </div>
+
               {/* RASI CHART */}
-              <div className="border-2 border-rose-900 rounded-lg overflow-hidden">
-                <div className="bg-rose-900 text-white font-bold text-xs uppercase px-3 py-1.5 flex items-center justify-between">
-                  <span>RASI CHART (ராசி கட்டம்)</span>
-                  <span className="text-[10px] text-amber-200">Click box to add/remove planets</span>
+              <div className="border-2 border-rose-900 rounded-xl overflow-hidden shadow-sm bg-white">
+                <div className="bg-rose-900 text-white font-bold text-xs uppercase px-4 py-2 flex items-center justify-between">
+                  <span className="tracking-wide">RASI CHART (ராசி கட்டம்)</span>
+                  <span className="text-[10px] text-amber-200 font-semibold bg-rose-950/50 px-2 py-0.5 rounded">
+                    Click box to add/remove planets
+                  </span>
                 </div>
-                <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 aspect-square text-[10px]">
+                <div className="grid grid-cols-4 grid-rows-4 gap-1 bg-rose-900 p-1 text-[10px]">
                   {HOUSES.map((h) => {
                     const planetsStr = (formData.rasiChart as Record<string, string>)[h.id] || '';
+                    const currentList = planetsStr ? planetsStr.split(/[, ]+/).filter(Boolean) : [];
                     return (
                       <div
                         key={h.id}
                         style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
-                        className="bg-rose-50/90 hover:bg-amber-100 p-1.5 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[60px] transition"
+                        className="bg-rose-50/95 hover:bg-amber-50/80 p-2 flex flex-col justify-between border border-rose-200 min-h-[105px] transition rounded-sm shadow-xs"
                       >
-                        <div className="font-bold text-rose-950 text-[9px]">{h.tamil}</div>
-                        <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[10px]">
-                          {planetsStr || <span className="text-slate-300 text-[8px] font-normal">+ add</span>}
+                        <div className="font-bold text-rose-950 text-[10px] sm:text-[11px] border-b border-rose-200/50 pb-0.5">
+                          {h.tamil}
                         </div>
-                        <div className="flex flex-wrap gap-0.5 justify-center mt-1">
+                        <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[11px] py-1 px-1">
+                          {planetsStr ? (
+                            <span className="text-rose-950 font-black tracking-tight">{planetsStr}</span>
+                          ) : (
+                            <span className="text-rose-600 font-bold text-[10px] bg-rose-100/70 border border-rose-200 px-2 py-0.5 rounded-full inline-block shadow-xs">
+                              + add
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1 justify-center mt-1">
                           {PLANETS.map((p) => {
-                            const active = planetsStr.includes(p);
+                            const short = p.split(' ')[0];
+                            const active = currentList.includes(short);
                             return (
                               <button
                                 key={p}
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); togglePlanetInChart('rasiChart', h.id, p); }}
-                                className={`px-1 rounded text-[7px] font-bold ${active ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}
-                              >{p}</button>
+                                className={`px-1.5 py-0.5 rounded text-[8px] font-bold transition-all ${
+                                  active
+                                    ? 'bg-rose-900 text-white shadow-xs scale-105'
+                                    : 'bg-white text-slate-700 hover:bg-rose-100 hover:text-rose-900 border border-slate-300'
+                                }`}
+                              >
+                                {short}
+                              </button>
                             );
                           })}
                         </div>
                       </div>
                     );
                   })}
-                  <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex items-center justify-center font-extrabold text-rose-900 text-base border-2 border-rose-900">RASI</div>
+                  <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex flex-col items-center justify-center font-black text-rose-900 text-xl sm:text-2xl border-2 border-rose-900 shadow-inner">
+                    <span>RASI</span>
+                    <span className="text-[10px] text-rose-600 font-semibold tracking-wider mt-0.5">ராசி கட்டம்</span>
+                  </div>
                 </div>
               </div>
 
-              {/* NAVAMSAM CHART */}
-              <div className="border-2 border-rose-900 rounded-lg overflow-hidden">
-                <div className="bg-rose-900 text-white font-bold text-xs uppercase px-3 py-1.5 flex items-center justify-between">
-                  <span>NAVAMSAM CHART (அம்ச கட்டம்)</span>
-                  <span className="text-[10px] text-amber-200">Click box to add/remove planets</span>
+              {/* NAVAMSAM CHART (PLACED DOWN/BELOW RASI CHART) */}
+              <div className="border-2 border-rose-900 rounded-xl overflow-hidden shadow-sm bg-white">
+                <div className="bg-rose-900 text-white font-bold text-xs uppercase px-4 py-2 flex items-center justify-between">
+                  <span className="tracking-wide">NAVAMSAM CHART (அம்ச கட்டம்)</span>
+                  <span className="text-[10px] text-amber-200 font-semibold bg-rose-950/50 px-2 py-0.5 rounded">
+                    Click box to add/remove planets
+                  </span>
                 </div>
-                <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 aspect-square text-[10px]">
+                <div className="grid grid-cols-4 grid-rows-4 gap-1 bg-rose-900 p-1 text-[10px]">
                   {HOUSES.map((h) => {
                     const planetsStr = (formData.amsamChart as Record<string, string>)[h.id] || '';
+                    const currentList = planetsStr ? planetsStr.split(/[, ]+/).filter(Boolean) : [];
                     return (
                       <div
                         key={h.id}
                         style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
-                        className="bg-rose-50/90 hover:bg-amber-100 p-1.5 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[60px] transition"
+                        className="bg-rose-50/95 hover:bg-amber-50/80 p-2 flex flex-col justify-between border border-rose-200 min-h-[105px] transition rounded-sm shadow-xs"
                       >
-                        <div className="font-bold text-rose-950 text-[9px]">{h.tamil}</div>
-                        <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[10px]">
-                          {planetsStr || <span className="text-slate-300 text-[8px] font-normal">+ add</span>}
+                        <div className="font-bold text-rose-950 text-[10px] sm:text-[11px] border-b border-rose-200/50 pb-0.5">
+                          {h.tamil}
                         </div>
-                        <div className="flex flex-wrap gap-0.5 justify-center mt-1">
+                        <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[11px] py-1 px-1">
+                          {planetsStr ? (
+                            <span className="text-rose-950 font-black tracking-tight">{planetsStr}</span>
+                          ) : (
+                            <span className="text-rose-600 font-bold text-[10px] bg-rose-100/70 border border-rose-200 px-2 py-0.5 rounded-full inline-block shadow-xs">
+                              + add
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1 justify-center mt-1">
                           {PLANETS.map((p) => {
-                            const active = planetsStr.includes(p);
+                            const short = p.split(' ')[0];
+                            const active = currentList.includes(short);
                             return (
                               <button
                                 key={p}
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); togglePlanetInChart('amsamChart', h.id, p); }}
-                                className={`px-1 rounded text-[7px] font-bold ${active ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}
-                              >{p}</button>
+                                className={`px-1.5 py-0.5 rounded text-[8px] font-bold transition-all ${
+                                  active
+                                    ? 'bg-rose-900 text-white shadow-xs scale-105'
+                                    : 'bg-white text-slate-700 hover:bg-rose-100 hover:text-rose-900 border border-slate-300'
+                                }`}
+                              >
+                                {short}
+                              </button>
                             );
                           })}
                         </div>
                       </div>
                     );
                   })}
-                  <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex items-center justify-center font-extrabold text-rose-900 text-base border-2 border-rose-900">NAVAMSAM</div>
+                  <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex flex-col items-center justify-center font-black text-rose-900 text-xl sm:text-2xl border-2 border-rose-900 shadow-inner">
+                    <span>NAVAMSAM</span>
+                    <span className="text-[10px] text-rose-600 font-semibold tracking-wider mt-0.5">அம்ச கட்டம்</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1469,9 +1865,11 @@ const ProfileEditPage = () => {
                   value={formData.prefMaritalStatus}
                   onChange={(e) => handleChange('prefMaritalStatus', e.target.value)}
                 >
+                  <option value="">-- Select Preferred Marital Status --</option>
                   <option value="NEVER_MARRIED">Never Married</option>
                   <option value="DIVORCED">Divorced</option>
                   <option value="WIDOWED">Widowed</option>
+                  <option value="SEPARATED">Separated</option>
                   <option value="ANY">Any Status</option>
                 </select>
               </div>
@@ -1500,16 +1898,7 @@ const ProfileEditPage = () => {
                 >
                   <option value="">-- Select Preferred Community / Caste --</option>
                   <option value="Any">Any Community / Caste</option>
-                  {[
-                    'Nadar','Mudaliar','Gounder','Pillai','Chettiar','Vanniyar','Thevar',
-                    'Naidu','Iyer','Iyengar','Vellalar','Reddiyar','Yadav / Konar',
-                    'Viswakarma','Sourashtra','Nair','Menon','Christian','Muslim',
-                    'Devendra Kula Vellalar','Adidravidar','Arunthathiyar','Muthuraja','Naicker',
-                    'Boyar / Uppara','Parkavakulam','Sengunthar','Kamma','Kapu',
-                    'Ezhava / Thiyya','Brahmin - Other','Maratha / Kshatriya','Jain','Sikh',
-                    'Weaver / Saliyar','Fisherfolk','Vannar / Dhobi','Maruthuvar',
-                    'Kulalar / Potter','Badaga','Tribal','Lingayat','Inter-Caste','Other'
-                  ].map((c) => (
+                  {communityOptions.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
@@ -1620,16 +2009,24 @@ const ProfileEditPage = () => {
         )}
 
         {/* Bottom Save & Continue to Dashboard Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 p-5 card bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 card bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl shadow-xl">
           <div>
             <h3 className="font-bold text-sm">Finished editing your details?</h3>
             <p className="text-xs text-slate-300 mt-0.5">Save your profile to activate match recommendations on your dashboard.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={handleSave} disabled={saving} className="btn btn-ghost btn-sm text-white hover:bg-white/10">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <button 
+              onClick={handleSave} 
+              disabled={saving || hasSiblingErrors} 
+              className="btn btn-ghost btn-sm text-white hover:bg-white/10 flex-1 sm:flex-initial justify-center text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               {saving ? 'Saving...' : 'Save Draft'}
             </button>
-            <button onClick={handleSaveAndGoToDashboard} disabled={saving} className="btn btn-primary btn-md flex items-center gap-2 shadow-lg">
+            <button 
+              onClick={handleSaveAndGoToDashboard} 
+              disabled={saving || hasSiblingErrors} 
+              className="btn btn-primary btn-md flex items-center justify-center gap-2 shadow-lg flex-1 sm:flex-initial text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <span>Save & Go to Dashboard</span>
               <ArrowRight className="w-4 h-4" />
             </button>

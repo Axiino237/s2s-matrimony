@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { useSettingsStore } from '../../store/settings.store';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { getAuthorizedAdminRoute, ROUTE_PERMISSIONS } from '../../components/layout/AdminLayout';
 
 const LoginPage = () => {
   const [mode, setMode] = useState<'password' | 'otp'>('password');
@@ -17,6 +18,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+  const [devOtp, setDevOtp] = useState(import.meta.env.DEV ? '123456' : '');
   const [loading, setLoading] = useState(false);
   const { login, loginWithOtp } = useAuthStore();
   const logoUrl = useSettingsStore((s) => s.logoUrl);
@@ -25,8 +27,8 @@ const LoginPage = () => {
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<{ email: string; password: string }>({
     defaultValues: {
-      email: 'superadmin@s2smatrimony.com',
-      password: 'admin123',
+      email: '',
+      password: '',
     },
   });
 
@@ -37,10 +39,18 @@ const LoginPage = () => {
     }
     setLoading(true);
     try {
-      await api.post('/auth/send-otp', { phone: `+91${phone}` });
+      const res = await api.post('/auth/send-otp', { phone: `+91${phone}` });
+      if (res.data?.otp) {
+        setDevOtp(res.data.otp);
+      } else if (import.meta.env.DEV) {
+        setDevOtp('123456');
+      }
       setOtpSent(true);
       toast.success('OTP sent successfully to your phone!');
     } catch {
+      if (import.meta.env.DEV) {
+        setDevOtp('123456');
+      }
       setOtpSent(true);
       toast.success('OTP sent successfully to your phone!');
     } finally {
@@ -93,14 +103,51 @@ const LoginPage = () => {
       ? user.roles.map((r: any) => (typeof r === 'string' ? r : r?.name || '').toUpperCase())
       : ((user as any)?.userRoles ? (user as any).userRoles.map((ur: any) => (ur.role?.name || ur.name || '').toUpperCase()) : [userRoleStr]);
 
-    if (fromPath && fromPath !== '/login' && fromPath !== '/register') {
-      navigate(fromPath + fromSearch);
-    } else if (userRoleStr === 'SUPER_ADMIN' || allRoles.includes('SUPER_ADMIN')) {
+    const isSuperAdmin = userRoleStr === 'SUPER_ADMIN' || allRoles.includes('SUPER_ADMIN');
+    const isStaff = isSuperAdmin || allRoles.some((r: string) => ['ADMIN'].includes(r));
+
+    const checkPerm = (perm: string): boolean => {
+      return useAuthStore.getState().hasPermission(perm);
+    };
+
+    if (fromPath && fromPath !== '/login' && fromPath !== '/register' && fromPath !== '/unauthorized') {
+      if (fromPath.startsWith('/super-admin') && !isSuperAdmin) {
+        if (isStaff) {
+          const staffLanding = getAuthorizedAdminRoute(checkPerm, isSuperAdmin) || '/unauthorized';
+          navigate(staffLanding);
+        } else {
+          navigate('/dashboard');
+        }
+      } else if (fromPath === '/admin' || fromPath === '/admin/dashboard') {
+        if (isStaff) {
+          const staffLanding = getAuthorizedAdminRoute(checkPerm, isSuperAdmin) || '/unauthorized';
+          navigate(staffLanding);
+        } else {
+          navigate('/dashboard');
+        }
+      } else if (fromPath.startsWith('/admin/')) {
+        const reqPerm = ROUTE_PERMISSIONS[fromPath];
+        if (!reqPerm || checkPerm(reqPerm) || isSuperAdmin) {
+          navigate(fromPath + fromSearch);
+        } else {
+          const staffLanding = getAuthorizedAdminRoute(checkPerm, isSuperAdmin) || '/unauthorized';
+          navigate(staffLanding);
+        }
+      } else {
+        navigate(fromPath + fromSearch);
+      }
+    } else if (isSuperAdmin) {
       navigate('/super-admin/dashboard');
-    } else if (userRoleStr === 'ADMIN' || allRoles.includes('ADMIN') || allRoles.includes('MODERATOR')) {
-      navigate('/admin/dashboard');
+    } else if (isStaff) {
+      const staffLanding = getAuthorizedAdminRoute(checkPerm, isSuperAdmin) || '/unauthorized';
+      navigate(staffLanding);
     } else {
-      navigate('/search');
+      const completion = (user as any)?.profileCompletionPercent ?? 0;
+      if (completion < 100) {
+        navigate('/complete-profile');
+      } else {
+        navigate('/dashboard');
+      }
     }
   };
 
@@ -123,15 +170,15 @@ const LoginPage = () => {
         <div className="grid lg:grid-cols-12 gap-12 items-center">
           {/* Left Column: Ultra Light Transparent Glassmorphic Showcase */}
           <div className="lg:col-span-6 animate-slide-up">
-            <div className="p-8 sm:p-10 rounded-3xl bg-black/15 border border-white/20 backdrop-blur-sm shadow-xl space-y-6">
-              <div className="inline-flex items-center gap-2 bg-amber-500/25 border border-amber-300/50 backdrop-blur-md rounded-full px-4 py-2 text-amber-200 text-xs font-black uppercase tracking-wider shadow-md">
-                <Sparkles className="w-4 h-4 text-amber-300 animate-spin-slow" />
-                Trusted South Indian Matrimony Platform
+            <div className="p-4 sm:p-8 md:p-10 rounded-3xl bg-black/15 border border-white/20 backdrop-blur-sm shadow-xl space-y-6">
+              <div className="inline-flex items-center gap-2 bg-amber-500/25 border border-amber-300/50 backdrop-blur-md rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-amber-200 text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md max-w-full">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin-slow flex-shrink-0" />
+                <span className="truncate">Trusted South Indian Matrimony Platform</span>
               </div>
 
-              <div className="flex items-center gap-4">
-                <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-28 h-28 sm:w-32 sm:h-32 object-contain rounded-3xl shadow-2xl border-2 border-amber-400/60 p-2 bg-white" />
-                <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-black leading-tight drop-shadow-lg">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
+                <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-20 h-20 sm:w-28 sm:h-28 object-contain rounded-3xl shadow-2xl border-2 border-amber-400/60 p-2 bg-white flex-shrink-0" />
+                <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-black leading-tight drop-shadow-lg break-words">
                   <span style={{ color: '#FBBF24' }} className="font-extrabold drop-shadow">
                     S2S Matrimony
                   </span>
@@ -371,9 +418,6 @@ const LoginPage = () => {
                           onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                           className="input text-center text-xl font-mono tracking-[0.8rem] py-2.5"
                         />
-                        <p className="text-[11px] text-emerald-700 font-bold mt-1 text-center bg-emerald-50 py-1 rounded-lg border border-emerald-200">
-                          ✓ Use demo OTP: <b>123456</b>
-                        </p>
                       </div>
                       <button
                         type="button"
@@ -383,6 +427,19 @@ const LoginPage = () => {
                       >
                         {loading ? 'Verifying...' : 'Verify OTP & Sign In'} <CheckCircle2 className="w-4 h-4" />
                       </button>
+
+                      {/* Development OTP display directly below button */}
+                      {import.meta.env.DEV && devOtp && (
+                        <div className="mt-3 p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-center shadow-xs">
+                          <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-0.5">
+                            Development OTP
+                          </p>
+                          <p className="text-lg font-mono font-black text-rose-600 tracking-widest">
+                            {devOtp}
+                          </p>
+                        </div>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => { setOtpSent(false); setOtp(''); }}

@@ -16,4 +16,15 @@ export const CASTE_SUBCASTES: Record<string, string[]> = {
 
 export const STARS = ['Ashwini','Bharani','Krittika','Rohini','Mrigashirsha','Ardra','Punarvasu','Pushya','Ashlesha','Magha','Purva Phalguni','Uttara Phalguni','Hasta','Chitra','Swati','Vishakha','Anuradha','Jyeshtha','Mula','Purva Ashadha','Uttara Ashadha','Shravana','Dhanishta','Shatabhisha','Purva Bhadrapada','Uttara Bhadrapada','Revati'];
 export const RASIS = ['Mesha','Rishabha','Mithuna','Kataka','Simha','Kanya','Tula','Vrischika','Dhanu','Makara','Kumbha','Meena'];
-export const DOSHAMS = ['No Dosham','Chevvai Dosham','Raagu Dosham','Kethu Dosham','Sarpa Dosham','Kalathra Dosham'];
+export const DOSHAMS = [
+  'No Dosham',
+  'Sevvai Dosham (செவ்வாய் தோஷம்)',
+  'Rahu Kethu Dosham (ராகு கேது தோஷம்)',
+  'Kaala Sarpa Dosham (கால சர்ப்ப தோஷம்)',
+  'Pithru Dosham (பித்ரு தோஷம்)',
+  'Kalathira Dosham (களத்திர தோஷம்)',
+  'Naga Dosham (நாக தோஷம்)',
+  'Sani Dosham (சனி தோஷம்)',
+  'Guru Dosham (குரு தோஷம்)',
+];
+

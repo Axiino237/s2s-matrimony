@@ -29,9 +29,20 @@ const maskEmail = (email?: string, isSuperAdmin?: boolean) => {
   return `${maskedName}@${parts[1]}`;
 };
 
-const maskSensitiveText = (text?: string, isSuperAdmin?: boolean) => {
-  if (!text || text === '—') return '—';
-  if (isSuperAdmin) return text;
+const toText = (val: any): string => {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    return val.name || val.title || val.label || val.value || val.degree || val.designation || '';
+  }
+  return String(val);
+};
+
+const maskSensitiveText = (text?: any, isSuperAdmin?: boolean) => {
+  const val = toText(text);
+  if (!val || val === '—' || val === '-') return '—';
+  if (isSuperAdmin) return val;
   return '***** (Super Admin Only)';
 };
 
@@ -175,71 +186,73 @@ export default function AdminBiodataListPage() {
         // Exclude SUPER_ADMIN and ADMIN accounts - only show MEMBER role candidates
         const roles = (u.userRoles || []).map((ur: any) => typeof ur === 'object' ? (ur.role?.name || ur.role || '') : String(ur));
         const isAdmin = roles.some((r: string) => ['SUPER_ADMIN', 'ADMIN'].includes(String(r).toUpperCase())) ||
-                        ['superadmin@s2smatrimony.com', 'admin@s2smatrimony.com'].includes(u.email) ||
-                        String(u.id).startsWith('usr-');
+          ['superadmin@s2smatrimony.com', 'admin@s2smatrimony.com'].includes(u.email) ||
+          String(u.id).startsWith('usr-');
 
         if (isAdmin) return;
 
         const pFromMap = profileMap.get(u.id) || {};
         const p = { ...pFromMap, ...(u.profile || {}) };
 
-        const eduStr = typeof p.education === 'object' 
-          ? (p.education?.degree || p.education?.educationMaster?.name || p.educationDegree || '') 
+        const eduStr = typeof p.education === 'object'
+          ? (p.education?.degree || p.education?.educationMaster?.name || p.educationDegree || '')
           : (p.education || p.educationDegree || '');
 
         const jobStr = typeof p.occupation === 'object'
           ? (p.occupation?.designation || p.occupation?.occupationMaster?.name || p.designation || '')
           : (p.occupation || p.designation || '');
 
-        const companyStr = p.occupation?.company || p.companyName || p.company || '';
-        const locationStr = p.occupation?.workingLocation || p.workLocation || p.city || '';
-        const salaryStr = p.occupation?.salaryMin ? `${p.occupation.salaryMin} / month` : (p.annualIncome || p.salary || '');
+        const companyStr = toText(p.occupation?.company || p.companyName || p.company || '');
+        const cityStr = toText(p.city);
+        const workLocRaw = p.occupation?.workingLocation || p.workLocation || cityStr || '';
+        const locationStr = toText(workLocRaw);
+        const salaryStr = p.occupation?.salaryMin ? `${p.occupation.salaryMin} / month` : toText(p.annualIncome || p.salary || '');
         const horo = p.horoscope || {};
         const fam = p.family || {};
 
         combined.push({
           id: u.id,
           memberId: p.memberId || `S2S-${String(u.id).slice(0, 6).toUpperCase()}`,
-          firstName: p.firstName || (u.email ? u.email.split('@')[0] : ''),
-          lastName: p.lastName || '',
-          name: p.name || `${p.firstName || ''} ${p.lastName || ''}`.trim(),
-          gender: p.gender || '',
-          age: p.age || undefined,
+          firstName: toText(p.firstName) || (u.email ? u.email.split('@')[0] : ''),
+          lastName: toText(p.lastName),
+          name: toText(p.name) || `${toText(p.firstName)} ${toText(p.lastName)}`.trim(),
+          gender: toText(p.gender),
+          age: typeof p.age === 'number' ? p.age : (p.age ? Number(p.age) : undefined),
           dateOfBirth: p.dateOfBirth ? String(p.dateOfBirth).split('T')[0] : '',
-          birthPlace: p.birthPlace || horo.birthPlace || '',
-          birthTime: p.birthTime || horo.birthTime || '',
-          caste: typeof p.caste === 'object' ? p.caste?.name : (p.caste || (typeof p.community === 'object' ? p.community?.name : p.community) || ''),
-          subCaste: typeof p.subCaste === 'object' ? p.subCaste?.name : (p.subCaste || p.subcaste || p.sub_caste || ''),
-          gothram: p.gothram || '',
-          religion: typeof p.religion === 'object' ? p.religion?.name : (p.religion || ''),
-          motherTongue: p.motherTongue || '',
-          maritalStatus: p.maritalStatus || '',
-          complexion: p.complexion || '',
+          birthPlace: toText(p.birthPlace || horo.birthPlace),
+          birthTime: toText(p.birthTime || horo.birthTime),
+          caste: toText(p.caste || p.community),
+          subCaste: toText(p.subCaste || p.subcaste || p.sub_caste),
+          gothram: toText(p.gothram),
+          religion: toText(p.religion),
+          motherTongue: toText(p.motherTongue),
+          maritalStatus: toText(p.maritalStatus),
+          complexion: toText(p.complexion),
           heightCm: p.heightCm || p.height,
           weightKg: p.weightKg || p.weight,
-          diet: p.diet || '',
-          birthOrder: p.birthOrder || fam.birthOrder || '',
-          residentStatus: p.residentStatus || p.resident || '',
-          propertyDetails: p.propertyDetails || p.property || '',
-          educationDegree: eduStr,
-          education: p.educationDetails || eduStr,
-          designation: jobStr,
+          diet: toText(p.diet),
+          birthOrder: toText(p.birthOrder || fam.birthOrder),
+          residentStatus: toText(p.residentStatus || p.resident),
+          propertyDetails: toText(p.propertyDetails || p.property),
+          educationDegree: toText(eduStr),
+          education: toText(p.educationDetails || eduStr),
+          designation: toText(jobStr),
           company: companyStr,
           companyName: companyStr,
           workLocation: locationStr,
           annualIncome: salaryStr,
-          city: typeof p.city === 'object' ? p.city?.name : (p.city || locationStr || ''),
-          fatherName: p.fatherName || fam.fatherName || '',
-          fatherOccupation: p.fatherOccupation || fam.fatherJob || fam.fatherOccupation || '',
-          motherName: p.motherName || fam.motherName || '',
-          motherOccupation: p.motherOccupation || fam.motherJob || fam.motherOccupation || '',
-          nativePlace: p.nativePlace || fam.nativePlace || '',
+          city: cityStr || locationStr || '',
+          fatherName: toText(p.fatherName || fam.fatherName),
+          fatherOccupation: toText(p.fatherOccupation || fam.fatherJob || fam.fatherOccupation),
+          motherName: toText(p.motherName || fam.motherName),
+          motherOccupation: toText(p.motherOccupation || fam.motherJob || fam.motherOccupation),
+          nativePlace: toText(p.nativePlace || fam.nativePlace),
           elderBrothers: p.elderBrothers ?? fam.elderBrother ?? fam.elderBrothers,
           youngerBrothers: p.youngerBrothers ?? fam.youngerBrother ?? fam.youngerBrothers,
           elderSisters: p.elderSisters ?? fam.elderSister ?? fam.elderSisters,
           youngerSisters: p.youngerSisters ?? fam.youngerSister ?? fam.youngerSisters,
-          star: horo.star || p.star || '',
-          rasi: horo.rasi || p.rasi || '',
+          star: toText(horo.star || p.star),
+          rasi: toText(horo.rasi || p.rasi),
           horoscope: {
             star: horo.star || p.star || '',
             starPadam: horo.starPadam || p.natchathiramPadham,
@@ -270,8 +283,8 @@ export default function AdminBiodataListPage() {
         const memberOnlyProfiles = profileList.filter((p: any) => {
           const roles = (p.user?.userRoles || []).map((ur: any) => typeof ur === 'object' ? (ur.role?.name || ur.role || '') : String(ur));
           const isAdmin = roles.some((r: string) => ['SUPER_ADMIN', 'ADMIN'].includes(String(r).toUpperCase())) ||
-                          ['superadmin@s2smatrimony.com', 'admin@s2smatrimony.com'].includes(p.user?.email || p.email) ||
-                          String(p.userId || p.id).startsWith('usr-');
+            ['superadmin@s2smatrimony.com', 'admin@s2smatrimony.com'].includes(p.user?.email || p.email) ||
+            String(p.userId || p.id).startsWith('usr-');
           return !isAdmin;
         });
         setRecords(memberOnlyProfiles);
@@ -313,10 +326,10 @@ export default function AdminBiodataListPage() {
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
       {/* Top Header & Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
         <div>
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-600 to-amber-600 text-white flex items-center justify-center font-bold shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-600 to-amber-600 text-white flex items-center justify-center font-bold shadow-md flex-shrink-0">
               📋
             </div>
             <div>
@@ -330,55 +343,44 @@ export default function AdminBiodataListPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+          {/* Refresh List (Icon only with aria-label & tooltip) */}
           <button
             onClick={fetchBiodataList}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition"
+            title="Refresh List"
+            aria-label="Refresh List"
+            className="w-10 h-10 p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition shadow-xs flex items-center justify-center shrink-0"
           >
-            <RefreshCw className="w-4 h-4" /> Refresh List
+            <RefreshCw className={`w-4 h-4 shrink-0 ${loading ? 'animate-spin text-rose-600' : ''}`} />
           </button>
 
+          {/* Share Form Link (Icon only with aria-label & tooltip) */}
           <button
             onClick={() => {
               const link = `${window.location.origin}/fill-biodata`;
               navigator.clipboard.writeText(link);
               toast.success('📋 Form link copied to clipboard!\n' + link);
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-xl text-xs font-bold transition shadow-sm"
+            title="Share Form Link"
+            aria-label="Share Form Link"
+            className="w-10 h-10 p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-xl transition shadow-xs flex items-center justify-center shrink-0"
           >
-            <Share2 className="w-4 h-4 text-emerald-600" /> Share Form Link
+            <Share2 className="w-4 h-4 text-emerald-600 shrink-0" />
           </button>
 
+          {/* Send via WhatsApp (Icon only with aria-label & tooltip) */}
           <a
             href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Vanakkam! Please fill out your Matrimony Biodata entry form using this link:\n${window.location.origin}/fill-biodata`)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition shadow-sm"
+            title="Send via WhatsApp"
+            aria-label="Send via WhatsApp"
+            className="w-10 h-10 p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition shadow-xs flex items-center justify-center shrink-0"
           >
-            <MessageCircle className="w-4 h-4" /> Send via WhatsApp
+            <MessageCircle className="w-4 h-4 shrink-0" />
           </a>
 
-          <label className="flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 cursor-pointer shadow-sm transition select-none">
-            <input
-              type="checkbox"
-              checked={showContactDetailsInPrint}
-              onChange={(e) => setShowContactDetailsInPrint(e.target.checked)}
-              className="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 accent-rose-600 cursor-pointer"
-            />
-            <span className={showContactDetailsInPrint ? 'text-emerald-700 font-extrabold' : 'text-rose-700 font-extrabold'}>
-              {showContactDetailsInPrint ? '✓ Contact Info In PDF' : '✕ Hide Contact Info In PDF'}
-            </span>
-          </label>
-
-          <button
-            onClick={() => {
-              window.open('/print/blank-biodata', '_blank');
-            }}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-gradient-to-r from-amber-600 to-rose-700 hover:from-amber-700 hover:to-rose-800 text-white rounded-xl text-xs font-extrabold transition shadow-md"
-          >
-            <FileText className="w-4 h-4" /> Print Blank Form (கையெழுத்துப் படிவம்)
-          </button>
-
+          {/* Print Range (Icon only with aria-label & tooltip) */}
           <button
             onClick={() => {
               setIsBlankPrint(false);
@@ -388,17 +390,29 @@ export default function AdminBiodataListPage() {
               setPreparedPrintRecords(filteredRecords.slice(0, Math.min(100, maxIdx)));
               setShowRangePrintModal(true);
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-rose-900 hover:bg-rose-950 text-white rounded-xl text-xs font-extrabold transition shadow-sm"
+            title="Print Range (1 to 100)"
+            aria-label="Print Range (1 to 100)"
+            className="w-10 h-10 p-2.5 bg-rose-900 hover:bg-rose-950 text-white rounded-xl transition shadow-xs flex items-center justify-center shrink-0"
           >
-            <Printer className="w-4 h-4" /> Print Range (1 to 100)
+            <Printer className="w-4 h-4 shrink-0" />
           </button>
 
-          <button
-            onClick={() => navigate('/super-admin/biodata-entry')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-rose-700 to-amber-700 hover:from-rose-800 hover:to-amber-800 text-white text-xs font-extrabold rounded-xl shadow-md transition"
+          {/* Contact Info in PDF Toggle */}
+          <label
+            title="Toggle Contact Info in PDF"
+            aria-label="Contact Info in PDF"
+            className="h-10 flex items-center gap-2 px-3.5 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 cursor-pointer shadow-xs transition select-none shrink-0 whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" /> Add New Walk-in Biodata
-          </button>
+            <input
+              type="checkbox"
+              checked={showContactDetailsInPrint}
+              onChange={(e) => setShowContactDetailsInPrint(e.target.checked)}
+              className="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500 accent-rose-600 cursor-pointer"
+            />
+            <span className={showContactDetailsInPrint ? 'text-emerald-700 font-extrabold' : 'text-slate-600 font-extrabold'}>
+              {showContactDetailsInPrint ? '✓ Contact Info In PDF' : 'Contact Info In PDF'}
+            </span>
+          </label>
         </div>
       </div>
 
@@ -500,15 +514,15 @@ export default function AdminBiodataListPage() {
 
               <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
                 {filteredRecords.map((r) => {
-                  const nameStr = (r.name && r.name.trim()) ? r.name.trim() : `${r.firstName || ''} ${r.lastName || ''}`.trim() || 'Anonymous';
-                  const memId = r.memberId || r.customId || `S2S-${String(r.id || '').slice(0, 6).toUpperCase()}`;
-                  const casteStr = r.caste || r.community?.name || 'Not specified';
-                  const subCasteStr = r.subCaste || r.subcaste || r.sub_caste || '';
-                  const eduStr = r.educationDegree || r.education?.degree || 'Degree N/A';
-                  const jobStr = r.designation || r.occupation?.designation || 'N/A';
-                  const starStr = r.star || r.horoscope?.star || '-';
-                  const rasiStr = r.rasi || r.horoscope?.rasi || '-';
-                  const phoneStr = r.phone || r.user?.phone || 'No Phone';
+                  const nameStr = toText(r.name) || `${toText(r.firstName)} ${toText(r.lastName)}`.trim() || 'Anonymous';
+                  const memId = toText(r.memberId || r.customId) || `S2S-${String(r.id || '').slice(0, 6).toUpperCase()}`;
+                  const casteStr = toText(r.caste || (r as any).community) || 'Not specified';
+                  const subCasteStr = toText(r.subCaste || (r as any).subcaste || (r as any).sub_caste) || '';
+                  const eduStr = toText(r.educationDegree || (r.education as any)?.degree || r.education) || 'Degree N/A';
+                  const jobStr = toText(r.designation || (r.occupation as any)?.designation || r.occupation) || 'N/A';
+                  const starStr = toText(r.star || r.horoscope?.star) || '-';
+                  const rasiStr = toText(r.rasi || r.horoscope?.rasi) || '-';
+                  const phoneStr = toText(r.phone || r.user?.phone) || 'No Phone';
                   const isVerified = Boolean(r.isPhoneVerified || r.user?.isPhoneVerified);
                   const avatarPhoto = r.photos?.find((p) => p.isMain)?.url || r.photos?.[0]?.url;
 
@@ -534,9 +548,8 @@ export default function AdminBiodataListPage() {
 
                       <td className="py-3.5 px-4">
                         <div className="space-y-0.5">
-                          <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                            r.gender === 'MALE' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'
-                          }`}>
+                          <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${r.gender === 'MALE' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'
+                            }`}>
                             {r.gender || 'N/A'}
                           </span>
                           <p className="text-xs text-slate-600 font-semibold">{r.age ? `${r.age} Yrs` : (r.dateOfBirth ? `${r.dateOfBirth}` : '-')}</p>
@@ -622,7 +635,7 @@ export default function AdminBiodataListPage() {
             <div className="p-4 sm:p-6">
               <BiodataFormCard r={selectedRecord} isSuperAdmin={isSuperAdmin} showContactInfo={showContactDetailsInPrint} />
             </div>
-            
+
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200">
               <label className="inline-flex items-center gap-2 cursor-pointer bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-300 font-bold text-xs text-slate-800 transition select-none">
                 <input
@@ -883,8 +896,8 @@ export default function AdminBiodataListPage() {
             selectedRecord
               ? [selectedRecord]
               : (preparedPrintRecords && preparedPrintRecords.length > 0)
-              ? preparedPrintRecords
-              : (filteredRecords || [])
+                ? preparedPrintRecords
+                : (filteredRecords || [])
           ).map((r, index) => (
             <div key={r?.id || index} className="print-form-page bg-white">
               {r ? <BiodataFormCard r={r} isSuperAdmin={isSuperAdmin} showContactInfo={showContactDetailsInPrint} /> : null}
@@ -971,18 +984,18 @@ function BiodataFormCard({ r, isSuperAdmin, showContactInfo = true }: { r: Bioda
               PERSONAL DETAILS
             </div>
             <div className="p-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs font-medium text-slate-900">
-              <div><strong>Date of Birth - </strong> {r.dateOfBirth || '—'}</div>
+              <div><strong>Date of Birth - </strong> {toText(r.dateOfBirth) || '—'}</div>
               <div><strong>Birth Place - </strong> {maskSensitiveText(r.birthPlace || horo.birthPlace, isSuperAdmin)}</div>
-              <div><strong>Birth Time - </strong> {r.birthTime || horo.birthTime || '—'}</div>
-              <div><strong>Complexion - </strong> {r.complexion || '—'}</div>
-              <div><strong>Birth Order - </strong> {r.birthOrder || '—'}</div>
+              <div><strong>Birth Time - </strong> {toText(r.birthTime || horo.birthTime) || '—'}</div>
+              <div><strong>Complexion - </strong> {toText(r.complexion) || '—'}</div>
+              <div><strong>Birth Order - </strong> {toText(r.birthOrder) || '—'}</div>
               <div><strong>Height - </strong> {r.heightCm ? `${r.heightCm} cm` : '—'}</div>
-              <div><strong>Education - </strong> {r.educationDegree || r.education || '—'}</div>
-              <div><strong>Education Details - </strong> {r.college || '—'}</div>
-              <div><strong>Salary - </strong> {r.annualIncome || '—'}</div>
-              <div><strong>Designation - </strong> {r.designation || '—'}</div>
-              <div><strong>Company Name - </strong> {r.company || r.companyName || '—'}</div>
-              <div><strong>Job Location - </strong> {r.workLocation || r.city || '—'}</div>
+              <div><strong>Education - </strong> {toText(r.educationDegree || r.education) || '—'}</div>
+              <div><strong>Education Details - </strong> {toText(r.college) || '—'}</div>
+              <div><strong>Salary - </strong> {toText(r.annualIncome) || '—'}</div>
+              <div><strong>Designation - </strong> {toText(r.designation) || '—'}</div>
+              <div><strong>Company Name - </strong> {toText(r.company || r.companyName) || '—'}</div>
+              <div><strong>Job Location - </strong> {toText(r.workLocation) || toText(r.city) || '—'}</div>
             </div>
           </div>
 
@@ -1227,7 +1240,7 @@ function BlankBiodataFormCard() {
             <svg className="w-8 h-8 text-[#b91c1c] opacity-40 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            <p className="text-[9px] font-extrabold text-[#b91c1c] text-center leading-snug">Passport Size<br/>Photo</p>
+            <p className="text-[9px] font-extrabold text-[#b91c1c] text-center leading-snug">Passport Size<br />Photo</p>
             <p className="text-[8px] text-slate-400 font-medium mt-0.5">Paste Here</p>
           </div>
 

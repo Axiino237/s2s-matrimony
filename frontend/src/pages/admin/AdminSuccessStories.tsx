@@ -18,7 +18,7 @@ type Story = {
 const AdminSuccessStories = () => {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'pending' | 'approved'>('pending');
+  const [tab, setTab] = useState<'all' | 'pending' | 'approved'>('all');
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ groomName: '', brideName: '', story: '', photo: '/images/couple_happy.png', marriageDate: '' });
@@ -69,11 +69,13 @@ const AdminSuccessStories = () => {
     setSaving(true);
     try {
       if (editingStory) {
+        const updated = await adminApi.updateSuccessStory(editingStory.id, form);
         setStories((prev) =>
           prev.map((s) =>
             s.id === editingStory.id
               ? {
                   ...s,
+                  ...updated,
                   groomName: form.groomName,
                   brideName: form.brideName,
                   story: form.story,
@@ -101,7 +103,7 @@ const AdminSuccessStories = () => {
 
   const pending = stories.filter((s) => !s.isApproved);
   const approved = stories.filter((s) => s.isApproved);
-  const visible = tab === 'pending' ? pending : approved;
+  const visible = tab === 'all' ? stories : tab === 'pending' ? pending : approved;
 
   const handleApprove = async (id: string) => {
     try {
@@ -143,22 +145,22 @@ const AdminSuccessStories = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {[
           { label: 'Total Stories', val: stories.length, color: 'text-primary' },
           { label: 'Pending Review', val: pending.length, color: 'text-amber-600' },
           { label: 'Published', val: approved.length, color: 'text-emerald-600' },
         ].map((s) => (
-          <div key={s.label} className="card p-4 text-center">
-            <p className={`text-2xl font-bold font-display ${s.color}`}>{s.val}</p>
-            <p className="text-text-muted text-sm mt-1">{s.label}</p>
+          <div key={s.label} className="card p-4 sm:p-5 text-center flex flex-col justify-center">
+            <p className={`text-xl sm:text-2xl font-bold font-display leading-tight ${s.color}`}>{s.val}</p>
+            <p className="text-text-muted text-xs sm:text-sm font-medium mt-1 leading-snug">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-        {([['pending', 'Pending Review', pending.length], ['approved', 'Published', approved.length]] as const).map(([t, label, count]) => (
+        {([['all', 'All Stories', stories.length], ['approved', 'Published', approved.length], ['pending', 'Pending Review', pending.length]] as const).map(([t, label, count]) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -177,7 +179,7 @@ const AdminSuccessStories = () => {
       ) : visible.length === 0 ? (
         <div className="card p-12 text-center text-text-muted">
           <Heart className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-          No {tab === 'pending' ? 'pending' : 'published'} stories yet. Click "+ Add Story" to create one!
+          No {tab === 'all' ? '' : tab === 'pending' ? 'pending ' : 'published '}stories yet. Click "+ Add Story" to create one!
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

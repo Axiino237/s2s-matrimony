@@ -1,14 +1,32 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../common/entitlements.service';
 import { devInterestsStore } from '../common/dev-store';
 
 @Injectable()
 export class InterestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlementsService: EntitlementsService,
+  ) {}
 
   async sendInterest(senderUserId: string, receiverUserId: string, message?: string) {
     if (senderUserId === receiverUserId) {
       throw new BadRequestException('You cannot send interest to yourself');
+    }
+
+    // Dynamic Database Entitlement Gating
+    const entitlements = await this.entitlementsService.getUserEntitlements(senderUserId);
+    if (!entitlements.interests.enabled || entitlements.interests.max === 0) {
+      throw new ForbiddenException(
+        'Sending interests is disabled for your active membership plan. Please upgrade your membership to connect with matches!',
+      );
+    }
+
+    if (entitlements.interests.max > 0 && entitlements.interests.used >= entitlements.interests.max) {
+      throw new ForbiddenException(
+        `You have reached the interest limit (${entitlements.interests.used}/${entitlements.interests.max}) for your ${entitlements.planName}. Please upgrade to send more interests!`,
+      );
     }
 
     let targetUserId = receiverUserId;

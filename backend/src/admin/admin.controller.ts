@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Patch, Param, Query, Body, UseGuards, Req, NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -17,45 +17,45 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly paymentsService: PaymentsService,
-  ) {}
+  ) { }
 
   @Get('plans')
-  @RequirePermissions(Permission.PAYMENTS_VIEW)
+  @RequirePermissions(Permission.PLANS_READ)
   @ApiOperation({ summary: 'Get all membership plans for admin' })
   async getPlans() {
-    return this.paymentsService.getPlans();
+    return this.paymentsService.getPlans(true);
   }
 
   @Post('plans')
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @RequirePermissions(Permission.PLANS_MANAGE)
   @ApiOperation({ summary: 'Create a new membership plan' })
   async createPlan(@Body() body: any) {
     return this.paymentsService.createPlan(body);
   }
 
   @Put('plans/:id')
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @RequirePermissions(Permission.PLANS_MANAGE)
   @ApiOperation({ summary: 'Update a membership plan' })
   async updatePlan(@Param('id') id: string, @Body() body: any) {
     return this.paymentsService.updatePlan(id, body);
   }
 
   @Patch('plans/:id')
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @RequirePermissions(Permission.PLANS_MANAGE)
   @ApiOperation({ summary: 'Toggle membership plan active status' })
   async togglePlanActive(@Param('id') id: string, @Body() body: { isActive?: boolean }) {
     return this.paymentsService.togglePlanActive(id, body.isActive);
   }
 
   @Delete('plans/:id')
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @RequirePermissions(Permission.PLANS_MANAGE)
   @ApiOperation({ summary: 'Delete a membership plan' })
   async deletePlan(@Param('id') id: string) {
     return this.paymentsService.deletePlan(id);
   }
 
   @Get('dashboard-stats')
-  @RequirePermissions(Permission.USERS_READ)
+  @RequirePermissions(Permission.DASHBOARD_VIEW)
   @ApiOperation({ summary: 'Get high-level admin dashboard statistics' })
   async getDashboardStats() {
     return this.adminService.getDashboardStats();
@@ -126,6 +126,17 @@ export class AdminController {
   }
 
   @Public()
+  @Get('public/blogs/:idOrSlug')
+  @ApiOperation({ summary: 'Get public blog post by ID or slug' })
+  async getPublicBlogByIdOrSlug(@Param('idOrSlug') idOrSlug: string) {
+    const blog = await this.adminService.getBlogByIdOrSlug(idOrSlug);
+    if (!blog) {
+      throw new NotFoundException('Blog not found');
+    }
+    return blog;
+  }
+
+  @Public()
   @Get('public/success-stories')
   @ApiOperation({ summary: 'Get public success stories list' })
   async getPublicSuccessStories(
@@ -161,29 +172,8 @@ export class AdminController {
     return this.adminService.deleteBlog(id);
   }
 
-  @Get('banners')
-  @RequirePermissions(Permission.BLOGS_READ)
-  @ApiOperation({ summary: 'Get banners list' })
-  async getBanners(@Query('page') page?: number, @Query('limit') limit?: number) {
-    return this.adminService.getBanners(page, limit);
-  }
-
-  @Post('banners')
-  @RequirePermissions(Permission.BLOGS_WRITE)
-  @ApiOperation({ summary: 'Create a new banner' })
-  async createBanner(@Body() body: { title: string; imageUrl: string; page?: string; linkUrl?: string }) {
-    return this.adminService.createBanner(body);
-  }
-
-  @Delete('banners/:id')
-  @RequirePermissions(Permission.BLOGS_DELETE)
-  @ApiOperation({ summary: 'Delete a banner' })
-  async deleteBanner(@Param('id') id: string) {
-    return this.adminService.deleteBanner(id);
-  }
-
   @Get('success-stories')
-  @RequirePermissions(Permission.BLOGS_READ)
+  @RequirePermissions(Permission.STORIES_READ)
   @ApiOperation({ summary: 'Get success stories list' })
   async getSuccessStories(
     @Query('search') search?: string,
@@ -196,21 +186,31 @@ export class AdminController {
   }
 
   @Post('success-stories')
-  @RequirePermissions(Permission.BLOGS_WRITE)
+  @RequirePermissions(Permission.STORIES_APPROVE)
   @ApiOperation({ summary: 'Create a new success story' })
   async createSuccessStory(@Body() body: { groomName: string; brideName: string; story: string; photo?: string; marriageDate?: string }) {
     return this.adminService.createSuccessStory(body);
   }
 
   @Patch('success-stories/:id/publish')
-  @RequirePermissions(Permission.BLOGS_PUBLISH)
+  @RequirePermissions(Permission.STORIES_APPROVE)
   @ApiOperation({ summary: 'Approve & publish a success story' })
   async publishSuccessStory(@Param('id') id: string, @Body('isPublished') isPublished?: boolean) {
     return this.adminService.updateSuccessStoryStatus(id, isPublished ?? true);
   }
 
+  @Patch('success-stories/:id')
+  @RequirePermissions(Permission.STORIES_APPROVE)
+  @ApiOperation({ summary: 'Update a success story' })
+  async updateSuccessStory(
+    @Param('id') id: string,
+    @Body() body: { groomName?: string; brideName?: string; story?: string; photo?: string; marriageDate?: string; isPublished?: boolean; isApproved?: boolean },
+  ) {
+    return this.adminService.updateSuccessStory(id, body);
+  }
+
   @Delete('success-stories/:id')
-  @RequirePermissions(Permission.BLOGS_DELETE)
+  @RequirePermissions(Permission.STORIES_DELETE)
   @ApiOperation({ summary: 'Delete a success story' })
   async deleteSuccessStory(@Param('id') id: string) {
     return this.adminService.deleteSuccessStory(id);
@@ -249,4 +249,33 @@ export class AdminController {
   ) {
     return this.adminService.getAuditLogs(page, limit, type);
   }
+
+  @Get('settings')
+  @RequirePermissions(Permission.STATIC_PAGES_READ)
+  @ApiOperation({ summary: 'Get system settings and social links for admin' })
+  async getSettings() {
+    return this.adminService.getSettings();
+  }
+
+  @Put('settings')
+  @RequirePermissions(Permission.STATIC_PAGES_WRITE)
+  @ApiOperation({ summary: 'Update system settings and social links for admin' })
+  async updateSettings(@Body() body: any) {
+    return this.adminService.updateSettings(body);
+  }
+
+  @Get('static-pages')
+  @RequirePermissions(Permission.STATIC_PAGES_READ)
+  @ApiOperation({ summary: 'Get static pages content for admin' })
+  async getStaticPages() {
+    return this.adminService.getStaticPages();
+  }
+
+  @Put('static-pages')
+  @RequirePermissions(Permission.STATIC_PAGES_WRITE)
+  @ApiOperation({ summary: 'Update static pages content for admin' })
+  async updateStaticPages(@Body() body: any) {
+    return this.adminService.updateStaticPages(body);
+  }
 }
+

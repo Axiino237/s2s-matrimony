@@ -12,6 +12,44 @@ export type InterestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
 export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
 export type NotifType = 'INTEREST' | 'MATCH' | 'CHAT' | 'MESSAGE' | 'PAYMENT' | 'SYSTEM';
 
+export interface UserEntitlements {
+  userId: string;
+  planId: string;
+  planName: string;
+  tier: string;
+  isActive: boolean;
+  isStaff: boolean;
+
+  contacts: {
+    enabled: boolean;
+    max: number;
+    used: number;
+    remaining: number;
+    unlockedIds: string[];
+  };
+
+  interests: {
+    enabled: boolean;
+    max: number;
+    used: number;
+    remaining: number;
+  };
+
+  hasChat: boolean;
+  hasAiMatch: boolean;
+  hasVideoProfile: boolean;
+  hasHoroscope: boolean;
+  hasAdvancedSearch: boolean;
+  hasProfileHighlight: boolean;
+  hasPriorityListing: boolean;
+  hasVerificationBadge: boolean;
+  hasWhatsappConnect: boolean;
+  hasDedicatedManager: boolean;
+  hasPrioritySupport: boolean;
+
+  features: string[];
+}
+
 // ---- Auth Types ----
 export interface JwtPayload {
   id?: string;
@@ -23,6 +61,8 @@ export interface JwtPayload {
   permissions: string[];
   routes?: { id: string; slug: string; name: string; path: string; icon?: string }[];
   membershipStatus: MembershipTier;
+  membershipTier?: string;
+  entitlements?: UserEntitlements;
   profileCompletionPercent?: number;   // 0-100 — gates dashboard access
   communityId?: string;
   firstName?: string;

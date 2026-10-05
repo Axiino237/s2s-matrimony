@@ -57,17 +57,6 @@ export const adminApi = {
   deleteBlog: (id: string) =>
     api.delete(`/admin/blogs/${id}`).then((r) => r.data.data || r.data),
 
-  getBanners: (page = 1, limit = 20) =>
-    api
-      .get('/admin/banners', { params: { page, limit } })
-      .then((r) => r.data.data || r.data),
-
-  createBanner: (data: { title: string; imageUrl: string; page?: string; linkUrl?: string }) =>
-    api.post('/admin/banners', data).then((r) => r.data.data || r.data),
-
-  deleteBanner: (id: string) =>
-    api.delete(`/admin/banners/${id}`).then((r) => r.data.data || r.data),
-
   getSuccessStories: (page = 1, limit = 10, publishedOnly?: boolean, search = '') =>
     api
       .get('/admin/success-stories', { params: { page, limit, publishedOnly, search } })
@@ -80,6 +69,9 @@ export const adminApi = {
 
   createSuccessStory: (data: { groomName: string; brideName: string; story: string; photo?: string; marriageDate?: string }) =>
     api.post('/admin/success-stories', data).then((r) => r.data.data || r.data),
+
+  updateSuccessStory: (id: string, data: { groomName?: string; brideName?: string; story?: string; photo?: string; marriageDate?: string; isPublished?: boolean; isApproved?: boolean }) =>
+    api.patch(`/admin/success-stories/${id}`, data).then((r) => r.data.data || r.data),
 
   publishSuccessStory: (id: string, isPublished = true) =>
     api.patch(`/admin/success-stories/${id}/publish`, { isPublished }).then((r) => r.data.data || r.data),

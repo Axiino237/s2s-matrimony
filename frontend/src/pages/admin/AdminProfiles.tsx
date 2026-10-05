@@ -258,57 +258,61 @@ const AdminProfiles = () => {
             const photo = getPhotoUrl(p);
             const fallback = getFallbackAvatar(p.gender);
             return (
-              <div key={p.id} className="card p-4 flex gap-4 items-center hover:border-primary/20 transition-all">
-                <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center flex-shrink-0 border border-slate-200 shadow-sm overflow-hidden">
-                  <img
-                    src={photo || fallback}
-                    alt={getName(p)}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).src = fallback; }}
-                  />
-                </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-text-primary font-semibold text-base">{getName(p)}</p>
-                  <span className="text-xs text-text-muted px-2 py-0.5 bg-slate-100 rounded-md">ID: {p.id.slice(0, 8)}</span>
-                </div>
-                <p className="text-text-secondary text-sm">{p.age} yrs • {p.gender} • {getCity(p)} • {getCommunity(p)}</p>
-                <p className="text-text-muted text-xs mt-1">Submitted {getDate(p.createdAt)}</p>
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                <button onClick={() => { setViewProfile(p); setActiveModalTab('basic'); }} className="btn bg-primary/10 text-primary hover:bg-primary/20 btn-sm text-xs flex items-center gap-1.5 font-semibold px-3">
-                  <Eye className="w-3.5 h-3.5" /> View Full Profile
-                </button>
-                {isPending(p.verificationStatus) ? (
-                  <>
-                    <button onClick={() => approve(p.id)} className="btn py-1.5 px-3 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Approve
-                    </button>
-                    <button onClick={() => reject(p.id)} className="btn py-1.5 px-3 text-xs bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 flex items-center gap-1">
-                      <X className="w-3.5 h-3.5" /> Reject
-                    </button>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className={`badge text-xs self-center ${p.verificationStatus === 'VERIFIED' ? 'badge-active' : 'badge-rejected'}`}>
-                      {p.verificationStatus}
-                    </span>
-                    {p.verificationStatus === 'VERIFIED' && (
-                      <button onClick={() => reject(p.id)} className="btn py-1 px-2 text-[11px] bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100">
-                        Reject
-                      </button>
-                    )}
-                    {p.verificationStatus === 'REJECTED' && (
-                      <button onClick={() => approve(p.id)} className="btn py-1 px-2 text-[11px] bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-100">
-                        Approve
-                      </button>
-                    )}
+              <div key={p.id} className="card p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 hover:border-primary/20 transition-all bg-white">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 bg-slate-100 rounded-2xl flex items-center justify-center flex-shrink-0 border border-slate-200 shadow-sm overflow-hidden">
+                    <img
+                      src={photo || fallback}
+                      alt={getName(p)}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).src = fallback; }}
+                    />
                   </div>
-                )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-text-primary font-bold text-sm sm:text-base truncate">{getName(p)}</p>
+                      <span className="text-[11px] sm:text-xs text-text-muted px-2 py-0.5 bg-slate-100 rounded-md font-mono flex-shrink-0">ID: {p.id.slice(0, 8)}</span>
+                    </div>
+                    <p className="text-text-secondary text-xs sm:text-sm mt-0.5 font-medium truncate">
+                      {p.age ? `${p.age} yrs • ` : ''}{p.gender} • {getCity(p)} • {getCommunity(p)}
+                    </p>
+                    <p className="text-text-muted text-[11px] sm:text-xs mt-1">Submitted {getDate(p.createdAt)}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100 sm:flex-shrink-0">
+                  <button onClick={() => { setViewProfile(p); setActiveModalTab('basic'); }} className="btn bg-primary/10 text-primary hover:bg-primary/20 btn-sm text-xs flex items-center justify-center gap-1.5 font-semibold px-3 py-2 flex-1 sm:flex-initial">
+                    <Eye className="w-3.5 h-3.5" /> <span>View Full Profile</span>
+                  </button>
+                  {isPending(p.verificationStatus) ? (
+                    <>
+                      <button onClick={() => approve(p.id)} className="btn py-2 px-3 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl hover:bg-emerald-100 flex items-center justify-center gap-1 font-semibold flex-1 sm:flex-initial">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> <span>Approve</span>
+                      </button>
+                      <button onClick={() => reject(p.id)} className="btn py-2 px-3 text-xs bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 flex items-center justify-center gap-1 font-semibold flex-1 sm:flex-initial">
+                        <X className="w-3.5 h-3.5" /> <span>Reject</span>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`badge text-xs self-center ${p.verificationStatus === 'VERIFIED' ? 'badge-active' : 'badge-rejected'}`}>
+                        {p.verificationStatus}
+                      </span>
+                      {p.verificationStatus === 'VERIFIED' && (
+                        <button onClick={() => reject(p.id)} className="btn py-1.5 px-2.5 text-xs bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 font-semibold">
+                          Reject
+                        </button>
+                      )}
+                      {p.verificationStatus === 'REJECTED' && (
+                        <button onClick={() => approve(p.id)} className="btn py-1.5 px-2.5 text-xs bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-100 font-semibold">
+                          Approve
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
         </div>
       )}
 

@@ -12,6 +12,7 @@ export const dashboardService = {
         interestsSent: 0,
         shortlisted: 0,
         recentMatchesCount: 0,
+        recentActivities: [],
       })),
 
   /** Get recommended profiles (latest active) */

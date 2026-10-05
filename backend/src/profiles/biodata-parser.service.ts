@@ -1,122 +1,647 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 export interface MatrimonyBiodataSchema {
   profile: {
-    profile_type: string | null;
+    profileFor: string | null;
     gender: string | null;
-    name: string | null;
-    first_name: string | null;
-    middle_name: string | null;
-    last_name: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    displayName: string | null;
+    dateOfBirth: string | null;
     age: number | null;
-    dob: string | null;
-    birth_day: number | null;
-    birth_month: number | null;
-    birth_year: number | null;
-    birth_time: string | null;
-    birth_place: string | null;
-    height: string | null;
-    weight: string | null;
-    blood_group: string | null;
-    marital_status: string | null;
-    mother_tongue: string | null;
+    maritalStatus: string | null;
+    heightCm: number | null;
+    weight: number | null;
+    complexion: string | null;
+    bodyType: string | null;
+    diet: string | null;
+    motherTongue: string | null;
+    about: string | null;
+    birthOrder: number | null;
+    residentStatus: string | null;
+    propertyDetails: string | null;
     religion: string | null;
+    community: string | null;
     caste: string | null;
-    sub_caste: string | null;
+    subCaste: string | null;
     gothram: string | null;
-    kuladeivam: string | null;
-    rasi: string | null;
-    nakshatra: string | null;
-    dosham: string | null;
-    sevvai_dosham: string | null;
-    chevvai: string | null;
-    star: string | null;
-    citizenship: string | null;
-    nationality: string | null;
+    country: string | null;
+    state: string | null;
+    city: string | null;
   };
   education: {
-    highest_qualification: string | null;
-    degree: string[];
-    specialization: string | null;
-    college: string | null;
+    degree: string | null;
+    fieldOfStudy: string | null;
     university: string | null;
+    yearCompleted: number | null;
+    additionalInfo: string | null;
   };
-  career: {
-    occupation: string | null;
+  occupation: {
     designation: string | null;
     company: string | null;
-    work_location: string | null;
-    salary: string | null;
-    annual_income: string | null;
-    business: string | null;
+    salaryMin: number | null;
+    workingLocation: string | null;
+    employmentType: string | null;
   };
   family: {
-    father_name: string | null;
-    father_occupation: string | null;
-    father_status: string | null;
-    mother_name: string | null;
-    mother_occupation: string | null;
-    siblings: string[];
-    family_type: string | null;
-    family_status: string | null;
-  };
-  contact: {
-    mobile: string[];
-    alternate_mobile: string[];
-    whatsapp: string | null;
-    email: string | null;
-    address: string | null;
-    city: string | null;
-    district: string | null;
-    state: string | null;
-    country: string | null;
-    pincode: string | null;
-  };
-  property: {
-    house: string | null;
-    land: string | null;
-    vehicle: string | null;
-    assets: string | null;
-  };
-  partner_preference: {
-    age: string | null;
-    education: string | null;
-    profession: string | null;
-    salary: string | null;
-    location: string | null;
-    religion: string | null;
-    caste: string | null;
-    height: string | null;
-    other: string | null;
+    fatherName: string | null;
+    fatherOccupation: string | null;
+    fatherAlive: boolean | null;
+    motherName: string | null;
+    motherOccupation: string | null;
+    motherAlive: boolean | null;
+    brothers: number | null;
+    brothersMarried: number | null;
+    elderBrothers: number | null;
+    youngerBrothers: number | null;
+    sisters: number | null;
+    sistersMarried: number | null;
+    elderSisters: number | null;
+    youngerSisters: number | null;
+    familyType: string | null;
+    familyStatus: string | null;
+    nativePlace: string | null;
+    familyDescription: string | null;
   };
   horoscope: {
-    rasi_chart_detected: boolean;
-    amsam_chart_detected: boolean;
-    rasi_chart: Record<string, any>;
-    amsam_chart: Record<string, any>;
-    planet_positions: string[];
-    horoscope_notes: string | null;
+    star: string | null;
+    starPadam: number | null;
+    rasi: string | null;
+    lagnam: string | null;
+    gothram: string | null;
+    kuladeivam: string | null;
+    dosham: string | null;
+    dasaBalance: string | null;
+    birthTime: string | null;
+    birthPlace: string | null;
+    rasiChart: Record<string, string> | null;
+    amsamChart: Record<string, string> | null;
   };
-  images: {
-    profile_photo_present: boolean;
-    family_photo_present: boolean;
-    photo_count: number;
-    image_locations: string[];
+  partnerPreference: {
+    ageMin: number | null;
+    ageMax: number | null;
+    heightMin: number | null;
+    heightMax: number | null;
+    maritalStatus: string[] | null;
+    aboutPartner: string | null;
   };
-  document: {
-    language: string[];
-    page_count: number;
-    document_quality: string | null;
-    contains_qrcode: boolean;
-    contains_barcode: boolean;
-    contains_signature: boolean;
-    contains_stamp: boolean;
+  contact: {
+    mobile: string | null;
+    email: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
   };
-  extra_fields: Record<string, any>;
+  rasiChart?: Record<string, string> | null;
+  amsamChart?: Record<string, string> | null;
 }
 
 @Injectable()
 export class BiodataParserService {
+  private readonly logger = new Logger(BiodataParserService.name);
+
+  constructor(private readonly configService: ConfigService) { }
+
+  /**
+   * Main entrypoint for biodata parsing: accepts image (base64) or text.
+   * Leverages Gemini Multimodal Vision / NLP with graceful fallback to regex parser.
+   */
+  async parseBiodata(input: { text?: string; imageBase64?: string }): Promise<MatrimonyBiodataSchema> {
+    const imageBase64 = input?.imageBase64?.trim();
+    const text = input?.text?.trim();
+
+    if (imageBase64) {
+      let mimeType = 'image/jpeg';
+      let base64Data = imageBase64;
+      if (imageBase64.includes(';base64,')) {
+        const parts = imageBase64.split(';base64,');
+        const mimeMatch = parts[0].match(/data:(.*?)$/);
+        if (mimeMatch) mimeType = mimeMatch[1];
+        base64Data = parts[1];
+      } else if (imageBase64.startsWith('data:')) {
+        const commaIdx = imageBase64.indexOf(',');
+        if (commaIdx !== -1) {
+          const mimeMatch = imageBase64.substring(0, commaIdx).match(/data:(.*?);/);
+          if (mimeMatch) mimeType = mimeMatch[1];
+          base64Data = imageBase64.substring(commaIdx + 1);
+        }
+      }
+
+      try {
+        const aiResult = await this.extractWithGeminiVision(base64Data, mimeType);
+        if (aiResult) {
+          this.logger.log('✨ Gemini Vision extracted biodata fields successfully');
+          return this.normalizeSchema(aiResult, text);
+        }
+      } catch (err: any) {
+        this.logger.error('Gemini Vision extraction failed, falling back to text regex', err?.message || err);
+      }
+    }
+
+    if (text) {
+      try {
+        const aiResult = await this.extractWithGeminiText(text);
+        if (aiResult) {
+          this.logger.log('✨ Gemini NLP extracted biodata fields from text successfully');
+          return this.normalizeSchema(aiResult, text);
+        }
+      } catch (err: any) {
+        this.logger.error('Gemini Text extraction failed, falling back to regex', err?.message || err);
+      }
+    }
+
+    // Graceful fallback to regex-based extraction
+    return this.parseText(text || '');
+  }
+
+  private getGeminiApiKey(): string {
+    return (
+      this.configService.get<string>('GEMINI_API_KEY') ||
+      process.env.GEMINI_API_KEY
+    );
+  }
+
+  private getSystemPrompt(): string {
+    return `You are an expert AI vision and matrimony biodata parser for S2S Matrimony.
+Extract details from this biodata document/text ONLY into fields that exist in the application's database schema.
+Strictly return a JSON object with this structure:
+{
+  "profile": {
+    "profileFor": "SELF" | "SON" | "DAUGHTER" | "BROTHER" | "SISTER" | null,
+    "gender": "MALE" | "FEMALE" | null,
+    "firstName": string | null,
+    "lastName": string | null,
+    "displayName": string | null,
+    "dateOfBirth": string | null,
+    "age": number | null,
+    "maritalStatus": "NEVER_MARRIED" | "DIVORCED" | "WIDOWED" | "SEPARATED" | null,
+    "heightCm": number | null,
+    "weight": number | null,
+    "complexion": string | null,
+    "bodyType": string | null,
+    "diet": string | null,
+    "motherTongue": string | null,
+    "about": string | null,
+    "birthOrder": number | null,
+    "residentStatus": string | null,
+    "propertyDetails": string | null,
+    "religion": string | null,
+    "community": string | null,
+    "caste": string | null,
+    "subCaste": string | null,
+    "gothram": string | null,
+    "country": string | null,
+    "state": string | null,
+    "city": string | null
+  },
+  "education": {
+    "degree": string | null,
+    "fieldOfStudy": string | null,
+    "university": string | null,
+    "yearCompleted": number | null,
+    "additionalInfo": string | null
+  },
+  "occupation": {
+    "designation": string | null,
+    "company": string | null,
+    "salaryMin": number | null,
+    "workingLocation": string | null,
+    "employmentType": string | null
+  },
+  "family": {
+    "fatherName": string | null,
+    "fatherOccupation": string | null,
+    "fatherAlive": boolean | null,
+    "motherName": string | null,
+    "motherOccupation": string | null,
+    "motherAlive": boolean | null,
+    "brothers": number | null,
+    "brothersMarried": number | null,
+    "elderBrothers": number | null,
+    "youngerBrothers": number | null,
+    "sisters": number | null,
+    "sistersMarried": number | null,
+    "elderSisters": number | null,
+    "youngerSisters": number | null,
+    "familyType": "NUCLEAR" | "JOINT" | null,
+    "familyStatus": "RICH" | "UPPER_MIDDLE" | "MIDDLE" | "LOWER_MIDDLE" | null,
+    "nativePlace": string | null,
+    "familyDescription": string | null
+  },
+  "horoscope": {
+    "star": string | null,
+    "starPadam": number | null,
+    "rasi": string | null,
+    "lagnam": string | null,
+    "gothram": string | null,
+    "kuladeivam": string | null,
+    "dosham": string | null,
+    "dasaBalance": string | null,
+    "birthTime": string | null,
+    "birthPlace": string | null,
+    "rasiChart": {
+      "Meenam": string,
+      "Mesham": string,
+      "Rishabam": string,
+      "Mithunam": string,
+      "Kadagam": string,
+      "Simmam": string,
+      "Kanni": string,
+      "Thulaam": string,
+      "Viruchigam": string,
+      "Dhanusu": string,
+      "Magaram": string,
+      "Kumbam": string
+    } | null,
+    "amsamChart": {
+      "Meenam": string,
+      "Mesham": string,
+      "Rishabam": string,
+      "Mithunam": string,
+      "Kadagam": string,
+      "Simmam": string,
+      "Kanni": string,
+      "Thulaam": string,
+      "Viruchigam": string,
+      "Dhanusu": string,
+      "Magaram": string,
+      "Kumbam": string
+    } | null
+  },
+  "partnerPreference": {
+    "ageMin": number | null,
+    "ageMax": number | null,
+    "heightMin": number | null,
+    "heightMax": number | null,
+    "maritalStatus": string[] | null,
+    "aboutPartner": string | null
+  },
+  "contact": {
+    "mobile": string | null,
+    "email": string | null,
+    "city": string | null,
+    "state": string | null,
+    "country": string | null
+  }
+}
+
+Important Rules:
+1. Return ONLY the raw valid JSON object. No markdown fences, no explanations.
+2. Only map to existing fields listed above. Ignore non-existent fields such as College, Blood Group, Citizenship, Assets, QR Code, Barcode, etc.
+3. If a field is not available or mentioned in the biodata, set it to null or leave it empty. Do not invent or guess information.
+4. Detect gender accurately based on bride/groom, daughter/son, name, or photo if visible.
+5. Parse dates into YYYY-MM-DD format if possible.
+6. For phone/mobile numbers, extract only the real digits.
+
+VEDIC ASTROLOGY & HOROSCOPE CHART RULES (CRITICAL):
+- When an image contains Vedic / South Indian astrological charts (square grids):
+  - In South Indian style, each chart is a 4x4 square grid representing 12 zodiac houses arranged fixedly clockwise:
+    - Top row: Column 0 (top-left) = Meenam, Column 1 = Mesham, Column 2 = Rishabam, Column 3 (top-right) = Mithunam
+    - Right side: Row 1, Col 3 = Kadagam; Row 2, Col 3 = Simmam; Row 3, Col 3 (bottom-right) = Kanni
+    - Bottom row: Row 3, Col 2 = Thulaam; Row 3, Col 1 = Viruchigam; Row 3, Col 0 (bottom-left) = Dhanusu
+    - Left side: Row 2, Col 0 (left mid) = Magaram; Row 1, Col 0 (left top) = Kumbam
+    - Center 2x2 merged cells indicate the chart name: 'Rasi' (ராசி) or 'Navamsa' / 'Navamsam' / 'Amsam' (நவாம்சம் / அம்சம்).
+  - Extract the planets in each house of the 'Rasi' chart into 'horoscope.rasiChart'.
+  - Extract the planets in each house of the 'Navamsa' / 'Navamsam' / 'Amsam' chart into 'horoscope.amsamChart'.
+  - Extract ONLY planet names/abbreviations. Omit degree/minute numbers (e.g. '22-53', '10-15', '23-48').
+  - Standardize planet symbols to Tamil short names:
+    - Sun / Suriyan / Surya / சூரியன் -> "சூரி"
+    - Moon / Chandran / Chandra / சந்திரன் -> "சந்"
+    - Mars / Chevvai / Sevvai / Mangal / செவ்வாய் -> "செவ்"
+    - Merc / Mercury / Budhan / Budha / புதன் -> "புத"
+    - Jup / Jupiter / Guru / Brihaspati -> "குரு"
+    - Ven / Venus / Sukran / Shukra / சுக்கிரன் -> "சுக்"
+    - Sat / Saturn / Sani / Shani / சனீஸ்வரன் -> "சனி"
+    - Rahu -> "ராகு"
+    - Ketu -> "கேது"
+    - Ascdt / Asc / Lagnam / Lagna / Lag / லக்னம் -> "லக்"
+    - Outer planets if present in English chart: URAN, NEPT, PLUT
+  - Multiple planets in a house must be separated by commas (e.g. "சனி, சந்"). Empty houses must be "".
+  - Derive Moon sign (Rasi) from the house containing Moon / சந் (e.g. if Moon is in Rishabam, rasi = "Taurus" or "Rishabam").
+  - Derive Ascendant (Lagnam) from the house containing Ascdt / Asc / லக் (e.g. if Ascdt is in Kumbam, lagnam = "Aquarius" or "Kumbam").`;
+  }
+
+  private async callGeminiApi(payload: any): Promise<any> {
+    const apiKey = this.getGeminiApiKey();
+    if (!apiKey) return null;
+
+    const models = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+    for (const model of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          this.logger.warn(`Gemini (${model}) API error: ${response.status} - ${errText}`);
+          continue;
+        }
+
+        const data: any = await response.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          try {
+            return JSON.parse(text);
+          } catch {
+            const cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+            return JSON.parse(cleaned);
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Gemini call error on ${model}:`, err?.message || err);
+      }
+    }
+    return null;
+  }
+
+  private async extractWithGeminiVision(base64Data: string, mimeType: string): Promise<any> {
+    const payload = {
+      contents: [
+        {
+          parts: [
+            { text: this.getSystemPrompt() },
+            {
+              inlineData: {
+                mimeType: mimeType || 'image/jpeg',
+                data: base64Data,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.1,
+      },
+    };
+
+    return this.callGeminiApi(payload);
+  }
+
+  private async extractWithGeminiText(text: string): Promise<any> {
+    const payload = {
+      contents: [
+        {
+          parts: [
+            { text: `${this.getSystemPrompt()}\n\nHere is the biodata text content:\n\n${text}` },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.1,
+      },
+    };
+
+    return this.callGeminiApi(payload);
+  }
+
+  private normalizeSchema(data: any, fallbackText?: string): MatrimonyBiodataSchema {
+    const p = data.profile || {};
+    const edu = data.education || {};
+    const car = data.career || {};
+    const fam = data.family || {};
+    const con = data.contact || {};
+    const prop = data.property || {};
+    const pref = data.partner_preference || {};
+    const horo = data.horoscope || {};
+    const img = Array.isArray(data.images)
+      ? { profile_photo_present: data.images.length > 0, photo_count: data.images.length }
+      : (data.images || {});
+    const doc = data.document || {};
+
+    const fullName = p.name || (p.first_name ? `${p.first_name} ${p.last_name || ''}`.trim() : null);
+    let firstName = p.first_name || null;
+    let lastName = p.last_name || null;
+    if (fullName && (!firstName || !lastName)) {
+      const parts = fullName.split(/\s+/).filter(Boolean);
+      if (!firstName) firstName = parts[0] || null;
+      if (!lastName) lastName = parts.length > 1 ? parts.slice(1).join(' ') : null;
+    }
+
+    let age = p.age ?? null;
+    if (age === null && (p.dob || p.date_of_birth)) {
+      const dateStr = String(p.dob || p.date_of_birth);
+      const yearMatch = dateStr.match(/\b(19\d\d|20\d\d)\b/);
+      if (yearMatch) {
+        age = new Date().getFullYear() - parseInt(yearMatch[1], 10);
+      }
+    }
+
+    let birthDay: number | null = p.birth_day ?? null;
+    let birthMonth: number | null = p.birth_month ?? null;
+    let birthYear: number | null = p.birth_year ?? null;
+    const dobStr = p.dob || p.date_of_birth;
+    if (dobStr && (birthDay === null || birthYear === null)) {
+      const parts = String(dobStr).split(/[\/\.\-]/).map((n) => parseInt(n, 10));
+      if (parts.length === 3) {
+        if (parts[0] <= 31 && parts[1] <= 12) {
+          birthDay = parts[0];
+          birthMonth = parts[1];
+          birthYear = parts[2] < 100 ? 1900 + parts[2] : parts[2];
+        } else if (parts[2] <= 31 && parts[1] <= 12) {
+          birthYear = parts[0] < 100 ? 1900 + parts[0] : parts[0];
+          birthMonth = parts[1];
+          birthDay = parts[2];
+        }
+      }
+    }
+
+    let gender = p.gender ? String(p.gender).toUpperCase() : null;
+    if (!gender && fallbackText) {
+      if (/bride|female|daughter|girl/i.test(fallbackText)) gender = 'FEMALE';
+      else if (/groom|male|son|boy/i.test(fallbackText)) gender = 'MALE';
+    }
+
+    const degreeList: string[] = Array.isArray(edu.degree)
+      ? edu.degree
+      : edu.degree
+        ? [String(edu.degree)]
+        : edu.highest_qualification || edu.qualification
+          ? [String(edu.highest_qualification || edu.qualification)]
+          : [];
+
+    const mobileList: string[] = Array.isArray(con.mobile)
+      ? con.mobile.map(String)
+      : con.mobile || con.contact_number
+        ? [String(con.mobile || con.contact_number)]
+        : [];
+
+    const photoPresent = Boolean(img.profile_photo_present || (img.photo_count && img.photo_count > 0));
+    const photoCount = img.photo_count !== undefined && img.photo_count !== null
+      ? Number(img.photo_count)
+      : (photoPresent ? 1 : null);
+
+    const pageCount = doc.page_count !== undefined && doc.page_count !== null
+      ? Number(doc.page_count)
+      : 1;
+
+    let heightCm: number | null = null;
+    const rawHeight = p.heightCm || p.height;
+    if (rawHeight) {
+      if (typeof rawHeight === 'number') {
+        heightCm = rawHeight;
+      } else {
+        const feetMatch = String(rawHeight).match(/(\d+)\s*(?:ft\.?|feet|'|’)\s*(?:(\d+)\s*(?:in\.?|inch|inches|"|”|'')?)?/i);
+        if (feetMatch && feetMatch[1]) {
+          const feet = parseInt(feetMatch[1]);
+          const inches = parseInt(feetMatch[2] || '0');
+          heightCm = Math.round((feet * 12 + inches) * 2.54);
+        } else {
+          const cmMatch = String(rawHeight).match(/(\d+)/);
+          if (cmMatch) heightCm = parseInt(cmMatch[1]);
+        }
+      }
+    }
+
+    let weightKg: number | null = null;
+    const rawWeight = p.weight || p.weightKg;
+    if (rawWeight) {
+      const match = String(rawWeight).match(/(\d+)/);
+      if (match) weightKg = parseInt(match[1]);
+    }
+
+    let salaryMin: number | null = null;
+    const rawSal = car.salaryMin || car.salary || car.annual_income || car.annualIncome;
+    if (rawSal) {
+      if (typeof rawSal === 'number') {
+        salaryMin = rawSal;
+      } else {
+        const lkMatch = String(rawSal).match(/(\d+(?:\.\d+)?)\s*(?:l|lk|lakh|lakhs)/i);
+        if (lkMatch) {
+          salaryMin = Math.round(parseFloat(lkMatch[1]) * 100000);
+        } else {
+          const numMatch = String(rawSal).match(/(\d[\d,]+)/);
+          if (numMatch) salaryMin = parseInt(numMatch[1].replace(/,/g, ''));
+        }
+      }
+    }
+
+    const singleMobile = mobileList[0] || (typeof con.mobile === 'string' ? con.mobile : null) || null;
+
+    const rawRasiChart = horo.rasiChart || horo.rasi_chart || data.rasiChart || data.rasi_chart || null;
+    const rawAmsamChart = horo.amsamChart || horo.amsam_chart || data.amsamChart || data.amsam_chart || data.navamsamChart || null;
+
+    const normalizedRasiChart = rawRasiChart ? normalizeChartHouses(rawRasiChart) : null;
+    const normalizedAmsamChart = rawAmsamChart ? normalizeChartHouses(rawAmsamChart) : null;
+
+    let derivedRasi = horo.rasi || p.rasi || null;
+    let derivedLagnam = horo.lagnam || null;
+    if (normalizedRasiChart) {
+      for (const [house, planets] of Object.entries(normalizedRasiChart)) {
+        if (!derivedRasi && (/\bசந்\b/i.test(planets) || /moon|chandran/i.test(planets))) {
+          derivedRasi = house;
+        }
+        if (!derivedLagnam && (/\bலக்\b/i.test(planets) || /ascdt|asc|lagnam|lag/i.test(planets))) {
+          derivedLagnam = house;
+        }
+      }
+    }
+
+    const normalized: MatrimonyBiodataSchema = {
+      profile: {
+        profileFor: p.profileFor || p.profile_type || 'SELF',
+        gender,
+        firstName: firstName || p.firstName || null,
+        lastName: lastName || p.lastName || null,
+        displayName: fullName || (firstName ? `${firstName} ${lastName || ''}`.trim() : null),
+        dateOfBirth: dobStr || null,
+        age,
+        maritalStatus: p.maritalStatus || p.marital_status || null,
+        heightCm,
+        weight: weightKg,
+        complexion: p.complexion || null,
+        bodyType: p.bodyType || p.body_type || null,
+        diet: p.diet || null,
+        motherTongue: p.motherTongue || p.mother_tongue || null,
+        about: p.about || null,
+        birthOrder: p.birthOrder ? Number(p.birthOrder) : (birthDay ? null : null),
+        residentStatus: p.residentStatus || p.resident_status || null,
+        propertyDetails: p.propertyDetails || p.property_details || null,
+        religion: p.religion || null,
+        community: p.community || null,
+        caste: p.caste || null,
+        subCaste: p.subCaste || p.sub_caste || null,
+        gothram: p.gothram || null,
+        country: p.country || con.country || null,
+        state: p.state || con.state || null,
+        city: p.city || con.city || con.district || null,
+      },
+      education: {
+        degree: degreeList.join(', ') || edu.highest_qualification || null,
+        fieldOfStudy: edu.fieldOfStudy || edu.specialization || null,
+        university: edu.university || null,
+        yearCompleted: edu.yearCompleted ? Number(edu.yearCompleted) : null,
+        additionalInfo: edu.additionalInfo || null,
+      },
+      occupation: {
+        designation: car.designation || car.occupation || null,
+        company: car.company || null,
+        salaryMin,
+        workingLocation: car.workingLocation || car.work_location || null,
+        employmentType: car.employmentType || car.employment_type || null,
+      },
+      family: {
+        fatherName: fam.fatherName || fam.father_name || null,
+        fatherOccupation: fam.fatherOccupation || fam.father_occupation || null,
+        fatherAlive: fam.fatherAlive !== undefined ? Boolean(fam.fatherAlive) : (fam.father_status ? !String(fam.father_status).toLowerCase().includes('late') : null),
+        motherName: fam.motherName || fam.mother_name || null,
+        motherOccupation: fam.motherOccupation || fam.mother_occupation || null,
+        motherAlive: fam.motherAlive !== undefined ? Boolean(fam.motherAlive) : (fam.mother_status ? !String(fam.mother_status).toLowerCase().includes('late') : null),
+        brothers: fam.brothers !== undefined && fam.brothers !== null ? Number(fam.brothers) : null,
+        brothersMarried: fam.brothersMarried !== undefined ? Number(fam.brothersMarried) : null,
+        elderBrothers: fam.elderBrothers !== undefined ? Number(fam.elderBrothers) : (fam.elder_brothers !== undefined ? Number(fam.elder_brothers) : null),
+        youngerBrothers: fam.youngerBrothers !== undefined ? Number(fam.youngerBrothers) : (fam.younger_brothers !== undefined ? Number(fam.younger_brothers) : null),
+        sisters: fam.sisters !== undefined && fam.sisters !== null ? Number(fam.sisters) : null,
+        sistersMarried: fam.sistersMarried !== undefined ? Number(fam.sistersMarried) : null,
+        elderSisters: fam.elderSisters !== undefined ? Number(fam.elderSisters) : (fam.elder_sisters !== undefined ? Number(fam.elder_sisters) : null),
+        youngerSisters: fam.youngerSisters !== undefined ? Number(fam.youngerSisters) : (fam.younger_sisters !== undefined ? Number(fam.younger_sisters) : null),
+        familyType: fam.familyType || fam.family_type || null,
+        familyStatus: fam.familyStatus || fam.family_status || null,
+        nativePlace: fam.nativePlace || fam.native_place || null,
+        familyDescription: fam.familyDescription || fam.family_description || null,
+      },
+      horoscope: {
+        star: horo.star || p.nakshatra || p.star || null,
+        starPadam: horo.starPadam ? Number(horo.starPadam) : null,
+        rasi: derivedRasi,
+        lagnam: derivedLagnam,
+        gothram: horo.gothram || p.gothram || null,
+        kuladeivam: horo.kuladeivam || p.kuladeivam || null,
+        dosham: horo.dosham || p.dosham || p.chevvai || null,
+        dasaBalance: horo.dasaBalance || horo.dasa_balance || null,
+        birthTime: horo.birthTime || horo.birth_time || p.birth_time || null,
+        birthPlace: horo.birthPlace || horo.birth_place || p.birth_place || null,
+        rasiChart: normalizedRasiChart,
+        amsamChart: normalizedAmsamChart,
+      },
+      partnerPreference: {
+        ageMin: pref.ageMin ? Number(pref.ageMin) : null,
+        ageMax: pref.ageMax ? Number(pref.ageMax) : null,
+        heightMin: pref.heightMin ? Number(pref.heightMin) : null,
+        heightMax: pref.heightMax ? Number(pref.heightMax) : null,
+        maritalStatus: Array.isArray(pref.maritalStatus) ? pref.maritalStatus : null,
+        aboutPartner: pref.aboutPartner || pref.about_partner || pref.other || null,
+      },
+      contact: {
+        mobile: singleMobile,
+        email: con.email || p.email || null,
+        city: con.city || p.city || null,
+        state: con.state || p.state || null,
+        country: con.country || p.country || null,
+      },
+      rasiChart: normalizedRasiChart,
+      amsamChart: normalizedAmsamChart,
+    };
+
+    return cleanNullFields(normalized);
+  }
+
   /**
    * Parses matrimony biodata text or OCR payload in English, Tamil, Hindi or mixed languages.
    * Extracts every field strictly into the specified JSON Schema.
@@ -402,8 +927,6 @@ export class BiodataParserService {
         star: nakshatra,
         star_padam: starPadamVal,
         dasa_balance: dasaBalanceVal,
-        citizenship,
-        nationality,
         resident_status: residentStatusVal,
         property_details: propertyDetailsVal,
       },
@@ -411,7 +934,6 @@ export class BiodataParserService {
         highest_qualification: highestQualification,
         degree: highestQualification ? [highestQualification] : [],
         specialization: null,
-        college: null,
         university: null,
       },
       career: {
@@ -421,7 +943,6 @@ export class BiodataParserService {
         work_location: workLocation,
         salary,
         annual_income: salary,
-        business: text.match(/business|சொந்த தொழில்/i) ? occupation : null,
       },
       family: {
         father_name: fatherName,
@@ -430,87 +951,49 @@ export class BiodataParserService {
         mother_name: motherName,
         mother_occupation: motherOccupation,
         native_place: text.match(/(?:native|native place|சொந்த ஊர்)\s*[:=\-]\s*([A-Za-z\u0B80-\u0BFF\s]+)/i)?.[1]?.trim() || null,
-        siblings: [],
-        elder_brothers: ebMatch ? Number(ebMatch[1]) : 0,
-        younger_brothers: ybMatch ? Number(ybMatch[1]) : 0,
-        elder_sisters: esMatch ? Number(esMatch[1]) : 0,
-        younger_sisters: ysMatch ? Number(ysMatch[1]) : 0,
+        elder_brothers: ebMatch ? Number(ebMatch[1]) : null,
+        younger_brothers: ybMatch ? Number(ybMatch[1]) : null,
+        elder_sisters: esMatch ? Number(esMatch[1]) : null,
+        younger_sisters: ysMatch ? Number(ysMatch[1]) : null,
         family_type: familyType,
         family_status: familyStatus,
       },
       contact: {
         mobile: mobiles,
-        alternate_mobile: mobiles.slice(1),
-        whatsapp: mobiles[0] || null,
         email,
         address,
         city,
-        district: city,
         state,
         country,
-        pincode: text.match(/\b\d{6}\b/)?.[0] || null,
-      },
-      property: {
-        house: text.match(/own house|சொந்த வீடு/i) ? 'Own House' : null,
-        land: text.match(/acre|ஏக்கர்/i)?.[0] || null,
-        vehicle: null,
-        assets: null,
       },
       partner_preference: {
         age: text.match(/(?:partner age|எதிர்பார்ப்பு வயது)\s*[:=\-]\s*([0-9\-\s]+)/i)?.[1]?.trim() || null,
         education: text.match(/(?:partner education|எதிர்பார்ப்பு படிப்பு)\s*[:=\-]\s*([A-Za-z0-9\u0B80-\u0BFF\s]+)/i)?.[1]?.trim() || null,
-        profession: null,
-        salary: null,
-        location: null,
         religion,
         caste,
-        height: null,
-        other: null,
       },
       horoscope: {
         rasi: rasi || null,
         star: nakshatra || null,
         lagnam: lagnam || null,
         dosham: dosham || null,
-        jathagam_details: jathagamDetails || null,
-        rasi_chart_detected: rasiChartDetected,
-        amsam_chart_detected: amsamChartDetected,
+        birth_time: text.match(/(?:time of birth|பிறந்த நேரம்)\s*[:=\-]\s*([0-9:APMapm\s.]+)/i)?.[1]?.trim() || null,
+        birth_place: text.match(/(?:place of birth|பிறந்த இடம்)\s*[:=\-]\s*([A-Za-z\u0B80-\u0BFF\s]+)/i)?.[1]?.trim() || null,
         rasi_chart: rasiChartObj,
         amsam_chart: amsamChartObj,
-        planet_positions: planetPositionsList,
       },
-      images: {
-        profile_photo_present: false,
-        family_photo_present: false,
-        photo_count: 0,
-        image_locations: [],
-      },
-      document: {
-        language: text.trim() ? ['English', 'Tamil'] : [],
-        page_count: text.trim() ? 1 : 0,
-        document_quality: text.trim() ? 'High' : null,
-        contains_qrcode: false,
-        contains_barcode: false,
-        contains_signature: false,
-        contains_stamp: false,
-      },
-      extra_fields: {},
     };
 
-    return cleanNullFields(rawOutput) || {};
+    return this.normalizeSchema(rawOutput, text);
   }
 }
 
 function cleanNullFields(obj: any): any {
-  if (obj === null || obj === undefined || obj === '') return undefined;
-  if (typeof obj === 'boolean') {
-    return obj ? true : undefined;
-  }
+  if (obj === undefined) return undefined;
   if (Array.isArray(obj)) {
-    const cleanedArr = obj.map(cleanNullFields).filter((v) => v !== undefined);
-    return cleanedArr.length > 0 ? cleanedArr : undefined;
+    return obj.map(cleanNullFields).filter((v) => v !== undefined);
   }
-  if (typeof obj === 'object') {
+  if (obj !== null && typeof obj === 'object') {
     const cleanedObj: Record<string, any> = {};
     for (const key of Object.keys(obj)) {
       const val = cleanNullFields(obj[key]);
@@ -518,7 +1001,75 @@ function cleanNullFields(obj: any): any {
         cleanedObj[key] = val;
       }
     }
-    return Object.keys(cleanedObj).length > 0 ? cleanedObj : undefined;
+    return cleanedObj;
   }
   return obj;
+}
+
+const HOUSE_SYNONYMS: Record<string, string> = {
+  meenam: 'Meenam', meena: 'Meenam', pisces: 'Meenam', 'மீனம்': 'Meenam',
+  mesham: 'Mesham', mesha: 'Mesham', aries: 'Mesham', 'மேஷம்': 'Mesham',
+  rishabam: 'Rishabam', rishaba: 'Rishabam', vrishabha: 'Rishabam', taurus: 'Rishabam', 'ரிஷபம்': 'Rishabam',
+  mithunam: 'Mithunam', mithuna: 'Mithunam', gemini: 'Mithunam', 'மிதுனம்': 'Mithunam',
+  kadagam: 'Kadagam', kadaga: 'Kadagam', karka: 'Kadagam', karkata: 'Kadagam', cancer: 'Kadagam', 'கடகம்': 'Kadagam',
+  simmam: 'Simmam', simma: 'Simmam', simha: 'Simmam', leo: 'Simmam', 'சிம்மம்': 'Simmam',
+  kanni: 'Kanni', kanya: 'Kanni', virgo: 'Kanni', 'கன்னி': 'Kanni',
+  thulaam: 'Thulaam', thulam: 'Thulaam', tula: 'Thulaam', libra: 'Thulaam', 'துலாம்': 'Thulaam',
+  viruchigam: 'Viruchigam', viruchiga: 'Viruchigam', vrishchika: 'Viruchigam', scorpio: 'Viruchigam', 'விருச்சிகம்': 'Viruchigam',
+  dhanusu: 'Dhanusu', dhanus: 'Dhanusu', dhanu: 'Dhanusu', sagittarius: 'Dhanusu', 'தனுசு': 'Dhanusu',
+  magaram: 'Magaram', magara: 'Magaram', makara: 'Magaram', capricorn: 'Magaram', 'மகரம்': 'Magaram',
+  kumbam: 'Kumbam', kumba: 'Kumbam', kumbha: 'Kumbam', aquarius: 'Kumbam', 'கும்பம்': 'Kumbam',
+};
+
+const PLANET_TOKEN_MAP: Record<string, string> = {
+  sun: 'சூரி', suriyan: 'சூரி', surya: 'சூரி', 'சூரி': 'சூரி', 'சூரியன்': 'சூரி',
+  moon: 'சந்', chandran: 'சந்', chandra: 'சந்', mon: 'சந்', 'சந்': 'சந்', 'சந்திரன்': 'சந்',
+  mars: 'செவ்', chevvai: 'செவ்', sevvai: 'செவ்', mangal: 'செவ்', kuja: 'செவ்', mar: 'செவ்', 'செவ்': 'செவ்', 'செவ்வாய்': 'செவ்',
+  merc: 'புத', mercury: 'புத', budhan: 'புத', budha: 'புத', budh: 'புத', mer: 'புத', 'புத': 'புத', 'புதன்': 'புத',
+  jup: 'குரு', jupiter: 'குரு', guru: 'குரு', brihaspati: 'குரு', 'குரு': 'குரு',
+  ven: 'சுக்', venus: 'சுக்', sukran: 'சுக்', shukra: 'சுக்', suk: 'சுக்', 'சுக்': 'சுக்', 'சுக்கிரன்': 'சுக்',
+  sat: 'சனி', saturn: 'சனி', sani: 'சனி', shani: 'சனி', 'சனி': 'சனி', 'சனீஸ்வரன்': 'சனி',
+  rahu: 'ராகு', rah: 'ராகு', 'ராகு': 'ராகு',
+  ketu: 'கேது', ket: 'கேது', 'கேது': 'கேது',
+  ascdt: 'லக்', asc: 'லக்', lag: 'லக்', lagnam: 'லக்', lagna: 'லக்', 'லக்': 'லக்', 'லக்னம்': 'லக்',
+};
+
+function normalizePlanetTokens(planetsStr: string): string {
+  if (!planetsStr || typeof planetsStr !== 'string') return '';
+  // Remove degrees, minutes, or numbers like 22-53, 10-15, 23.48, or standalone digits
+  const cleaned = planetsStr.replace(/\b\d+[-.:]\d+\b/g, '').replace(/\b\d+\b/g, '');
+  const tokens = cleaned.split(/[,;\/\s]+/).map((t) => t.trim()).filter(Boolean);
+  const normalized = tokens.map((t) => {
+    const key = t.toLowerCase();
+    return PLANET_TOKEN_MAP[key] || t.toUpperCase();
+  });
+  return Array.from(new Set(normalized)).join(', ');
+}
+
+function normalizeChartHouses(chart: any): Record<string, string> {
+  const result: Record<string, string> = {
+    Meenam: '',
+    Mesham: '',
+    Rishabam: '',
+    Mithunam: '',
+    Kadagam: '',
+    Simmam: '',
+    Kanni: '',
+    Thulaam: '',
+    Viruchigam: '',
+    Dhanusu: '',
+    Magaram: '',
+    Kumbam: '',
+  };
+  if (!chart || typeof chart !== 'object') return result;
+
+  for (const [key, val] of Object.entries(chart)) {
+    const cleanedKey = key.trim().toLowerCase();
+    const standardHouse = HOUSE_SYNONYMS[cleanedKey] || key;
+    if (result[standardHouse] !== undefined) {
+      const valStr = typeof val === 'string' ? val : (Array.isArray(val) ? val.join(', ') : String(val || ''));
+      result[standardHouse] = normalizePlanetTokens(valStr);
+    }
+  }
+  return result;
 }

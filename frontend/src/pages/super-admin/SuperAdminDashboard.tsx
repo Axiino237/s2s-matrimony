@@ -34,17 +34,17 @@ const SuperAdminDashboard = () => {
         <p className="text-text-secondary text-sm mt-1">Global platform overview and control center</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {cards.map((s, i) => {
           const Icon = s.icon;
           return (
             <div key={i} className="stat-card">
-              <div className={`w-12 h-12 rounded-xl ${s.color} border flex items-center justify-center flex-shrink-0`}>
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Icon className="w-6 h-6" />}
+              <div className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl ${s.color} border flex items-center justify-center flex-shrink-0`}>
+                {loading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <Icon className="w-4 h-4 sm:w-6 sm:h-6" />}
               </div>
-              <div>
-                <p className="text-2xl font-bold text-text-primary font-display">{s.value}</p>
-                <p className="text-text-secondary text-sm">{s.label}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xl sm:text-2xl font-bold text-text-primary font-display leading-tight">{s.value}</p>
+                <p className="text-text-secondary text-xs sm:text-sm font-medium leading-tight mt-0.5 break-words">{s.label}</p>
               </div>
             </div>
           );
@@ -53,15 +53,15 @@ const SuperAdminDashboard = () => {
 
       {/* Monthly Revenue Trend */}
       {stats?.monthlyRevenue && (
-        <div className="card p-6 md:p-8 bg-white border border-slate-200 shadow-sm rounded-2xl">
-          <div className="flex items-center justify-between mb-8">
+        <div className="card p-4 sm:p-6 md:p-8 bg-white border border-slate-200 shadow-sm rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 sm:mb-8">
             <div>
-              <h2 className="font-display text-xl font-bold text-text-primary flex items-center gap-2">
+              <h2 className="font-display text-lg sm:text-xl font-bold text-text-primary flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-primary" /> Monthly Revenue Trend
               </h2>
               <p className="text-text-secondary text-xs mt-0.5">Platform growth performance over recent months</p>
             </div>
-            <span className="badge bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-semibold px-3 py-1 flex items-center gap-1 shadow-sm">
+            <span className="badge bg-emerald-50 text-emerald-700 border-emerald-200 text-xs font-semibold px-3 py-1 flex items-center gap-1 shadow-sm w-fit">
               <TrendingUp className="w-3.5 h-3.5" /> +18.4% YoY Growth
             </span>
           </div>

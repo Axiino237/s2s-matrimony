@@ -154,8 +154,6 @@ const AdminUsers = () => {
           <option value="All">All Roles</option>
           {isSuperAdmin && <option value="SUPER_ADMIN">SUPER ADMIN</option>}
           {isSuperAdmin && <option value="ADMIN">ADMIN</option>}
-          <option value="MODERATOR">MODERATOR</option>
-          <option value="SUPPORT_AGENT">SUPPORT AGENT</option>
           <option value="MEMBER">MEMBER</option>
         </select>
         <select className="input py-2 w-40 border-slate-200 text-text-primary" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
@@ -172,98 +170,100 @@ const AdminUsers = () => {
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : (
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                {['User', 'Contact', 'Role', 'Community', 'Joined', 'Status', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3.5 text-text-muted text-xs font-bold uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-10 text-text-muted font-medium">No user records found in database</td></tr>
-              ) : filtered.map((u) => {
-                const name = getUserName(u);
-                const role = getUserRole(u);
-                const status = getUserStatus(u);
-                const community = getUserCommunity(u);
-                const joined = getUserJoined(u);
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  {['User', 'Contact', 'Role', 'Community', 'Joined', 'Status', 'Actions'].map((h) => (
+                    <th key={h} className="px-4 py-3.5 text-text-muted text-xs font-bold uppercase tracking-wider whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center py-10 text-text-muted font-medium">No user records found in database</td></tr>
+                ) : filtered.map((u) => {
+                  const name = getUserName(u);
+                  const role = getUserRole(u);
+                  const status = getUserStatus(u);
+                  const community = getUserCommunity(u);
+                  const joined = getUserJoined(u);
 
-                const canBan = (!['SUPER_ADMIN', 'ADMIN'].includes(role) || isSuperAdmin) && u.id !== currentUser?.id && u.email !== currentUser?.email;
+                  const canBan = (!['SUPER_ADMIN', 'ADMIN'].includes(role) || isSuperAdmin) && u.id !== currentUser?.id && u.email !== currentUser?.email;
 
-                return (
-                  <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        {u.profile?.photos?.[0]?.url || (u.profile as any)?.photoUrl ? (
-                          <img
-                            src={u.profile?.photos?.[0]?.url || (u.profile as any)?.photoUrl}
-                            alt={name}
-                            className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs flex-shrink-0"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-xl bg-gradient-primary text-white flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">
-                            {name[0]?.toUpperCase() || '?'}
+                  return (
+                    <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          {u.profile?.photos?.[0]?.url || (u.profile as any)?.photoUrl ? (
+                            <img
+                              src={u.profile?.photos?.[0]?.url || (u.profile as any)?.photoUrl}
+                              alt={name}
+                              className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-gradient-primary text-white flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">
+                              {name[0]?.toUpperCase() || '?'}
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-text-primary text-sm font-bold">{name}</p>
+                            <p className="text-text-muted text-[10px] font-mono">{u.id.slice(0, 8)}...</p>
                           </div>
-                        )}
-                        <div>
-                          <p className="text-text-primary text-sm font-bold">{name}</p>
-                          <p className="text-text-muted text-[10px] font-mono">{u.id.slice(0, 8)}...</p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-text-primary text-xs font-semibold">{u.email}</p>
-                      <p className="text-text-muted text-xs font-mono">{u.phone}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`badge text-xs ${getRoleBadgeStyle(role)}`}>
-                        {role.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary text-sm font-medium">{community}</td>
-                    <td className="px-4 py-3 text-text-muted text-xs font-medium">{joined}</td>
-                    <td className="px-4 py-3">
-                      <span className={`badge text-xs ${statusBadge(status)}`}>{status}</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1.5">
-                        <button onClick={() => setViewUser(u)} className="btn py-1 px-2.5 text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 flex items-center gap-1 font-semibold">
-                          <Eye className="w-3.5 h-3.5" /> View
-                        </button>
-                        {canBan && (
-                          <>
-                            <button
-                              onClick={() => handleBan(u.id, u.isActive)}
-                              className={`btn py-1 px-2.5 text-xs rounded-lg flex items-center gap-1 font-semibold ${status === 'SUSPENDED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'}`}
-                            >
-                              {status === 'SUSPENDED' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
-                              {status === 'SUSPENDED' ? 'Unban' : 'Ban'}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(u.id, name)}
-                              className="btn py-1 px-2.5 text-xs rounded-lg flex items-center gap-1 font-semibold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100"
-                              title="Delete user permanently from Database"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" /> Delete
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <p className="text-text-primary text-xs font-semibold">{u.email}</p>
+                        <p className="text-text-muted text-xs font-mono">{u.phone}</p>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`badge text-xs ${getRoleBadgeStyle(role)}`}>
+                          {role.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-text-secondary text-sm font-medium whitespace-nowrap">{community}</td>
+                      <td className="px-4 py-3 text-text-muted text-xs font-medium whitespace-nowrap">{joined}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`badge text-xs ${statusBadge(status)}`}>{status}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex gap-1.5">
+                          <button onClick={() => setViewUser(u)} className="btn py-1 px-2.5 text-xs bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 flex items-center gap-1 font-semibold">
+                            <Eye className="w-3.5 h-3.5" /> View
+                          </button>
+                          {canBan && (
+                            <>
+                              <button
+                                onClick={() => handleBan(u.id, u.isActive)}
+                                className={`btn py-1 px-2.5 text-xs rounded-lg flex items-center gap-1 font-semibold ${status === 'SUSPENDED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'}`}
+                              >
+                                {status === 'SUSPENDED' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
+                                {status === 'SUSPENDED' ? 'Unban' : 'Ban'}
+                              </button>
+                              <button
+                                onClick={() => handleDelete(u.id, name)}
+                                className="btn py-1 px-2.5 text-xs rounded-lg flex items-center gap-1 font-semibold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100"
+                                title="Delete user permanently from Database"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
         <p className="text-text-muted text-sm font-medium">{totalUsers} total users</p>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-wrap justify-center">
           <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn btn-ghost btn-sm text-xs disabled:opacity-40">Prev</button>
           {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
             <button key={p} onClick={() => setPage(p)} className={`btn btn-sm text-xs min-w-[32px] ${page === p ? 'btn-primary' : 'btn-ghost'}`}>{p}</button>

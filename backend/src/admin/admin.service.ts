@@ -18,7 +18,7 @@ export class AdminService {
         userRoles: {
           none: {
             role: {
-              name: { in: ['ADMIN', 'SUPER_ADMIN', 'MODERATOR', 'SUPPORT_AGENT'] },
+              name: { in: ['ADMIN', 'SUPER_ADMIN'] },
             },
           },
         },
@@ -419,26 +419,24 @@ export class AdminService {
     }
   }
 
-  async getBanners(page = 1, limit = 20) {
-    const skip = (+page - 1) * +limit;
+  async getBlogByIdOrSlug(idOrSlug: string) {
     try {
-      const [banners, total] = await Promise.all([
-        this.prisma.banner.findMany({
-          skip,
-          take: +limit,
-          orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
-        }),
-        this.prisma.banner.count(),
-      ]);
-
-      if (banners && banners.length > 0) {
-        return { banners, total, page: +page, totalPages: Math.ceil(total / +limit) };
-      }
+      const blog = await this.prisma.blog.findFirst({
+        where: {
+          OR: [
+            { id: idOrSlug },
+            { slug: idOrSlug },
+          ],
+        },
+        include: { category: true },
+      });
+      if (blog) return blog;
     } catch {
       // Fallback
     }
 
-    return { banners: [], total: 0, page: +page, totalPages: 1 };
+    const mem = devBlogsStore.find((b) => b.id === idOrSlug || b.slug === idOrSlug);
+    return mem || null;
   }
 
   async getSuccessStories(search?: string, page = 1, limit = 10, isPublishedOnly = false) {
@@ -471,8 +469,13 @@ export class AdminService {
       ]);
 
       if (stories && stories.length > 0) {
-        const all = [...devStoriesStore, ...stories];
-        return { stories: all, total: all.length, page: +page, totalPages: Math.max(1, Math.ceil(all.length / +limit)) };
+        const formattedStories = stories.map((s) => ({
+          ...s,
+          coupleName: `${s.groomName} & ${s.brideName}`,
+          storyText: s.story,
+          couplePhoto: s.photo || '/images/couple_happy.png',
+        }));
+        return { stories: formattedStories, total, page: +page, totalPages: Math.max(1, Math.ceil(total / +limit)) };
       }
     } catch {
       // Fallback
@@ -490,6 +493,7 @@ export class AdminService {
         story: 'We registered on S2S Matrimony and connected within 2 weeks. Married in Chennai with family blessings!',
         couplePhoto: '/images/couple_happy.png',
         photo: '/images/couple_happy.png',
+        isApproved: true,
         isPublished: true,
       },
       {
@@ -503,6 +507,7 @@ export class AdminService {
         story: 'Finding an educated doctor partner who valued tradition was seamless with S2S filter tools!',
         couplePhoto: '/images/couple.png',
         photo: '/images/couple.png',
+        isApproved: true,
         isPublished: true,
       },
       {
@@ -516,6 +521,7 @@ export class AdminService {
         story: 'The privacy controls allowed us to share contact details securely. Today we are happily married!',
         couplePhoto: '/images/ceremony.png',
         photo: '/images/ceremony.png',
+        isApproved: true,
         isPublished: true,
       },
       {
@@ -529,30 +535,84 @@ export class AdminService {
         story: 'The verified profile badges gave my parents total peace of mind. Highly recommend S2S Matrimony!',
         couplePhoto: '/images/couple_happy.png',
         photo: '/images/couple_happy.png',
+        isApproved: true,
         isPublished: true,
       },
     ];
 
-    const allStories = [...devStoriesStore, ...fallbackStories];
+    const storyMap = new Map();
+    for (const s of [...devStoriesStore, ...fallbackStories]) {
+      if (isPublishedOnly && !s.isPublished) continue;
+      if (!storyMap.has(s.id)) {
+        storyMap.set(s.id, s);
+      }
+    }
+    const allStories = Array.from(storyMap.values());
     return { stories: allStories, total: allStories.length, page: +page, totalPages: 1 };
   }
 
   async updateSuccessStoryStatus(id: string, isPublished: boolean) {
-    return this.prisma.successStory.update({
-      where: { id },
-      data: { isApproved: isPublished, isPublished },
-    });
+    try {
+      return await this.prisma.successStory.update({
+        where: { id },
+        data: { isApproved: isPublished, isPublished },
+      });
+    } catch {
+      const story = devStoriesStore.find((s) => s.id === id);
+      if (story) {
+        story.isApproved = isPublished;
+        story.isPublished = isPublished;
+      }
+      return { id, isApproved: isPublished, isPublished };
+    }
+  }
+
+  async updateSuccessStory(id: string, data: { groomName?: string; brideName?: string; story?: string; photo?: string; marriageDate?: string; isPublished?: boolean; isApproved?: boolean }) {
+    try {
+      const updateData: any = {};
+      if (data.groomName !== undefined) updateData.groomName = data.groomName;
+      if (data.brideName !== undefined) updateData.brideName = data.brideName;
+      if (data.story !== undefined) updateData.story = data.story;
+      if (data.photo !== undefined) updateData.photo = data.photo;
+      if (data.isApproved !== undefined) updateData.isApproved = data.isApproved;
+      if (data.isPublished !== undefined) updateData.isPublished = data.isPublished;
+      if (data.marriageDate !== undefined) updateData.marriageDate = data.marriageDate ? new Date(data.marriageDate) : null;
+
+      const story = await this.prisma.successStory.update({
+        where: { id },
+        data: updateData,
+      });
+      return {
+        ...story,
+        coupleName: `${story.groomName} & ${story.brideName}`,
+        storyText: story.story,
+        couplePhoto: story.photo || '/images/couple_happy.png',
+      };
+    } catch {
+      const idx = devStoriesStore.findIndex((s) => s.id === id);
+      if (idx !== -1) {
+        devStoriesStore[idx] = { ...devStoriesStore[idx], ...data };
+        return devStoriesStore[idx];
+      }
+      return { id, ...data };
+    }
   }
 
   async verifyProfile(profileId: string, status: 'VERIFIED' | 'REJECTED') {
-    const profile = await this.prisma.profile.findUnique({ where: { id: profileId } });
+    const profile = await this.prisma.profile.findUnique({ where: { id: profileId }, include: { user: true } });
     if (!profile) throw new NotFoundException('Profile not found');
+
+    const isVerified = status === 'VERIFIED';
+    const nextStatus = isVerified
+      ? (profile.user && !profile.user.isActive ? 'SUSPENDED' : 'ACTIVE')
+      : profile.status;
 
     return this.prisma.profile.update({
       where: { id: profileId },
       data: {
         verificationStatus: status,
-        isVerified: status === 'VERIFIED',
+        isVerified,
+        status: nextStatus,
       },
     });
   }
@@ -580,10 +640,21 @@ export class AdminService {
       throw new ForbiddenException('You cannot ban your own account');
     }
 
-    return this.prisma.user.update({
+    const nextIsActive = !user.isActive;
+
+    const updatedUser = await this.prisma.user.update({
       where: { id: userId },
-      data: { isActive: !user.isActive },
+      data: { isActive: nextIsActive },
     });
+
+    await this.prisma.profile.updateMany({
+      where: { userId },
+      data: {
+        status: nextIsActive ? 'ACTIVE' : 'SUSPENDED',
+      },
+    });
+
+    return updatedUser;
   }
 
   async deleteUser(currentUser: any, userId: string) {
@@ -676,30 +747,6 @@ export class AdminService {
     return { success: true };
   }
 
-  async createBanner(data: { title: string; imageUrl: string; page?: string; linkUrl?: string }) {
-    return this.prisma.banner.create({
-      data: {
-        title: data.title,
-        imageUrl: data.imageUrl || '/images/couple.png',
-        page: data.page || 'HOME',
-        linkUrl: data.linkUrl || '#',
-        isActive: true,
-        displayOrder: 1,
-      },
-    }).catch(() => ({
-      id: `banner-${Date.now()}`,
-      title: data.title,
-      imageUrl: data.imageUrl || '/images/couple.png',
-      page: data.page || 'HOME',
-      linkUrl: data.linkUrl || '#',
-      isActive: true,
-    }));
-  }
-
-  async deleteBanner(id: string) {
-    return this.prisma.banner.delete({ where: { id } }).catch(() => ({ success: true }));
-  }
-
   async createSuccessStory(data: { groomName: string; brideName: string; story: string; photo?: string; marriageDate?: string }) {
     try {
       const story = await this.prisma.successStory.create({
@@ -719,7 +766,6 @@ export class AdminService {
         storyText: data.story,
         couplePhoto: data.photo || '/images/couple_happy.png',
       };
-      devStoriesStore.unshift(formatted);
       return formatted;
     } catch {
       const newStory = {
@@ -889,4 +935,72 @@ export class AdminService {
       totalPages: Math.ceil(filtered.length / +limit),
     };
   }
+
+  async getSettings() {
+    try {
+      const record = await this.prisma.setting.findUnique({ where: { key: 'system_settings' } });
+      if (record && record.value) {
+        try {
+          return JSON.parse(record.value);
+        } catch {
+          return {};
+        }
+      }
+    } catch {}
+    return {
+      facebookUrl: 'https://www.facebook.com/s2smatrimony',
+      instagramUrl: 'https://www.instagram.com/s2smatrimony',
+      twitterUrl: 'https://x.com/s2smatrimony',
+      youtubeUrl: 'https://www.youtube.com/@s2smatrimony',
+    };
+  }
+
+  async updateSettings(data: any) {
+    try {
+      const existing = await this.prisma.setting.findUnique({ where: { key: 'system_settings' } });
+      const current = existing && existing.value ? JSON.parse(existing.value) : {};
+      const merged = { ...current, ...data };
+      const jsonStr = JSON.stringify(merged);
+      await this.prisma.setting.upsert({
+        where: { key: 'system_settings' },
+        update: { value: jsonStr },
+        create: { key: 'system_settings', value: jsonStr, group: 'GLOBAL', isPublic: true },
+      });
+      (devStore as any).systemSettings = merged;
+      return { success: true, settings: merged };
+    } catch (e) {
+      console.error('Failed to update settings:', e);
+      return { success: false, error: 'Database update failed' };
+    }
+  }
+
+  async getStaticPages() {
+    try {
+      const record = await this.prisma.setting.findUnique({ where: { key: 'static_pages' } });
+      if (record && record.value) {
+        try {
+          return JSON.parse(record.value);
+        } catch {
+          return null;
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  async updateStaticPages(data: any) {
+    try {
+      const jsonStr = JSON.stringify(data || {});
+      await this.prisma.setting.upsert({
+        where: { key: 'static_pages' },
+        update: { value: jsonStr },
+        create: { key: 'static_pages', value: jsonStr, group: 'CMS', isPublic: true },
+      });
+      return { success: true, data };
+    } catch (e) {
+      console.error('Failed to update static pages:', e);
+      return { success: false, error: 'Database update failed' };
+    }
+  }
 }
+

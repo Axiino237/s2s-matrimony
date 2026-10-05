@@ -72,6 +72,46 @@ export class SuperAdminController {
     return this.superAdminService.getAdmins(search, page, limit);
   }
 
+  @Post('admins')
+  @ApiOperation({ summary: 'Create new admin staff user in DB' })
+  async createAdminStaff(@Body() body: { name: string; email: string; role: string; community?: string; password?: string }) {
+    return this.superAdminService.createAdminStaff(body);
+  }
+
+  @Get('audit-logs')
+  @ApiOperation({ summary: 'Get system and UAM audit logs' })
+  async getAuditLogs(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('type') type?: string,
+    @Query('action') action?: string,
+    @Query('entity') entity?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.superAdminService.getAuditLogs(page, limit, type, action, entity, search);
+  }
+
+  @Get('audit-logs/export')
+  @ApiOperation({ summary: 'Export audit logs' })
+  async exportAuditLogs(
+    @Query('action') action?: string,
+    @Query('entity') entity?: string,
+    @Query('search') search?: string,
+  ) {
+    const logs = await this.superAdminService.getAuditLogsForExport(action, entity, search);
+    return { data: logs, total: logs.length };
+  }
+
+  @Get('reports/data')
+  @ApiOperation({ summary: 'Get dataset for report exports' })
+  async getReportData(
+    @Query('type') type: string,
+    @Query('days') days?: number,
+  ) {
+    const data = await this.superAdminService.getReportExportData(type || 'registrations', days ? +days : 30);
+    return { data, total: data.length };
+  }
+
   @Get('revenue')
   @ApiOperation({ summary: 'Get monthly revenue trend' })
   async getRevenueTrend(@Query('months') months?: number) {

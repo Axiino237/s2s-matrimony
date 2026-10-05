@@ -4,15 +4,18 @@ import { Smartphone, ArrowLeft, Loader2, RefreshCw, ShieldCheck, CheckCircle2 } 
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/auth.store';
 import api from '../../services/api';
+import { getAuthorizedAdminRoute } from '../../components/layout/AdminLayout';
 
 const OtpVerifyPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { loginWithOtp } = useAuthStore();
 
-  const phoneFromState = (location.state as { phone?: string })?.phone || '';
+  const phoneFromState = (location.state as { phone?: string; devOtp?: string })?.phone || '';
+  const devOtpFromState = (location.state as { phone?: string; devOtp?: string })?.devOtp || '';
   const [phone, setPhone] = useState(phoneFromState);
-  const [otp, setOtp] = useState('');
+  const [devOtp, setDevOtp] = useState(devOtpFromState);
+  const [otp, setOtp] = useState(devOtpFromState || '');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(30);
@@ -50,10 +53,21 @@ const OtpVerifyPage = () => {
         'MEMBER'
       ).toString().toUpperCase();
 
-      if (userRoleStr === 'SUPER_ADMIN') {
+      const allRoles: string[] = Array.isArray(user?.roles)
+        ? user.roles.map((r: any) => (typeof r === 'string' ? r : r?.name || '').toUpperCase())
+        : ((user as any)?.userRoles ? (user as any).userRoles.map((ur: any) => (ur.role?.name || ur.name || '').toUpperCase()) : [userRoleStr]);
+
+      const isSuperAdmin = userRoleStr === 'SUPER_ADMIN' || allRoles.includes('SUPER_ADMIN');
+      const isStaff = isSuperAdmin || allRoles.some((r: string) => ['ADMIN'].includes(r));
+
+      if (isSuperAdmin) {
         navigate('/super-admin/dashboard');
-      } else if (userRoleStr === 'ADMIN') {
-        navigate('/admin/dashboard');
+      } else if (isStaff) {
+        const checkPerm = (perm: string) => {
+          return useAuthStore.getState().hasPermission(perm);
+        };
+        const staffLanding = getAuthorizedAdminRoute(checkPerm, isSuperAdmin) || '/unauthorized';
+        navigate(staffLanding);
       } else {
         const completion = (user as any)?.profileCompletionPercent ?? 0;
         if (completion < 100) {
@@ -82,7 +96,12 @@ const OtpVerifyPage = () => {
     setResending(true);
     try {
       const targetPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone}`;
-      await api.post('/auth/send-otp', { phone: targetPhone });
+      const res = await api.post('/auth/send-otp', { phone: targetPhone });
+      if (res.data?.otp) {
+        setDevOtp(res.data.otp);
+      } else if (import.meta.env.DEV) {
+        setDevOtp('123456');
+      }
       toast.success(`New OTP sent to ${targetPhone}`);
       setCountdown(30);
     } catch (err: unknown) {
@@ -164,6 +183,18 @@ const OtpVerifyPage = () => {
                 </>
               )}
             </button>
+
+            {/* Development OTP display directly below button */}
+            {devOtp && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-center shadow-xs">
+                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-0.5">
+                  Development OTP
+                </p>
+                <p className="text-lg font-mono font-black text-rose-600 tracking-widest">
+                  {devOtp}
+                </p>
+              </div>
+            )}
           </form>
 
           {/* Resend OTP */}
