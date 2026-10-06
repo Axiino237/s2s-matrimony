@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FileText, Save, Loader2, Eye, EyeOff, ExternalLink, Share2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
-import { useSettingsStore } from '../../store/settings.store';
+import { useSettingsStore, DEFAULT_ABOUT_MARKDOWN, DEFAULT_PRIVACY_MARKDOWN, DEFAULT_TERMS_MARKDOWN } from '../../store/settings.store';
 
 const FacebookIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -37,63 +37,11 @@ const PAGES = [
 ];
 
 const INITIAL_CONTENT: Record<string, string> = {
-  about: `# About S2S Community Matrimony
+  about: DEFAULT_ABOUT_MARKDOWN,
 
-S2S Community Matrimony is a trusted matrimonial platform dedicated to helping individuals and families find their ideal life partners within their communities.
+  privacy: DEFAULT_PRIVACY_MARKDOWN,
 
-## Our Mission
-To provide a safe, verified, and community-focused matrimony platform that respects cultural values while embracing modern technology.
-
-## Our Story
-Founded in 2020, S2S Matrimony has helped thousands of couples find their perfect match.
-
-## Why Choose S2S?
-- **Verified Profiles** — Every profile goes through document verification
-- **Community-Focused** — Matches based on shared cultural and community values
-- **AI-Powered** — Advanced AI biodata parser and matchmaking algorithms
-- **Privacy First** — Your data is protected with enterprise-grade security`,
-
-  privacy: `# Privacy Policy
-
-**Effective Date:** January 1, 2024
-
-## Information We Collect
-We collect information you provide directly to us, such as when you create an account, complete your profile, or contact us for support.
-
-## How We Use Your Information
-- To provide and improve our matrimony services
-- To verify your identity and profile authenticity
-- To send notifications about matches and messages
-- To process payments securely
-
-## Data Security
-We implement enterprise-grade security measures to protect your personal information.
-
-## Your Rights
-You have the right to access, update, or delete your personal information at any time through your account settings.
-
-## Contact Us
-For privacy concerns, contact us at privacy@s2smatrimony.com`,
-
-  terms: `# Terms & Conditions
-
-**Effective Date:** January 1, 2024
-
-## Acceptance of Terms
-By using S2S Matrimony, you agree to these terms and conditions.
-
-## User Responsibilities
-- Provide accurate information in your profile
-- Respect other members and communicate professionally
-- Do not share false or misleading information
-
-## Prohibited Activities
-- Creating fake profiles
-- Harassment or abuse of other members
-- Commercial solicitation without authorization
-
-## Limitation of Liability
-S2S Matrimony is not responsible for the conduct of any user.`,
+  terms: DEFAULT_TERMS_MARKDOWN,
 
   refund: `# Refund Policy
 
@@ -166,6 +114,18 @@ const AdminStaticPages = () => {
       .then((res) => {
         const data = res.data?.data || res.data;
         if (data && typeof data === 'object') {
+          if (
+            !data.privacy ||
+            (data.privacy.includes('Effective Date: January 1, 2024') && data.privacy.length < 600)
+          ) {
+            data.privacy = DEFAULT_PRIVACY_MARKDOWN;
+          }
+          if (
+            !data.terms ||
+            (data.terms.includes('Effective Date: January 1, 2024') && data.terms.length < 600)
+          ) {
+            data.terms = DEFAULT_TERMS_MARKDOWN;
+          }
           setContents((prev) => ({ ...prev, ...data }));
         }
       })
@@ -187,6 +147,15 @@ const AdminStaticPages = () => {
       if (contents.contact) {
         settingsStore.setContactMarkdown(contents.contact);
       }
+      if (contents.about) {
+        settingsStore.setAboutMarkdown(contents.about);
+      }
+      if (contents.privacy) {
+        settingsStore.setPrivacyMarkdown(contents.privacy);
+      }
+      if (contents.terms) {
+        settingsStore.setTermsMarkdown(contents.terms);
+      }
 
       toast.success(
         activePage === 'contact'
@@ -205,12 +174,14 @@ const AdminStaticPages = () => {
 
   const renderPreview = (text: string) => {
     const html = text
-      .replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold text-slate-900 mb-4">$1</h1>')
-      .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold text-slate-800 mb-2 mt-4">$1</h2>')
+      .replace(/^# (.+)$/gm, '<h1 class="text-2xl font-bold font-display text-slate-900 mb-3 pb-1 border-b border-slate-200">$1</h1>')
+      .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold font-display text-slate-900 mb-2 mt-4">$1</h2>')
+      .replace(/^### (.+)$/gm, '<h3 class="text-base font-bold text-slate-900 mb-1 mt-3">$1</h3>')
+      .replace(/^#### (.+)$/gm, '<h4 class="text-sm font-semibold text-slate-800 mb-1 mt-2">$1</h4>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/^- (.+)$/gm, '<li class="text-slate-600 text-sm ml-4">• $1</li>')
+      .replace(/^- (.+)$/gm, '<li class="text-slate-600 text-sm ml-4 list-disc">$1</li>')
       .replace(/\n\n/g, '</p><p class="text-slate-600 text-sm mb-3">')
-      .replace(/^(?!<h[12]|<li)(.+)$/gm, '<p class="text-slate-600 text-sm mb-2">$1</p>');
+      .replace(/^(?!<h[1-4]|<li)(.+)$/gm, '<p class="text-slate-600 text-sm mb-2">$1</p>');
     return html;
   };
 

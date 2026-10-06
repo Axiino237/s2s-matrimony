@@ -357,14 +357,21 @@ export default function BiodataEntryPage() {
   };
 
   const handleSave = async () => {
-    // Validation: Phone and Email must be verified via OTP before saving
-    if (form.phone.trim() && !form.isPhoneVerified) {
-      toast.error('⚠️ Mobile Number must be verified via OTP before saving details!');
-      return;
+    // Validation: For regular members, Phone and Email must be verified via OTP before saving
+    if (!isAdminRoute) {
+      if (form.phone.trim() && !form.isPhoneVerified) {
+        toast.error('⚠️ Mobile Number must be verified via OTP before saving details!');
+        return;
+      }
+
+      if (form.email.trim() && !form.isEmailVerified) {
+        toast.error('⚠️ Email Address must be verified via OTP before saving details!');
+        return;
+      }
     }
 
-    if (form.email.trim() && !form.isEmailVerified) {
-      toast.error('⚠️ Email Address must be verified via OTP before saving details!');
+    if (isAdminRoute && !form.phone.trim() && !form.email.trim()) {
+      toast.error('⚠️ Please provide the member\'s Mobile Number or Email ID in the Login Credentials section.');
       return;
     }
 
@@ -381,8 +388,15 @@ export default function BiodataEntryPage() {
       const lastName = nameParts.slice(1).join(' ') || '';
 
       const payload = {
+        phone: form.phone.trim() || undefined,
+        email: form.email.trim() || undefined,
+        password: form.password.trim() || undefined,
+        isPhoneVerified: form.isPhoneVerified || Boolean(form.phone.trim()),
+        isEmailVerified: form.isEmailVerified || Boolean(form.email.trim()),
+        photoUrl: photoPreview || undefined,
         memberId: form.memberId || undefined,
         branch: form.branch || undefined,
+        name: form.name.trim() || undefined,
         firstName: firstName || undefined,
         lastName: lastName || undefined,
         gender: form.gender,
@@ -427,8 +441,8 @@ export default function BiodataEntryPage() {
         kuladeivam: form.kuladeivam || undefined,
         dosham: form.dosham || undefined,
         dasaBalance: form.dasaIrupu || undefined,
-        timeOfBirth: form.birthTime || undefined,
-        placeOfBirth: form.birthPlace || undefined,
+        birthTime: form.birthTime || undefined,
+        birthPlace: form.birthPlace || undefined,
         aboutPartner: form.expectation || undefined,
         rasiChart: form.rasiChart,
         amsamChart: form.amsamChart,
@@ -439,28 +453,13 @@ export default function BiodataEntryPage() {
       };
 
       if (isAdminRoute) {
-        if (form.email.trim() || form.phone.trim()) {
-          try {
-            await api.post('/auth/register', {
-              email: form.email.trim() || undefined,
-              phone: form.phone.trim() || undefined,
-              password: form.password.trim() || 'S2S@123456',
-              firstName: firstName || 'Member',
-              lastName: lastName || '',
-              gender: form.gender || 'MALE',
-            });
-          } catch (regErr: any) {
-            console.warn('User account creation notice:', regErr?.response?.data?.message || regErr.message);
-          }
-        }
-
-        try {
-          await api.post('/admin/profiles/direct-create', payload);
-        } catch (pErr) {
-          await api.patch('/profiles/me', payload);
-        }
-
-        toast.success('🎉 Walk-in Member Registered! Member can now login using Email/Phone & Password.');
+        const res = await api.post('/admin/profiles/direct-create', payload);
+        const displayName = firstName ? `${firstName} ${lastName}`.trim() : (form.name || 'Member');
+        const loginIdentifier = form.phone.trim() || form.email.trim();
+        toast.success(
+          `🎉 Member "${displayName}" saved to DB!\nMember can now login using: ${loginIdentifier}`,
+          { duration: 7000 }
+        );
       } else {
         await api.patch('/profiles/me', payload);
         toast.success('🎉 Biodata Form saved directly to Profile Database table!');

@@ -8,7 +8,7 @@ import { profilesApi } from '../../../services/profiles.service';
 import { MembershipBadge } from '../../../components/common/MembershipBadge';
 import { 
   Eye, Heart, Sparkles, MessageSquare, ArrowUpRight, ShieldCheck, 
-  CheckCircle2, Crown, Edit3, Activity, Star, FileText
+  CheckCircle2, Crown, Edit3, Activity, Star
 } from 'lucide-react';
 
 const DashboardPage = () => {
@@ -121,9 +121,6 @@ const DashboardPage = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-          <Link to="/profile/biodata-form" className="btn bg-rose-900 hover:bg-rose-950 text-white btn-sm flex items-center justify-center flex-1 sm:flex-initial gap-1.5 font-bold shadow-md text-xs sm:text-sm">
-            <FileText className="w-4 h-4 text-amber-300" /> Biodata Form
-          </Link>
           <Link to="/profile/edit" className="btn btn-secondary btn-sm flex items-center justify-center flex-1 sm:flex-initial gap-1.5 border-slate-200 bg-white text-xs sm:text-sm">
             <Edit3 className="w-4 h-4" /> Edit Profile
           </Link>

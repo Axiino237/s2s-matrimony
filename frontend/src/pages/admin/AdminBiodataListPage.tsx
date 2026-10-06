@@ -46,6 +46,21 @@ const maskSensitiveText = (text?: any, isSuperAdmin?: boolean) => {
   return '***** (Super Admin Only)';
 };
 
+const HOUSES = [
+  { id: 'Mesham', tamil: 'மேஷம்', row: 0, col: 1 },
+  { id: 'Rishabam', tamil: 'ரிஷபம்', row: 0, col: 2 },
+  { id: 'Mithunam', tamil: 'மிதுனம்', row: 0, col: 3 },
+  { id: 'Kadagam', tamil: 'கடகம்', row: 1, col: 3 },
+  { id: 'Simmam', tamil: 'சிம்மம்', row: 2, col: 3 },
+  { id: 'Kanni', tamil: 'கன்னி', row: 3, col: 3 },
+  { id: 'Thulaam', tamil: 'துலாம்', row: 3, col: 2 },
+  { id: 'Viruchigam', tamil: 'விருச்சிகம்', row: 3, col: 1 },
+  { id: 'Dhanusu', tamil: 'தனுசு', row: 3, col: 0 },
+  { id: 'Magaram', tamil: 'மகரம்', row: 2, col: 0 },
+  { id: 'Kumbam', tamil: 'கும்பம்', row: 1, col: 0 },
+  { id: 'Meenam', tamil: 'மீனம்', row: 0, col: 0 },
+];
+
 type BiodataRecord = {
   id: string;
   memberId?: string;
@@ -263,10 +278,23 @@ export default function AdminBiodataListPage() {
             dasaBalance: horo.dasaBalance || p.dasaIrupu,
             birthTime: p.birthTime || horo.birthTime,
             birthPlace: p.birthPlace || horo.birthPlace,
-            horoscopeData: horo.horoscopeData || horo.chartData || {
-              rasiChart: p.rasiChart,
-              amsamChart: p.amsamChart || p.navamsamChart,
-            },
+            horoscopeData: (() => {
+              let hData = horo.horoscopeData || horo.chartData || p.horoscopeData || p.chartData || null;
+              if (typeof hData === 'string') {
+                try {
+                  hData = JSON.parse(hData);
+                } catch {
+                  hData = null;
+                }
+              }
+              if (!hData) {
+                hData = {
+                  rasiChart: p.rasiChart || horo.rasiChart || {},
+                  amsamChart: p.amsamChart || p.navamsamChart || horo.amsamChart || horo.navamsamChart || {},
+                };
+              }
+              return hData;
+            })(),
           },
           phone: u.phone || p.phone || '',
           email: u.email || p.email || '',
@@ -921,7 +949,31 @@ function BiodataFormCard({ r, isSuperAdmin, showContactInfo = true }: { r: Bioda
   const casteStr = r.caste || (typeof r.community === 'object' ? r.community?.name : r.community) || '—';
   const subCasteStr = r.subCaste || r.subcaste || r.sub_caste || '—';
   const gothramStr = r.gothram || '—';
-  const horo = r.horoscope || {};
+  const horo = r.horoscope || (r as any).horoscopeData || {};
+
+  let parsedHoroData = horo.horoscopeData || horo.chartData || (r as any).horoscopeData || null;
+  if (typeof parsedHoroData === 'string') {
+    try {
+      parsedHoroData = JSON.parse(parsedHoroData);
+    } catch {
+      parsedHoroData = null;
+    }
+  }
+
+  const rasiChartData: Record<string, string> =
+    parsedHoroData?.rasiChart ||
+    (horo as any)?.rasiChart ||
+    (r as any)?.rasiChart ||
+    {};
+
+  const amsamChartData: Record<string, string> =
+    parsedHoroData?.amsamChart ||
+    parsedHoroData?.navamsamChart ||
+    (horo as any)?.amsamChart ||
+    (horo as any)?.navamsamChart ||
+    (r as any)?.amsamChart ||
+    (r as any)?.navamsamChart ||
+    {};
 
   return (
     <div className="relative bg-white text-slate-900 border-[4px] border-[#b91c1c] p-3.5 shadow-none font-sans text-xs w-[203mm] h-[289mm] max-h-[289mm] flex flex-col justify-between box-border overflow-hidden">
@@ -1072,48 +1124,52 @@ function BiodataFormCard({ r, isSuperAdmin, showContactInfo = true }: { r: Bioda
         <div className="border-2 border-[#b91c1c] p-2 text-center bg-white">
           <p className="text-xs font-black text-[#b91c1c] uppercase mb-1.5">RASI CHART (ராசி)</p>
           <div className="grid grid-cols-4 grid-rows-4 gap-0.5 border border-slate-400 bg-slate-200 text-xs h-52">
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Meenam || 'மீனம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Mesham || 'மேஷம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Rishabam || 'ரிஷபம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Mithunam || 'மிதுனம்'}</div>
-
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Kumbam || 'கும்பம்'}</div>
-            <div className="col-span-2 row-span-2 bg-rose-50/70 border border-slate-400 font-black text-[#b91c1c] flex items-center justify-center text-base tracking-widest">
+            {HOUSES.map((h) => {
+              const planets = rasiChartData[h.id] || '';
+              return (
+                <div
+                  key={h.id}
+                  style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
+                  className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex flex-col justify-between"
+                >
+                  <span className="text-[9px] text-slate-400 font-bold text-left block leading-none select-none">
+                    {h.tamil}
+                  </span>
+                  <span className="font-black text-[#b91c1c] text-xs sm:text-sm my-auto leading-tight">
+                    {planets}
+                  </span>
+                </div>
+              );
+            })}
+            <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-rose-50/70 border border-slate-400 font-black text-[#b91c1c] flex items-center justify-center text-base tracking-widest">
               RASI
             </div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Kadagam || 'கடகம்'}</div>
-
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Magaram || 'மகரம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Simmam || 'சிம்மம்'}</div>
-
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Dhanusu || 'தனுசு'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Viruchigam || 'விருச்சிகம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Thulaam || 'துலாம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.rasiChart?.Kanni || 'கன்னி'}</div>
           </div>
         </div>
 
         <div className="border-2 border-[#b91c1c] p-2 text-center bg-white">
           <p className="text-xs font-black text-[#b91c1c] uppercase mb-1.5">NAVAMSAM CHART (நவாம்சம்)</p>
           <div className="grid grid-cols-4 grid-rows-4 gap-0.5 border border-slate-400 bg-slate-200 text-xs h-52">
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Meenam || 'மீனம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Mesham || 'மேஷம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Rishabam || 'ரிஷபம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Mithunam || 'மிதுனம்'}</div>
-
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Kumbam || 'கும்பம்'}</div>
-            <div className="col-span-2 row-span-2 bg-rose-50/70 border border-slate-400 font-black text-[#b91c1c] flex items-center justify-center text-base tracking-widest">
+            {HOUSES.map((h) => {
+              const planets = amsamChartData[h.id] || '';
+              return (
+                <div
+                  key={h.id}
+                  style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
+                  className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex flex-col justify-between"
+                >
+                  <span className="text-[9px] text-slate-400 font-bold text-left block leading-none select-none">
+                    {h.tamil}
+                  </span>
+                  <span className="font-black text-[#b91c1c] text-xs sm:text-sm my-auto leading-tight">
+                    {planets}
+                  </span>
+                </div>
+              );
+            })}
+            <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-rose-50/70 border border-slate-400 font-black text-[#b91c1c] flex items-center justify-center text-base tracking-widest">
               NAVAMSAM
             </div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Kadagam || 'கடகம்'}</div>
-
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Magaram || 'மகரம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Simmam || 'சிம்மம்'}</div>
-
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Dhanusu || 'தனுசு'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Viruchigam || 'விருச்சிகம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Thulaam || 'துலாம்'}</div>
-            <div className="bg-white p-1 border border-slate-300 font-bold overflow-hidden flex items-center justify-center text-xs">{horo.horoscopeData?.amsamChart?.Kanni || 'கன்னி'}</div>
           </div>
         </div>
       </div>

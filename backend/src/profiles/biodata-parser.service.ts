@@ -156,10 +156,15 @@ export class BiodataParserService {
   }
 
   private getGeminiApiKey(): string {
-    return (
+    const key =
       this.configService.get<string>('GEMINI_API_KEY') ||
-      process.env.GEMINI_API_KEY
-    );
+      process.env.GEMINI_API_KEY;
+
+    if (!key) {
+      throw new Error('GEMINI_API_KEY is not configured');
+    }
+
+    return key as string;
   }
 
   private getSystemPrompt(): string {

@@ -85,6 +85,19 @@ export class AdminController {
     return this.adminService.getPendingProfiles(search, page, limit, status);
   }
 
+  @Post('profiles/direct-create')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @RequirePermissions(Permission.PROFILES_WRITE)
+  @ApiOperation({ summary: 'Direct registration of walk-in member with credentials and profile' })
+  async directCreateProfile(@Body() body: any) {
+    try {
+      return await this.adminService.directCreateProfile(body);
+    } catch (err: any) {
+      console.error('DIRECT CREATE PROFILE ERROR:', err?.message, err?.stack || err);
+      throw err;
+    }
+  }
+
   @Get('payments')
   @RequirePermissions(Permission.PAYMENTS_VIEW)
   @ApiOperation({ summary: 'Get paginated list of payments' })

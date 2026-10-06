@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { devStore } from '../common/dev-store';
+import * as bcrypt from 'bcrypt';
+import { Gender, MaritalStatus, PhotoStatus } from '@prisma/client';
 
 const devBlogsStore: any[] = [];
 const devStoriesStore: any[] = [];
@@ -1001,6 +1003,442 @@ export class AdminService {
       console.error('Failed to update static pages:', e);
       return { success: false, error: 'Database update failed' };
     }
+  }
+
+  async directCreateProfile(data: any) {
+    if (!data) {
+      throw new BadRequestException('Profile data is required');
+    }
+
+    // 1. Sanitize contact phone
+    let rawPhone = data.phone ? String(data.phone).trim() : null;
+    let digits = rawPhone ? rawPhone.replace(/\D/g, '') : '';
+    let last10 = digits.slice(-10);
+    let formattedPhone = last10.length >= 10 ? `+91${last10}` : rawPhone;
+
+    // Sanitize contact email
+    let email = data.email ? String(data.email).trim().toLowerCase() : null;
+    if (email && !email.includes('@')) {
+      email = null;
+    }
+
+    if (!last10 && !email) {
+      throw new BadRequestException('A valid mobile number or email address is required to register the member.');
+    }
+
+    // 2. Resolve member user account
+    const userOrConditions: any[] = [];
+    if (last10) {
+      if (formattedPhone) userOrConditions.push({ phone: formattedPhone });
+      userOrConditions.push({ phone: last10 });
+      userOrConditions.push({ phone: { contains: last10 } });
+    }
+    if (email) {
+      userOrConditions.push({ email });
+    }
+
+    let user: any = await this.prisma.user.findFirst({
+      where: userOrConditions.length > 0 ? { OR: userOrConditions } : { id: '__none__' },
+      include: {
+        userRoles: { include: { role: true } },
+        profile: true,
+      },
+    });
+
+    if (user) {
+      const userRoles = user.userRoles?.map((ur: any) => ur.role.name) || [];
+      const isAdminUser = userRoles.includes('ADMIN') || userRoles.includes('SUPER_ADMIN');
+      if (isAdminUser) {
+        throw new ForbiddenException(
+          'This mobile number or email belongs to an Administrator account. Member profiles cannot be created using staff login credentials.'
+        );
+      }
+    }
+
+    const rawPassword = String(data.password || 'S2S@123456').trim();
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
+
+    const tempSuffix = Date.now().toString(36).slice(-6);
+    const finalEmail = email || `member_${tempSuffix}@s2smatrimony.com`;
+    const finalPhone = formattedPhone || `+919000${Math.floor(100000 + Math.random() * 900000)}`;
+
+    if (user) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          email: email || user.email,
+          phone: (user.phone || formattedPhone) as string,
+          passwordHash,
+          isActive: true,
+          isPhoneVerified: true,
+          isEmailVerified: Boolean(email || user.isEmailVerified),
+        },
+        include: { userRoles: { include: { role: true } }, profile: true },
+      });
+    } else {
+      user = await this.prisma.user.create({
+        data: {
+          email: finalEmail,
+          phone: finalPhone,
+          passwordHash,
+          isActive: true,
+          isPhoneVerified: true,
+          isEmailVerified: Boolean(email),
+        },
+        include: { userRoles: { include: { role: true } }, profile: true },
+      });
+    }
+
+    // 3. Ensure MEMBER role
+    const memberRole = await this.prisma.role.findUnique({ where: { name: 'MEMBER' } });
+    if (memberRole) {
+      const hasMemberRole = user.userRoles?.some((ur) => ur.role.name === 'MEMBER');
+      if (!hasMemberRole) {
+        await this.prisma.userRole.create({
+          data: { userId: user.id, roleId: memberRole.id },
+        }).catch(() => null);
+      }
+    }
+
+    // 4. Resolve Master Data Lookups
+    let religionId: string | null = null;
+    if (data.religion) {
+      const relName = String(data.religion).trim();
+      let rel = await this.prisma.religion.findFirst({
+        where: { name: { equals: relName, mode: 'insensitive' } },
+      }).catch(() => null);
+      if (!rel && relName) {
+        rel = await this.prisma.religion.create({ data: { name: relName } }).catch(() => null);
+      }
+      if (rel) religionId = rel.id;
+    }
+
+    let communityId: string | null = null;
+    let casteId: string | null = null;
+    const casteName = data.caste || data.community;
+    if (casteName) {
+      const cName = String(casteName).trim();
+      let comm = await this.prisma.community.findFirst({
+        where: { name: { equals: cName, mode: 'insensitive' } },
+      }).catch(() => null);
+      if (!comm && cName) {
+        const slug = cName.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'comm';
+        comm = await this.prisma.community.create({ data: { name: cName, slug } }).catch(() => null);
+      }
+      if (comm) communityId = comm.id;
+
+      let cst = await this.prisma.caste.findFirst({
+        where: { name: { equals: cName, mode: 'insensitive' } },
+      }).catch(() => null);
+      if (!cst && cName) {
+        cst = await this.prisma.caste.create({ data: { name: cName, religionId: religionId || undefined } }).catch(() => null);
+      }
+      if (cst) casteId = cst.id;
+    }
+
+    let subCasteId: string | null = null;
+    if (data.subcaste || data.subCaste) {
+      const scName = String(data.subcaste || data.subCaste).trim();
+      let sc = await this.prisma.subCaste.findFirst({
+        where: { name: { equals: scName, mode: 'insensitive' } },
+      }).catch(() => null);
+      if (!sc && scName && casteId) {
+        sc = await this.prisma.subCaste.create({ data: { name: scName, casteId } }).catch(() => null);
+      }
+      if (sc) subCasteId = sc.id;
+    }
+
+    let cityId: string | null = null;
+    if (data.city) {
+      const cityName = String(data.city).trim();
+      let ct = await this.prisma.city.findFirst({
+        where: { name: { equals: cityName, mode: 'insensitive' } },
+      }).catch(() => null);
+      if (!ct && cityName) {
+        const defaultState = await this.prisma.state.findFirst().catch(() => null);
+        if (defaultState) {
+          ct = await this.prisma.city.create({ data: { name: cityName, stateId: defaultState.id } }).catch(() => null);
+        }
+      }
+      if (ct) cityId = ct.id;
+    }
+
+    // 5. Generate unique member ID
+    let memberId = data.memberId ? String(data.memberId).trim() : null;
+    if (!memberId) {
+      memberId = `S2S-${Math.floor(100000 + Math.random() * 900000)}`;
+      while (await this.prisma.profile.findUnique({ where: { memberId } })) {
+        memberId = `S2S-${Math.floor(100000 + Math.random() * 900000)}`;
+      }
+    }
+
+    // 6. Name and Demographics
+    const firstName = String(data.firstName || (data.name ? String(data.name).split(' ')[0] : 'Member')).trim();
+    const lastName = String(data.lastName || (data.name ? String(data.name).split(' ').slice(1).join(' ') : '')).trim();
+    const displayName = `${firstName} ${lastName}`.trim() || 'Member';
+
+    let gender: Gender = Gender.MALE;
+    const rawGender = String(data.gender || '').toUpperCase();
+    if (rawGender.includes('FEMALE') || rawGender.includes('BRIDE') || rawGender.includes('GIRL')) {
+      gender = Gender.FEMALE;
+    }
+
+    let dob = new Date(2000, 0, 1);
+    if (data.dateOfBirth) {
+      const parsed = new Date(data.dateOfBirth);
+      if (!isNaN(parsed.getTime())) dob = parsed;
+    }
+    const age = data.age || Math.max(18, new Date().getFullYear() - dob.getFullYear()) || 25;
+
+    let maritalStatus: MaritalStatus = MaritalStatus.NEVER_MARRIED;
+    const rawMarital = String(data.maritalStatus || '').toUpperCase().replace(/[\s-]/g, '_');
+    if (['NEVER_MARRIED', 'DIVORCED', 'WIDOWED', 'SEPARATED'].includes(rawMarital)) {
+      maritalStatus = rawMarital as MaritalStatus;
+    }
+
+    const profileData: any = {
+      userId: user.id,
+      memberId,
+      branch: data.branch || null,
+      firstName,
+      lastName,
+      displayName,
+      gender,
+      dateOfBirth: dob,
+      age,
+      maritalStatus,
+      heightCm: data.heightCm ? Number(data.heightCm) : null,
+      weight: data.weightKg ? Number(data.weightKg) : (data.weight ? Number(data.weight) : null),
+      complexion: data.complexion || null,
+      diet: data.diet || null,
+      motherTongue: data.motherTongue || 'Tamil',
+      religionId,
+      communityId,
+      casteId,
+      subCasteId,
+      cityId,
+      gothram: data.gothram || null,
+      birthOrder: data.birthOrder ? Number(data.birthOrder) : null,
+      residentStatus: data.residentStatus || null,
+      propertyDetails: data.propertyDetails || null,
+      about: data.about || `Profile for ${displayName}`,
+      status: 'ACTIVE',
+      isVerified: true,
+      verificationStatus: 'VERIFIED',
+      profileCompletionPercent: 90,
+    };
+
+    const existingProfile = await this.prisma.profile.findUnique({
+      where: { userId: user.id },
+    });
+
+    let profile: any;
+    if (existingProfile) {
+      profile = await this.prisma.profile.update({
+        where: { id: existingProfile.id },
+        data: profileData,
+      });
+    } else {
+      profile = await this.prisma.profile.create({
+        data: profileData,
+      });
+    }
+
+    // 7. Upsert Sub-tables
+    // Education
+    const degree = data.educationDegree || data.education || null;
+    const college = data.college || data.educationDetails || null;
+    if (degree || college) {
+      await this.prisma.education.upsert({
+        where: { profileId: profile.id },
+        create: {
+          profileId: profile.id,
+          degree: degree || 'Graduate',
+          fieldOfStudy: data.fieldOfStudy || null,
+          university: college,
+        },
+        update: {
+          degree: degree || undefined,
+          university: college || undefined,
+        },
+      });
+    }
+
+    // Occupation
+    const designation = data.occupation || data.designation || null;
+    const company = data.company || data.companyName || null;
+    const workingLocation = data.workLocation || data.jobLocation || null;
+    const salaryMin = data.annualIncome ? Number(String(data.annualIncome).replace(/\D/g, '')) || null : (data.salary ? Number(String(data.salary).replace(/\D/g, '')) || null : null);
+    if (designation || company || workingLocation || salaryMin) {
+      await this.prisma.occupation.upsert({
+        where: { profileId: profile.id },
+        create: {
+          profileId: profile.id,
+          designation: designation || 'Professional',
+          company,
+          workingLocation,
+          salaryMin,
+        },
+        update: {
+          designation: designation || undefined,
+          company: company || undefined,
+          workingLocation: workingLocation || undefined,
+          salaryMin: salaryMin || undefined,
+        },
+      });
+    }
+
+    // FamilyDetail
+    const fatherName = data.fatherName || null;
+    const fatherOccupation = data.fatherOccupation || data.fatherJob || null;
+    const motherName = data.motherName || null;
+    const motherOccupation = data.motherOccupation || data.motherJob || null;
+    const nativePlace = data.nativePlace || null;
+    await this.prisma.familyDetail.upsert({
+      where: { profileId: profile.id },
+      create: {
+        profileId: profile.id,
+        fatherName,
+        fatherOccupation,
+        motherName,
+        motherOccupation,
+        nativePlace,
+        elderBrothers: Number(data.elderBrothers || 0),
+        elderBrothersMarried: Number(data.elderBrothersMarried || 0),
+        youngerBrothers: Number(data.youngerBrothers || 0),
+        youngerBrothersMarried: Number(data.youngerBrothersMarried || 0),
+        elderSisters: Number(data.elderSisters || 0),
+        elderSistersMarried: Number(data.elderSistersMarried || 0),
+        youngerSisters: Number(data.youngerSisters || 0),
+        youngerSistersMarried: Number(data.youngerSistersMarried || 0),
+      },
+      update: {
+        fatherName: fatherName || undefined,
+        fatherOccupation: fatherOccupation || undefined,
+        motherName: motherName || undefined,
+        motherOccupation: motherOccupation || undefined,
+        nativePlace: nativePlace || undefined,
+        elderBrothers: Number(data.elderBrothers || 0),
+        elderBrothersMarried: Number(data.elderBrothersMarried || 0),
+        youngerBrothers: Number(data.youngerBrothers || 0),
+        youngerBrothersMarried: Number(data.youngerBrothersMarried || 0),
+        elderSisters: Number(data.elderSisters || 0),
+        elderSistersMarried: Number(data.elderSistersMarried || 0),
+        youngerSisters: Number(data.youngerSisters || 0),
+        youngerSistersMarried: Number(data.youngerSistersMarried || 0),
+      },
+    });
+
+    // Horoscope
+    const star = data.star || data.natchathiram || null;
+    const starPadam = data.starPadam ? Number(data.starPadam) : (data.natchathiramPadham ? Number(data.natchathiramPadham) : null);
+    const rasi = data.rasi || null;
+    const lagnam = data.lagnam || null;
+    const kuladeivam = data.kuladeivam || null;
+    const dosham = data.dosham || null;
+    const dasaBalance = data.dasaBalance || data.dasaIrupu || null;
+    const birthTime = data.birthTime || data.timeOfBirth || null;
+    const birthPlace = data.birthPlace || data.placeOfBirth || null;
+    const rasiChart = data.rasiChart || data.horoscopeData?.rasiChart || null;
+    const amsamChart = data.amsamChart || data.horoscopeData?.amsamChart || null;
+    const horoscopeData = data.horoscopeData || (rasiChart || amsamChart ? { rasiChart, amsamChart } : null);
+
+    if (star || rasi || lagnam || kuladeivam || dosham || dasaBalance || birthTime || birthPlace || horoscopeData) {
+      await this.prisma.horoscope.upsert({
+        where: { profileId: profile.id },
+        create: {
+          profileId: profile.id,
+          star,
+          starPadam,
+          rasi,
+          lagnam,
+          kuladeivam,
+          dosham,
+          dasaBalance,
+          birthTime,
+          birthPlace,
+          gothram: data.gothram || null,
+          horoscopeData: horoscopeData ? (horoscopeData as any) : undefined,
+        },
+        update: {
+          star: star || undefined,
+          starPadam: starPadam || undefined,
+          rasi: rasi || undefined,
+          lagnam: lagnam || undefined,
+          kuladeivam: kuladeivam || undefined,
+          dosham: dosham || undefined,
+          dasaBalance: dasaBalance || undefined,
+          birthTime: birthTime || undefined,
+          birthPlace: birthPlace || undefined,
+          gothram: data.gothram || undefined,
+          horoscopeData: horoscopeData ? (horoscopeData as any) : undefined,
+        },
+      });
+    }
+
+    // PartnerPreference
+    if (data.aboutPartner || data.expectation) {
+      await this.prisma.partnerPreference.upsert({
+        where: { profileId: profile.id },
+        create: {
+          profileId: profile.id,
+          aboutPartner: data.aboutPartner || data.expectation,
+        },
+        update: {
+          aboutPartner: data.aboutPartner || data.expectation,
+        },
+      });
+    }
+
+    // ProfilePhoto
+    if (data.photoUrl) {
+      await this.prisma.profilePhoto.create({
+        data: {
+          profileId: profile.id,
+          url: data.photoUrl,
+          isMain: true,
+          status: PhotoStatus.APPROVED,
+        },
+      }).catch(() => null);
+    }
+
+    // PrivacySetting
+    await this.prisma.privacySetting.upsert({
+      where: { profileId: profile.id },
+      create: {
+        profileId: profile.id,
+        showPhone: true,
+        showEmail: true,
+        showPhoto: true,
+        showHoroscope: true,
+        whoCanViewProfile: 'ALL',
+      },
+      update: {},
+    }).catch(() => null);
+
+    // Sync to devStore
+    devStore.set(user.id, {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      firstName,
+      lastName,
+      gender,
+      roles: ['MEMBER'],
+      membershipTier: 'FREE',
+    });
+
+    return {
+      success: true,
+      message: `Member ${displayName} registered successfully!`,
+      memberId: profile.memberId,
+      profileId: profile.id,
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+      },
+    };
   }
 }
 
