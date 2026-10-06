@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth.store';
 import {
   Globe, Shield, DollarSign, Settings, LayoutDashboard,
-  Sparkles, FileText, LogOut, ExternalLink, X, Menu,
+  Sparkles, FileText, LogOut, X, Menu,
   Users, UserCheck, Crown, CreditCard, AlertTriangle, Heart,
   BarChart2, BookOpen, Image as ImageIcon, ChevronDown, ChevronRight,
   ScrollText, Sliders, HelpCircle
@@ -179,14 +179,6 @@ const SuperAdminSidebar = ({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: 
 
       {/* Footer */}
       <div className="p-3 border-t border-slate-100 flex-shrink-0 space-y-1">
-        <Link
-          to="/"
-          target="_blank"
-          className="flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
-        >
-          <ExternalLink className="w-4 h-4" />
-          <span>View Public Site</span>
-        </Link>
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-2 rounded-xl text-xs font-medium text-rose-600 hover:bg-rose-50 transition-all text-left"
