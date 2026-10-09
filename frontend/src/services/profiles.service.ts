@@ -56,8 +56,8 @@ export const profilesApi = {
     return res.data.data || res.data;
   },
 
-  parseBiodata: async (text: string, imageBase64?: string) => {
-    const res = await api.post('/profiles/parse-biodata', { text, imageBase64 });
+  parseBiodata: async (text: string, imageBase64?: string, fileName?: string) => {
+    const res = await api.post('/profiles/parse-biodata', { text, imageBase64, fileName });
     return res.data.data || res.data;
   },
 

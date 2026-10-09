@@ -111,30 +111,28 @@ export class EliteQualificationService {
       netWorthNum > 0;
     const isFinanciallyQualified = hasValidNetWorth && netWorthNum >= threshold;
 
-    // Business rule:
-    // 1. Members on the Elite plan family (elite-plan-silver, elite-plan-gold, elite-plan-platinum) are ELITE.
-    // 2. Members who have completed the required Elite qualification information with netWorth >= threshold are ELITE.
-    // 3. Regular plans (regular Free, Silver, Gold, Platinum) and members without completed net-worth remain GENERAL.
-    const isEliteCategory = hasElitePlan || isFinanciallyQualified;
-    const membershipCategory: MembershipCategory = isEliteCategory ? 'ELITE' : 'GENERAL';
-
-    if (!isEliteCategory) {
+    // Business Rules:
+    // 1. User with networth >= elite threshold + elite plan = ELITE_QUALIFIED.
+    // 2. If the member's networth is greater than threshold, but they didn't buy any plan,
+    //    that member is GENERAL until they buy an elite plan.
+    //    They are only shown to general members and can view general members.
+    // 3. If a member bought an Elite plan, but their networth is < threshold (or not given),
+    //    that member is ELITE_NOT_QUALIFIED.
+    if (!hasElitePlan) {
       return {
         membershipCategory: 'GENERAL',
         isElite: false,
-        isQualified: false,
+        isQualified: isFinanciallyQualified,
         eliteStatus: 'GENERAL',
         threshold,
       };
     }
 
-    const isQualified = isFinanciallyQualified;
-
     return {
       membershipCategory: 'ELITE',
       isElite: true,
-      isQualified,
-      eliteStatus: isQualified ? 'ELITE_QUALIFIED' : 'ELITE_NOT_QUALIFIED',
+      isQualified: isFinanciallyQualified,
+      eliteStatus: isFinanciallyQualified ? 'ELITE_QUALIFIED' : 'ELITE_NOT_QUALIFIED',
       threshold,
     };
   }
@@ -222,9 +220,10 @@ export class EliteQualificationService {
 
   /**
    * Visibility Matrix:
-   * | Viewer         | General | Elite |
-   * | General member |   ✅    |  ❌   |
-   * | Elite member   |   ❌    |  ✅   |
+   * | Member (Viewer)       | Can View General | Can View Elite Not Qualified | Can View Elite Qualified |
+   * | General               |       YES        |              NO              |            NO            |
+   * | Elite not qualified   |        NO        |             YES              |           YES            |
+   * | Elite qualified       |        NO        |              NO              |           YES            |
    */
   isProfileVisibleToViewer(
     viewerStatus: EliteQualificationStatus,
@@ -233,7 +232,12 @@ export class EliteQualificationService {
     if (viewerStatus === 'GENERAL') {
       return targetStatus === 'GENERAL';
     }
-    // Elite viewer sees Elite members (Qualified or Not Qualified)
-    return targetStatus === 'ELITE_QUALIFIED' || targetStatus === 'ELITE_NOT_QUALIFIED';
+    if (viewerStatus === 'ELITE_NOT_QUALIFIED') {
+      return targetStatus === 'ELITE_NOT_QUALIFIED' || targetStatus === 'ELITE_QUALIFIED';
+    }
+    if (viewerStatus === 'ELITE_QUALIFIED') {
+      return targetStatus === 'ELITE_QUALIFIED';
+    }
+    return false;
   }
 }

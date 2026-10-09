@@ -1,5 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { parseDocxBuffer, ExtractedDocxContent } from './docx-parser.util';
 
 export interface MatrimonyBiodataSchema {
   profile: {
@@ -106,66 +107,206 @@ export class BiodataParserService {
   constructor(private readonly configService: ConfigService) { }
 
   /**
-   * Main entrypoint for biodata parsing: accepts image (base64), PDF (base64), or text.
-   * Leverages Gemini Multimodal Vision / NLP with multi-language understanding.
+   * Main entrypoint for biodata parsing: accepts image (JPEG/PNG base64), PDF (base64), DOCX (base64), or text.
+   * Leverages Gemini Multimodal Vision / NLP with multi-language and multi-page understanding.
    */
-  async parseBiodata(input: { text?: string; imageBase64?: string }): Promise<MatrimonyBiodataSchema> {
-    const imageBase64 = input?.imageBase64?.trim();
+  async parseBiodata(input: {
+    text?: string;
+    imageBase64?: string;
+    fileBase64?: string;
+    documentBase64?: string;
+    fileName?: string;
+  }): Promise<MatrimonyBiodataSchema> {
+    const rawPayload = input?.imageBase64?.trim() || input?.fileBase64?.trim() || input?.documentBase64?.trim();
     const text = input?.text?.trim();
+    const fileName = (input?.fileName || '').toLowerCase();
 
-    if (imageBase64) {
-      let mimeType = 'image/jpeg';
-      let base64Data = imageBase64;
-      if (imageBase64.includes(';base64,')) {
-        const parts = imageBase64.split(';base64,');
+    if (rawPayload) {
+      let mimeType = '';
+      let base64Data = rawPayload;
+      if (rawPayload.includes(';base64,')) {
+        const parts = rawPayload.split(';base64,');
         const mimeMatch = parts[0].match(/data:(.*?)$/);
-        if (mimeMatch) mimeType = mimeMatch[1];
+        if (mimeMatch) mimeType = mimeMatch[1].toLowerCase();
         base64Data = parts[1];
-      } else if (imageBase64.startsWith('data:')) {
-        const commaIdx = imageBase64.indexOf(',');
+      } else if (rawPayload.startsWith('data:')) {
+        const commaIdx = rawPayload.indexOf(',');
         if (commaIdx !== -1) {
-          const mimeMatch = imageBase64.substring(0, commaIdx).match(/data:(.*?);/);
-          if (mimeMatch) mimeType = mimeMatch[1];
-          base64Data = imageBase64.substring(commaIdx + 1);
+          const mimeMatch = rawPayload.substring(0, commaIdx).match(/data:(.*?);/);
+          if (mimeMatch) mimeType = mimeMatch[1].toLowerCase();
+          base64Data = rawPayload.substring(commaIdx + 1);
         }
       }
 
-      const isPdf = mimeType === 'application/pdf' || base64Data.startsWith('JVBERi');
+      // Inspect magic bytes from the binary header
+      const headerBuffer = Buffer.from(base64Data.slice(0, 120), 'base64');
+      const isPdfMagic =
+        headerBuffer.length >= 4 &&
+        headerBuffer[0] === 0x25 &&
+        headerBuffer[1] === 0x50 &&
+        headerBuffer[2] === 0x44 &&
+        headerBuffer[3] === 0x46; // %PDF
+      const isJpegMagic =
+        headerBuffer.length >= 3 &&
+        headerBuffer[0] === 0xff &&
+        headerBuffer[1] === 0xd8 &&
+        headerBuffer[2] === 0xff;
+      const isPngMagic =
+        headerBuffer.length >= 8 &&
+        headerBuffer[0] === 0x89 &&
+        headerBuffer[1] === 0x50 &&
+        headerBuffer[2] === 0x4e &&
+        headerBuffer[3] === 0x47;
+      const isZipMagic =
+        headerBuffer.length >= 4 &&
+        headerBuffer[0] === 0x50 &&
+        headerBuffer[1] === 0x4b &&
+        headerBuffer[2] === 0x03 &&
+        headerBuffer[3] === 0x04; // PK\x03\x04
 
+      const isPdf = isPdfMagic || mimeType === 'application/pdf' || fileName.endsWith('.pdf') || base64Data.startsWith('JVBERi');
+      const isJpeg =
+        isJpegMagic ||
+        mimeType === 'image/jpeg' ||
+        mimeType === 'image/jpg' ||
+        fileName.endsWith('.jpg') ||
+        fileName.endsWith('.jpeg');
+      const isPng = isPngMagic || mimeType === 'image/png' || fileName.endsWith('.png');
+      const isDocx = (isZipMagic || mimeType.includes('wordprocessingml') || fileName.endsWith('.docx')) && !isPdf;
+
+      // Reject genuinely unsupported formats
+      if (!isPdf && !isJpeg && !isPng && !isDocx) {
+        throw new BadRequestException('Unsupported file format. Please upload a PDF, DOCX, JPEG, or PNG biodata file.');
+      }
+
+      // --- 1. PDF EXTRACTION (Multi-page text-based & scanned) ---
       if (isPdf) {
         const pdfBuffer = Buffer.from(base64Data, 'base64');
-        this.logger.log('📄 PDF uploaded for AI extraction: inspecting for direct usable text...');
+        this.logger.log(`📄 PDF uploaded (${(pdfBuffer.length / 1024).toFixed(1)} KB) - validating document...`);
 
-        const { text: pdfText, pageCount, hasVisualChartHint } = await this.extractTextFromPdf(pdfBuffer);
+        const { text: pdfText, pageCount, hasVisualChartHint, isPasswordProtected, isCorrupted } =
+          await this.extractTextFromPdf(pdfBuffer);
+
+        if (isPasswordProtected || isCorrupted) {
+          throw new BadRequestException(
+            'Unable to read PDF file. The file may be password-protected or corrupted. Please upload an unprotected, valid PDF.'
+          );
+        }
+
+        this.logger.log(`📄 PDF validated: ${pageCount} page(s), ${pdfText.length} text chars.`);
+
+        // Primary: Native Gemini Multimodal PDF processing across all pages simultaneously
+        try {
+          const aiResult = await this.extractWithGeminiPdf(base64Data);
+          if (aiResult) {
+            this.logger.log(`✨ Gemini Multimodal successfully extracted structured biodata from PDF (${pageCount} pages)`);
+            return this.normalizeSchema(aiResult, pdfText || text);
+          }
+        } catch (pdfAiErr: any) {
+          this.logger.warn(`Gemini Multimodal PDF extraction note (${pdfAiErr?.message}), trying text/vision pipeline...`);
+        }
+
+        // Secondary: Usable embedded text extraction
         const isUsableText = pdfText.length >= 60 && pdfText.split(/\s+/).length >= 8;
-
         if (isUsableText) {
-          this.logger.log(`⚡ Usable text detected in PDF (${pdfText.length} chars, ${pageCount} pages). Running fast Gemini text extraction...`);
           try {
             const aiResult = await this.extractWithGeminiText(pdfText);
             if (aiResult) {
               const chartMissing = !aiResult.horoscope?.rasiChart || Object.keys(aiResult.horoscope.rasiChart).length === 0;
-              if (hasVisualChartHint && chartMissing) {
-                this.logger.log('🔭 Visual horoscope chart detected in PDF text. Falling back to Gemini Vision for astrological chart extraction...');
-              } else {
+              if (!hasVisualChartHint || !chartMissing) {
                 this.logger.log('✨ Gemini Text normalization successfully extracted biodata from direct PDF text');
                 return this.normalizeSchema(aiResult, pdfText);
               }
+              this.logger.log('🔭 Visual horoscope chart detected in PDF text, attempting vision fallback...');
             }
           } catch (textErr: any) {
-            this.logger.warn(`Direct PDF text extraction failed with Gemini Text (${textErr?.message}), falling back to Gemini Vision...`);
+            this.logger.warn(`Text extraction fallback notice: ${textErr?.message}`);
           }
-        } else {
-          this.logger.log(`📸 PDF contains minimal/no embedded text (${pdfText.length} chars). Detected as scanned/image-only document.`);
         }
 
-        // Fallback to Gemini Vision for scanned/image-based documents or visual horoscope charts
-        this.logger.log('🖼️ Running Gemini Multimodal Vision fallback for PDF...');
+        // Tertiary: Vision page-rendering fallback
+        this.logger.log('🖼️ Running Gemini Vision page-rendering fallback for PDF...');
         return this.extractPdfWithVision(pdfBuffer, text || pdfText);
-      } else {
-        // Direct image upload (JPG, PNG, WebP) - existing working path unchanged
+      }
+
+      // --- 2. DOCX EXTRACTION (Text & Embedded Media) ---
+      if (isDocx) {
+        const docxBuffer = Buffer.from(base64Data, 'base64');
+        this.logger.log(`📄 DOCX uploaded (${(docxBuffer.length / 1024).toFixed(1)} KB) - parsing document structure...`);
+
+        let docxContent: ExtractedDocxContent;
         try {
-          const aiResult = await this.extractWithGeminiVision(base64Data, mimeType);
+          docxContent = parseDocxBuffer(docxBuffer);
+        } catch (err: any) {
+          this.logger.error('DOCX unpacking error:', err?.message || err);
+          throw new BadRequestException('Unable to read DOCX file. The document appears to be corrupted or invalid.');
+        }
+
+        const { text: docxText, images: docxImages } = docxContent;
+        if (!docxText.trim() && docxImages.length === 0) {
+          throw new BadRequestException('The uploaded DOCX document contains no readable text or images.');
+        }
+
+        this.logger.log(`📄 DOCX extracted: ${docxText.length} chars text, ${docxImages.length} embedded image(s).`);
+
+        // If DOCX has embedded images (e.g. photos or horoscope chart images), include them in vision prompt
+        if (docxImages.length > 0) {
+          try {
+            const imageParts = docxImages.slice(0, 4).map((img) => ({
+              inlineData: {
+                mimeType: img.mimeType || 'image/jpeg',
+                data: img.base64,
+              },
+            }));
+
+            const payload = {
+              contents: [
+                {
+                  parts: [
+                    { text: `${this.getSystemPrompt()}\n\nHere is the biodata text extracted from DOCX document:\n\n${docxText}` },
+                    ...imageParts,
+                  ],
+                },
+              ],
+              generationConfig: {
+                responseMimeType: 'application/json',
+                temperature: 0.1,
+              },
+            };
+
+            const aiResult = await this.callGeminiApi(payload);
+            if (aiResult) {
+              this.logger.log('✨ Gemini Vision successfully extracted biodata and embedded media from DOCX');
+              return this.normalizeSchema(aiResult, docxText);
+            }
+          } catch (visionErr: any) {
+            this.logger.warn(`DOCX vision extraction notice (${visionErr?.message}), trying text fallback...`);
+          }
+        }
+
+        // Text-only Gemini extraction for DOCX
+        if (docxText.trim()) {
+          try {
+            const aiResult = await this.extractWithGeminiText(docxText);
+            if (aiResult) {
+              this.logger.log('✨ Gemini NLP extracted biodata fields from DOCX text successfully');
+              return this.normalizeSchema(aiResult, docxText);
+            }
+          } catch (err: any) {
+            this.logger.error('Gemini Text extraction from DOCX failed, falling back to regex parser', err?.message || err);
+          }
+          return this.parseText(docxText);
+        }
+
+        throw new BadRequestException('Failed to extract biodata from the uploaded DOCX document.');
+      }
+
+      // --- 3. JPEG & PNG IMAGE EXTRACTION ---
+      if (isJpeg || isPng) {
+        const effectiveMime = isJpeg ? 'image/jpeg' : 'image/png';
+        this.logger.log(`📸 Image uploaded (${effectiveMime}) - extracting via Gemini Vision...`);
+        try {
+          const aiResult = await this.extractWithGeminiVision(base64Data, effectiveMime);
           if (aiResult) {
             this.logger.log('✨ Gemini Vision extracted biodata fields successfully');
             return this.normalizeSchema(aiResult, text);
@@ -180,6 +321,7 @@ export class BiodataParserService {
       }
     }
 
+    // --- 4. PLAIN TEXT INPUT ---
     if (text) {
       try {
         const aiResult = await this.extractWithGeminiText(text);
@@ -193,7 +335,7 @@ export class BiodataParserService {
       return this.parseText(text);
     }
 
-    throw new BadRequestException('Please provide either biodata text or upload a document/photo to extract.');
+    throw new BadRequestException('Please provide either biodata text or upload a document/photo (PDF, DOCX, JPEG, PNG) to extract.');
   }
 
   private getGeminiApiKey(): string {
@@ -356,20 +498,25 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
     const apiKey = this.getGeminiApiKey();
     if (!apiKey) return null;
 
-    // Verified active Gemini models supporting generateContent in current environment
-    const models = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-pro-latest'];
+    // Active verified Gemini models
+    const models = ['gemini-flash-latest', 'gemini-pro-latest'];
     for (const model of models) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
+
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           const errText = await response.text();
-          this.logger.warn(`Gemini (${model}) API error: ${response.status} - ${errText}`);
+          this.logger.warn(`Gemini (${model}) API error: ${response.status} - ${errText.substring(0, 200)}`);
           continue;
         }
 
@@ -388,6 +535,32 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
       }
     }
     return null;
+  }
+
+  private async extractWithGeminiPdf(pdfBase64: string): Promise<any> {
+    const payload = {
+      contents: [
+        {
+          parts: [
+            {
+              text: `${this.getSystemPrompt()}\n\nExtract all biodata, family, education, career, and horoscope information across all pages of this PDF document into the structured JSON schema. Check every page for personal details and horoscope charts.`,
+            },
+            {
+              inlineData: {
+                mimeType: 'application/pdf',
+                data: pdfBase64,
+              },
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.1,
+      },
+    };
+
+    return this.callGeminiApi(payload);
   }
 
   private async extractWithGeminiVision(images: string | string[], mimeType: string = 'image/jpeg'): Promise<any> {
@@ -435,7 +608,13 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
     return this.callGeminiApi(payload);
   }
 
-  private async extractTextFromPdf(pdfBuffer: Buffer): Promise<{ text: string; pageCount: number; hasVisualChartHint: boolean }> {
+  private async extractTextFromPdf(pdfBuffer: Buffer): Promise<{
+    text: string;
+    pageCount: number;
+    hasVisualChartHint: boolean;
+    isPasswordProtected: boolean;
+    isCorrupted: boolean;
+  }> {
     try {
       const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
       const doc = await pdfjs.getDocument({
@@ -444,7 +623,7 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
       }).promise;
 
       let fullText = '';
-      const numPages = Math.min(doc.numPages, 8);
+      const numPages = Math.min(doc.numPages, 12);
       for (let i = 1; i <= numPages; i++) {
         const page = await doc.getPage(i);
         const textContent = await page.getTextContent();
@@ -466,29 +645,40 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
         text: cleanText,
         pageCount: doc.numPages,
         hasVisualChartHint,
+        isPasswordProtected: false,
+        isCorrupted: false,
       };
     } catch (err: any) {
-      this.logger.warn(`Direct PDF text extraction notice: ${err?.message || err}`);
-      return { text: '', pageCount: 0, hasVisualChartHint: false };
+      const errMsg = String(err?.message || err?.name || '').toLowerCase();
+      const isPassword = errMsg.includes('password') || err?.name === 'PasswordException';
+      const isCorrupt = errMsg.includes('corrupted') || errMsg.includes('invalid pdf') || err?.name === 'InvalidPDFException';
+
+      this.logger.warn(`PDF inspection note: ${err?.name || 'Notice'} - ${err?.message || err}`);
+      return {
+        text: '',
+        pageCount: 0,
+        hasVisualChartHint: false,
+        isPasswordProtected: isPassword,
+        isCorrupted: isCorrupt,
+      };
     }
   }
 
   private async extractPdfWithVision(pdfBuffer: Buffer, fallbackText?: string): Promise<MatrimonyBiodataSchema> {
     try {
       const { pdf } = await import('pdf-to-img');
-      const document = await pdf(pdfBuffer, { scale: 2 });
+      const document = await pdf(pdfBuffer, { scale: 1.2 });
       const pageImages: string[] = [];
       for await (const pageBuffer of document) {
         pageImages.push(Buffer.from(pageBuffer).toString('base64'));
-        // Support multi-page PDFs (up to 8 relevant pages)
-        if (pageImages.length >= 8) break;
+        if (pageImages.length >= 6) break;
       }
 
       if (pageImages.length === 0) {
         throw new Error('PDF document contained no readable pages');
       }
 
-      this.logger.log(`📄 Converted ${pageImages.length} PDF page(s) to PNG images for Gemini Vision extraction`);
+      this.logger.log(`📄 Converted ${pageImages.length} PDF page(s) to PNG images for Gemini Vision fallback`);
       const aiResult = await this.extractWithGeminiVision(pageImages, 'image/png');
       if (aiResult) {
         this.logger.log('✨ Gemini Vision successfully extracted biodata & horoscope from PDF pages');
@@ -655,8 +845,22 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
     const rawRasiChart = horo.rasiChart || horo.rasi_chart || data.rasiChart || data.rasi_chart || null;
     const rawAmsamChart = horo.amsamChart || horo.amsam_chart || data.amsamChart || data.amsam_chart || data.navamsamChart || null;
 
-    const normalizedRasiChart = rawRasiChart ? normalizeChartHouses(rawRasiChart) : null;
-    const normalizedAmsamChart = rawAmsamChart ? normalizeChartHouses(rawAmsamChart) : null;
+    let normalizedRasiChart = rawRasiChart ? normalizeChartHouses(rawRasiChart) : null;
+    let normalizedAmsamChart = rawAmsamChart ? normalizeChartHouses(rawAmsamChart) : null;
+
+    // If Gemini did not return a chart but chart houses were provided in document text:
+    if (!normalizedRasiChart && fallbackText) {
+      const textCharts = extractChartHousesFromText(fallbackText);
+      if (textCharts.rasiChart) {
+        normalizedRasiChart = textCharts.rasiChart;
+      }
+    }
+    if (!normalizedAmsamChart && fallbackText) {
+      const textCharts = extractChartHousesFromText(fallbackText);
+      if (textCharts.amsamChart) {
+        normalizedAmsamChart = textCharts.amsamChart;
+      }
+    }
 
     let derivedRasi = normalizedRasi;
     let derivedLagnam = horo.lagnam || null;
@@ -860,29 +1064,8 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
     const doshamMatch = text.match(/(?:dosham|தோஷம்)\s*[:=\-]\s*([^\r\n]+)/i);
     const dosham = doshamMatch ? doshamMatch[1].trim() : (chevvai ? `Chevvai: ${chevvai}` : null);
 
-    // Detect Rasi & Amsam Chart: ONLY if explicit chart indicator is found
-    const rasiChartDetected = /(?:ராசி கட்டம்|rasi chart|ஜாதக கட்டம்)\s*[:=\-]/i.test(text);
-    const amsamChartDetected = /(?:அம்ச கட்டம்|amsam chart|நவாம்ச கட்டம்)\s*[:=\-]/i.test(text);
-
-    const rasiChartObj: Record<string, string> = {};
-    const amsamChartObj: Record<string, string> = {};
-
-    const houses = ['Mesham', 'Rishabam', 'Mithunam', 'Kadagam', 'Simmam', 'Kanni', 'Thulaam', 'Viruchigam', 'Dhanusu', 'Magaram', 'Kumbam', 'Meenam'];
-    const tamilHouses = ['மேஷம்', 'ரிஷபம்', 'மிதுனம்', 'கடகம்', 'சிம்மம்', 'கன்னி', 'துலாம்', 'விருச்சிகம்', 'தனுசு', 'மகரம்', 'கும்பம்', 'மீனம்'];
-
-    if (rasiChartDetected || amsamChartDetected) {
-      houses.forEach((h, idx) => {
-        const th = tamilHouses[idx];
-        const regex = new RegExp(`(?:${h}|${th})\\s*[:=\\-]\\s*([A-Za-z\\u0B80-\\u0BFF\\s.,\\/]+)`, 'i');
-        const match = text.match(regex);
-        if (match && match[1]) {
-          const planets = match[1].split(/[\n;]/)[0].trim();
-          if (planets) {
-            rasiChartObj[h] = normalizePlanetTokens(planets);
-          }
-        }
-      });
-    }
+    // Detect Rasi & Amsam Chart from text
+    const textCharts = extractChartHousesFromText(text);
 
     // Marital Status & Mother Tongue
     const maritalMatch = text.match(/(?:marital status|marital|திருமண நிலை)\s*[:=\-]\s*([^\r\n]+)/i);
@@ -1047,8 +1230,8 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
         dosham,
         birth_time: birthTime,
         birth_place: birthPlace,
-        rasi_chart: Object.keys(rasiChartObj).length > 0 ? rasiChartObj : null,
-        amsam_chart: Object.keys(amsamChartObj).length > 0 ? amsamChartObj : null,
+        rasi_chart: textCharts.rasiChart,
+        amsam_chart: textCharts.amsamChart,
       },
     };
 
@@ -1454,4 +1637,39 @@ function normalizeChartHouses(chart: any): Record<string, string> | null {
   }
 
   return result;
+}
+
+function extractChartHousesFromText(text?: string): {
+  rasiChart: Record<string, string> | null;
+  amsamChart: Record<string, string> | null;
+} {
+  if (!text) return { rasiChart: null, amsamChart: null };
+
+  const rasiChartDetected = /(?:ராசி கட்டம்|rasi chart|ஜாதக கட்டம்|chart grid|rasi grid|horoscope rasi)/i.test(text);
+  const amsamChartDetected = /(?:அம்ச கட்டம்|amsam chart|நவாம்ச கட்டம்|amsam grid)/i.test(text);
+
+  const rasiChartObj: Record<string, string> = {};
+  const amsamChartObj: Record<string, string> = {};
+
+  const houses = ['Mesham', 'Rishabam', 'Mithunam', 'Kadagam', 'Simmam', 'Kanni', 'Thulaam', 'Viruchigam', 'Dhanusu', 'Magaram', 'Kumbam', 'Meenam'];
+  const tamilHouses = ['மேஷம்', 'ரிஷபம்', 'மிதுனம்', 'கடகம்', 'சிம்மம்', 'கன்னி', 'துலாம்', 'விருச்சிகம்', 'தனுசு', 'மகரம்', 'கும்பம்', 'மீனம்'];
+
+  if (rasiChartDetected || amsamChartDetected) {
+    houses.forEach((h, idx) => {
+      const th = tamilHouses[idx];
+      const regex = new RegExp(`(?:${h}|${th})\\s*[:=\\-]\\s*([A-Za-z\\u0B80-\\u0BFF\\s.,\\/]+)`, 'i');
+      const match = text.match(regex);
+      if (match && match[1]) {
+        const planets = match[1].split(/[\r\n;]/)[0].trim();
+        if (planets) {
+          rasiChartObj[h] = normalizePlanetTokens(planets);
+        }
+      }
+    });
+  }
+
+  return {
+    rasiChart: normalizeChartHouses(rasiChartObj),
+    amsamChart: normalizeChartHouses(amsamChartObj),
+  };
 }

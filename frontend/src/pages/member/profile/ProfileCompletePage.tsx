@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import {
   User, Heart, GraduationCap, Briefcase, Users, Star, Image as ImageIcon,
   Sliders, ChevronRight, ChevronLeft, CheckCircle2, Upload, Loader2,
-  MapPin, BookOpen, Sparkles, Shield, Camera, FileText, AlertCircle
+  MapPin, BookOpen, Sparkles, Camera, FileText, AlertCircle
 } from 'lucide-react';
 import api from '../../../services/api';
 import { useAuthStore } from '../../../store/auth.store';
@@ -38,7 +38,7 @@ const STEPS = [
   { id: 4, label: 'Family',          icon: Users,         color: 'from-primary to-primary-dark' },
   { id: 5, label: 'Lifestyle',       icon: Heart,         color: 'from-primary to-primary-dark' },
   { id: 6, label: 'Partner Pref.',   icon: Sliders,       color: 'from-primary to-primary-dark' },
-  { id: 7, label: 'Photos & Docs',   icon: ImageIcon,     color: 'from-primary to-primary-dark' },
+  { id: 7, label: 'Profile Photo',   icon: ImageIcon,     color: 'from-primary to-primary-dark' },
 ];
 
 const CASTE_SUBCASTES: Record<string, string[]> = {
@@ -269,8 +269,11 @@ const ProfileCompletePage = () => {
     if (form.caste && !unique.includes(form.caste)) {
       unique.unshift(form.caste);
     }
+    if (form.prefCaste && !unique.includes(form.prefCaste) && form.prefCaste !== 'Any') {
+      unique.unshift(form.prefCaste);
+    }
     return unique;
-  }, [mainCommunities, form.caste]);
+  }, [mainCommunities, form.caste, form.prefCaste]);
 
   // Load real profile from DB or AuthStore when component mounts
   useEffect(() => {
@@ -375,10 +378,21 @@ const ProfileCompletePage = () => {
               if (clean === 'ANY' || clean === 'ALL' || clean === 'ANY_STATUS') return 'ANY';
               return raw;
             })(),
-            prefReligion: p.partnerPreference?.religion || prev.prefReligion,
-            prefCaste: p.partnerPreference?.caste || prev.prefCaste,
-            prefLocation: p.partnerPreference?.location || prev.prefLocation,
-            aboutPartner: p.partnerPreference?.aboutPartner || prev.aboutPartner,
+            prefReligion: p.partnerPreference?.religion || (p as any).prefReligion || prev.prefReligion,
+            prefCaste: p.partnerPreference?.caste || p.partnerPreference?.community || (p as any).prefCaste || (p as any).prefCommunity || prev.prefCaste,
+            prefLocation: p.partnerPreference?.location || (p as any).prefLocation || prev.prefLocation,
+            aboutPartner: (() => {
+              const raw = p.partnerPreference?.about || p.partnerPreference?.aboutPartner || (p as any).aboutPartner || prev.aboutPartner || '';
+              if (typeof raw === 'string' && raw.startsWith('{') && raw.includes('religion')) {
+                try {
+                  const parsed = JSON.parse(raw);
+                  return parsed.about || '';
+                } catch {
+                  return '';
+                }
+              }
+              return raw;
+            })(),
             rasiChart: p.rasiChart || p.horoscope?.rasiChart || p.horoscope?.horoscopeData?.rasiChart || prev.rasiChart || {},
             amsamChart: p.amsamChart || p.horoscope?.amsamChart || p.horoscope?.horoscopeData?.amsamChart || p.horoscope?.horoscopeData?.navamsamChart || prev.amsamChart || {},
           }));
@@ -457,15 +471,18 @@ const ProfileCompletePage = () => {
   };
 
   const calculateProgress = () => {
-    const fields = [
+    if (((user as any)?.profileCompletionPercent ?? 0) >= 100) return 100;
+
+    const coreFields = [
       form.firstName, form.lastName, form.gender, form.dateOfBirth, form.motherTongue,
-      form.religion, form.caste, form.subcaste, form.gothram, form.star, form.rasi,
-      form.education, form.educationDetail, form.occupation, form.companyName, form.annualIncome,
-      form.country, form.state, form.city, form.fatherName, form.motherName,
-      form.diet, form.aboutMe, form.prefAgeMin, form.aboutPartner, photoPreview || form.photoFile
+      form.religion, form.caste, form.star, form.rasi,
+      form.education, form.occupation,
+      form.country, form.state, form.city, form.fatherName,
+      form.diet, form.aboutMe, form.prefAgeMin, form.prefCaste,
+      photoPreview || form.photoFile
     ];
-    const filled = fields.filter(val => Boolean(val && String(val).trim().length > 0)).length;
-    return Math.min(100, Math.round((filled / fields.length) * 100));
+    const filled = coreFields.filter(val => Boolean(val && String(val).trim().length > 0)).length;
+    return Math.min(100, Math.round((filled / coreFields.length) * 100));
   };
 
   const progress = calculateProgress();
@@ -497,7 +514,7 @@ const ProfileCompletePage = () => {
     return Object.keys(errs).length === 0;
   };
 
-  const saveCurrentStepData = async () => {
+  const saveCurrentStepData = async (extraOverrides: Record<string, any> = {}) => {
     const payload = {
       firstName: form.firstName,
       lastName: form.lastName,
@@ -571,8 +588,10 @@ const ProfileCompletePage = () => {
       prefMaritalStatus: form.prefMaritalStatus,
       prefReligion: form.prefReligion,
       prefCaste: form.prefCaste,
+      prefCommunity: form.prefCaste,
       prefLocation: form.prefLocation,
       aboutPartner: form.aboutPartner,
+      ...extraOverrides,
     };
 
     await api.patch('/profiles/me', payload);
@@ -627,7 +646,7 @@ const ProfileCompletePage = () => {
     }
     setSaving(true);
     try {
-      await saveCurrentStepData();
+      await saveCurrentStepData({ profileCompletionPercent: 100 });
       if (photoPreview) {
         try {
           await api.post('/profiles/photos', {
@@ -1216,7 +1235,8 @@ const ProfileCompletePage = () => {
         ))}
       </Select>
       <Select label="Preferred Community / Caste" value={form.prefCaste} onChange={(e: any) => set('prefCaste', e.target.value)}>
-        <option value="">Any Community / Caste</option>
+        <option value="">-- Select Preferred Community / Caste --</option>
+        <option value="Any">Any Community / Caste</option>
         {casteOptions.map(c => (
           <option key={c} value={c}>{c}</option>
         ))}
@@ -1262,14 +1282,6 @@ const ProfileCompletePage = () => {
               {photoPreview ? 'Change Photo' : 'Upload Photo'}
             </button>
           </div>
-        </div>
-      </div>
-
-      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3">
-        <Shield className="w-5 h-5 text-emerald-700 flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-semibold text-emerald-900">Verification Documents</p>
-          <p className="text-xs text-emerald-800 mt-1">You can upload Aadhaar, PAN, Passport, or Driving License later from <strong>My Profile → Verification</strong> section for a verified badge.</p>
         </div>
       </div>
     </div>
@@ -1404,7 +1416,7 @@ const ProfileCompletePage = () => {
                     'Tell us about your family',
                     'Your lifestyle and habits',
                     'What kind of partner are you looking for?',
-                    'Add your photo and documents',
+                    'Upload your profile photo',
                   ][currentStep]}
                 </p>
               </div>

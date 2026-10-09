@@ -43,7 +43,8 @@ const AdminAiBiodata = () => {
     try {
       const data = await profilesApi.parseBiodata(
         rawText,
-        imagePreview || undefined
+        imagePreview || undefined,
+        selectedFile?.name
       );
       setExtractedData(data);
       toast.success('✨ AI extracted structured biodata successfully!');
@@ -58,31 +59,38 @@ const AdminAiBiodata = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const nameLower = file.name.toLowerCase();
+    const isJpeg = /\.(jpe?g)$/i.test(nameLower) || file.type === 'image/jpeg' || file.type === 'image/jpg';
+    const isPng = /\.png$/i.test(nameLower) || file.type === 'image/png';
+    const isPdf = /\.pdf$/i.test(nameLower) || file.type === 'application/pdf';
+    const isDocx =
+      /\.docx$/i.test(nameLower) ||
+      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      file.type === 'application/msword';
+
+    if (!isJpeg && !isPng && !isPdf && !isDocx) {
+      toast.error('Unsupported file format. Please upload a PDF, DOCX, JPEG, or PNG biodata file.');
+      e.target.value = '';
+      return;
+    }
+
     setSelectedFile(file);
 
-    if (file.type.startsWith('image/') || file.type === 'application/pdf') {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        setImagePreview(base64);
-        setRawText('');
-        toast.success(
-          file.type === 'application/pdf'
-            ? `📄 Biodata PDF Loaded: ${file.name}`
-            : `📸 Biodata Image Loaded: ${file.name}`
-        );
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setImagePreview(null);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const content = event.target?.result as string;
-        setRawText(content || '');
-        toast.success(`📄 Loaded Document: ${file.name}`);
-      };
-      reader.readAsText(file);
-    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setImagePreview(base64);
+      setRawText('');
+
+      if (isPdf) {
+        toast.success(`📄 Biodata PDF Loaded: ${file.name}`);
+      } else if (isDocx) {
+        toast.success(`📄 Biodata DOCX Loaded: ${file.name}`);
+      } else {
+        toast.success(`📸 Biodata Image Loaded: ${file.name}`);
+      }
+    };
+    reader.readAsDataURL(file);
     e.target.value = '';
   };
 
@@ -210,9 +218,8 @@ const AdminAiBiodata = () => {
             {extractedData && (
               <button
                 onClick={handleSaveToDb}
-                disabled={saving || !hasValidMobile}
-                className="btn btn-sm px-4 flex items-center gap-2 font-bold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                title={!hasValidMobile ? 'Mobile number is required to save' : ''}
+                disabled={saving}
+                className="btn btn-sm px-4 flex items-center gap-2 font-bold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl disabled:opacity-50"
               >
                 {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
                 {saving ? 'Saving...' : 'Save to Database'}
@@ -245,7 +252,7 @@ const AdminAiBiodata = () => {
               {/* Hidden File Input */}
               <input
                 type="file"
-                accept="image/*,.pdf,.txt"
+                accept=".pdf,.docx,.jpg,.jpeg,.png,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,image/jpeg,image/png"
                 onChange={handleFileUpload}
                 className="hidden"
                 id="admin-biodata-file-input"
@@ -262,12 +269,20 @@ const AdminAiBiodata = () => {
                     </span>
                   </div>
                   <div className="aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center border border-slate-800">
-                    {selectedFile?.type === 'application/pdf' ? (
+                    {selectedFile?.name?.toLowerCase().endsWith('.docx') ? (
+                      <div className="flex flex-col items-center justify-center p-6 text-center space-y-3">
+                        <FileText className="w-16 h-16 text-blue-400 animate-pulse" />
+                        <div>
+                          <p className="text-sm font-semibold text-slate-200">{selectedFile.name}</p>
+                          <p className="text-xs text-slate-400 mt-1">DOCX Word Document ready for AI extraction</p>
+                        </div>
+                      </div>
+                    ) : selectedFile?.type === 'application/pdf' || selectedFile?.name?.toLowerCase().endsWith('.pdf') ? (
                       <div className="flex flex-col items-center justify-center p-6 text-center space-y-3">
                         <FileText className="w-16 h-16 text-rose-400 animate-pulse" />
                         <div>
                           <p className="text-sm font-semibold text-slate-200">{selectedFile.name}</p>
-                          <p className="text-xs text-slate-400 mt-1">PDF Document ready for AI extraction</p>
+                          <p className="text-xs text-slate-400 mt-1">PDF Document ready for multi-page AI extraction</p>
                         </div>
                       </div>
                     ) : (
@@ -276,7 +291,11 @@ const AdminAiBiodata = () => {
                   </div>
                   <div className="flex items-center justify-between pt-1">
                     <p className="text-[11px] text-slate-400 font-mono">
-                      {selectedFile?.type === 'application/pdf' ? '📄 PDF ready for AI extraction' : '📸 Photo ready for AI extraction'}
+                      {selectedFile?.name?.toLowerCase().endsWith('.docx')
+                        ? '📄 DOCX ready for AI extraction'
+                        : selectedFile?.type === 'application/pdf' || selectedFile?.name?.toLowerCase().endsWith('.pdf')
+                        ? '📄 PDF ready for multi-page extraction'
+                        : '📸 Photo ready for AI extraction'}
                     </p>
                     <label
                       htmlFor="admin-biodata-file-input"
@@ -296,7 +315,7 @@ const AdminAiBiodata = () => {
                       {(selectedFile.size / 1024).toFixed(1)} KB
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600">Text biodata ready for AI extraction.</p>
+                  <p className="text-xs text-slate-600">Biodata ready for AI extraction.</p>
                   <label
                     htmlFor="admin-biodata-file-input"
                     className="text-xs text-primary font-bold hover:underline cursor-pointer inline-block"
@@ -314,10 +333,10 @@ const AdminAiBiodata = () => {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-800">
-                      Click to upload Biodata Image or PDF
+                      Click to upload Biodata (PDF, DOCX, JPEG, PNG)
                     </p>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      Supports PNG, JPG, WebP, Scanned Photos, or PDF documents
+                      Supports multi-page PDF, DOCX Word documents, JPEG, and PNG images
                     </p>
                   </div>
                 </label>
@@ -459,15 +478,25 @@ const AdminAiBiodata = () => {
                     <div>
                       <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Mobile</span>
                       <span className={`font-medium truncate block ${!hasValidMobile ? 'text-rose-600 font-bold' : 'text-slate-800'}`}>
-                        {loginPhone || 'Missing (Required)'}
+                        {loginPhone || 'Not Mentioned (Default 0000)'}
                       </span>
                     </div>
                   </div>
 
                   {!hasValidMobile && (
-                    <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center gap-2">
-                      <span>⚠️</span>
-                      <span><strong>Mobile number is required:</strong> Every member profile must have a mobile number to create an account.</span>
+                    <div className="p-3 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-800 font-medium flex items-start justify-between gap-3 shadow-sm">
+                      <div className="flex items-start gap-2">
+                        <span className="text-base flex-shrink-0">⚠️</span>
+                        <div>
+                          <p className="font-bold text-rose-900">Mobile number is not mentioned in this biodata.</p>
+                          <p className="text-rose-700 text-[11px] mt-0.5">
+                            You can save anyway! An account will be created with default credentials using 0s (Email: <strong>{loginEmail}</strong>, Password: <strong>{initialPassword}</strong>). The mobile number can be updated later in Member Management.
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 rounded-md border border-rose-300 whitespace-nowrap">
+                        Not Mentioned
+                      </span>
                     </div>
                   )}
 
@@ -486,8 +515,8 @@ const AdminAiBiodata = () => {
                     <button
                       type="button"
                       onClick={handleSaveToDb}
-                      disabled={saving || !hasValidMobile}
-                      className="btn bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white btn-sm px-5 font-bold shadow-md rounded-xl flex items-center gap-2"
+                      disabled={saving}
+                      className="btn bg-emerald-600 hover:bg-emerald-700 text-white btn-sm px-5 font-bold shadow-md rounded-xl flex items-center gap-2 disabled:opacity-50"
                     >
                       {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
                       {saving ? 'Saving...' : 'Save Profile to Database'}

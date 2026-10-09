@@ -21,7 +21,16 @@ export class ProfilesController {
   @Public()
   @Post('parse-biodata')
   @ApiOperation({ summary: 'Parse matrimony biodata text/OCR and extract structured JSON' })
-  async parseBiodata(@Body() body: { text?: string; imageBase64?: string }) {
+  async parseBiodata(
+    @Body()
+    body: {
+      text?: string;
+      imageBase64?: string;
+      fileBase64?: string;
+      documentBase64?: string;
+      fileName?: string;
+    },
+  ) {
     return this.biodataParserService.parseBiodata(body);
   }
 

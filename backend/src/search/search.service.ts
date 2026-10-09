@@ -67,21 +67,16 @@ export class SearchService {
     }
 
     const threshold = await this.eliteQualService.getEliteThreshold();
-    const viewerCategory = await this.eliteQualService.getViewerCategory(excludeUserId, threshold);
     const viewerStatus = await this.eliteQualService.getViewerStatus(excludeUserId, threshold);
+    const viewerCategory = viewerStatus === 'GENERAL' ? 'GENERAL' : 'ELITE';
 
-    // Backend Category Visibility Enforcement at Query Level:
-    // 1. General viewer -> General targets only
-    // 2. Elite viewer -> Elite targets only
-    if (viewerCategory === 'GENERAL') {
+    // Backend Visibility Enforcement at Query Level:
+    // 1. General viewer -> General targets only (no active Elite plan)
+    // 2. Elite not qualified -> Elite targets (with active Elite plan)
+    // 3. Elite qualified -> Elite targets with netWorth >= threshold
+    if (viewerStatus === 'GENERAL') {
       where.AND = [
         ...(where.AND || []),
-        {
-          OR: [
-            { netWorth: null },
-            { netWorth: { lt: threshold } },
-          ],
-        },
         {
           OR: [
             { membership: null },
@@ -96,23 +91,33 @@ export class SearchService {
           ],
         },
       ];
-    } else {
+    } else if (viewerStatus === 'ELITE_NOT_QUALIFIED') {
       where.AND = [
         ...(where.AND || []),
         {
-          OR: [
-            { netWorth: { gte: threshold } },
-            {
-              membership: {
-                plan: {
-                  OR: [
-                    { category: 'ELITE' },
-                    { id: { in: ['elite-plan-silver', 'elite-plan-gold', 'elite-plan-platinum'] } },
-                  ],
-                },
-              },
+          membership: {
+            plan: {
+              OR: [
+                { category: 'ELITE' },
+                { id: { in: ['elite-plan-silver', 'elite-plan-gold', 'elite-plan-platinum'] } },
+              ],
             },
-          ],
+          },
+        },
+      ];
+    } else if (viewerStatus === 'ELITE_QUALIFIED') {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          netWorth: { gte: threshold },
+          membership: {
+            plan: {
+              OR: [
+                { category: 'ELITE' },
+                { id: { in: ['elite-plan-silver', 'elite-plan-gold', 'elite-plan-platinum'] } },
+              ],
+            },
+          },
         },
       ];
     }
@@ -374,7 +379,7 @@ export class SearchService {
         let profilesWithScores = profiles
           .map((p) => {
             const targetEval = this.eliteQualService.evaluateProfile(p, threshold);
-            if (targetEval.membershipCategory !== viewerCategory) {
+            if (!this.eliteQualService.isProfileVisibleToViewer(viewerStatus, targetEval.eliteStatus)) {
               return null;
             }
 
@@ -480,10 +485,13 @@ export class SearchService {
 
     const fallbackProfiles = devUsers;
 
-    let filtered = fallbackProfiles;
+    let filtered = fallbackProfiles.filter((p) => {
+      const targetEval = this.eliteQualService.evaluateProfile(p, threshold);
+      return this.eliteQualService.isProfileVisibleToViewer(viewerStatus, targetEval.eliteStatus);
+    });
     const targetGender = query?.gender ? String(query.gender).toUpperCase() : '';
     if (['MALE', 'FEMALE'].includes(targetGender)) {
-      filtered = fallbackProfiles.filter(p => p.gender === targetGender);
+      filtered = filtered.filter(p => p.gender === targetGender);
     }
 
     const tabLower = (query?.tab || '').toLowerCase().trim();

@@ -324,15 +324,21 @@ const AdminUsers = () => {
 
       {/* View User Modal */}
       {viewUser && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 p-6 space-y-4 animate-scale-in">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          onClick={() => setViewUser(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col border border-slate-200 p-6 space-y-4 animate-scale-in my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-shrink-0">
               <h2 className="text-text-primary font-display text-lg font-bold">User Details</h2>
               <button onClick={() => setViewUser(null)} className="text-text-muted hover:text-text-primary w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="space-y-3 text-sm">
+            <div className="space-y-3 text-sm overflow-y-auto flex-1">
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-text-muted font-medium">Name</span>
                 <span className="font-bold text-text-primary">{getUserName(viewUser)}</span>
@@ -386,7 +392,7 @@ const AdminUsers = () => {
                 <span className={`badge text-xs ${statusBadge(getUserStatus(viewUser))}`}>{getUserStatus(viewUser)}</span>
               </div>
             </div>
-            <div className="pt-2">
+            <div className="pt-2 flex-shrink-0 border-t border-slate-100">
               <button onClick={() => setViewUser(null)} className="btn btn-ghost btn-sm w-full border border-slate-200">Close</button>
             </div>
           </div>

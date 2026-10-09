@@ -488,10 +488,16 @@ const SuperAdminUsers = () => {
 
       {/* View User Detail Modal */}
       {viewUser && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden">
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          onClick={() => setViewUser(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden animate-scale-in my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-primary to-secondary p-5 flex items-center justify-between">
+            <div className="bg-gradient-to-r from-primary to-secondary p-5 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 {viewUser.profile?.photos?.[0]?.url ? (
                   <img
@@ -518,7 +524,7 @@ const SuperAdminUsers = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="p-5 space-y-3">
+            <div className="p-5 space-y-3 overflow-y-auto flex-1">
               {[
                 { label: 'User ID',      value: viewUser.id.slice(0, 16) + '…',   icon: User },
                 { label: 'Email',        value: viewUser.email,                     icon: Mail },
@@ -573,7 +579,7 @@ const SuperAdminUsers = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-5 pt-0 flex gap-2">
+            <div className="p-5 pt-3 border-t border-slate-100 flex gap-2 flex-shrink-0 bg-slate-50/50">
               <button
                 onClick={() => { handleBan(viewUser.id, viewUser.isActive, getUserName(viewUser)); setViewUser(null); }}
                 className={`flex-1 py-2.5 text-sm font-semibold rounded-xl border transition-colors ${

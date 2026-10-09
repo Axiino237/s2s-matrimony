@@ -404,10 +404,9 @@ const ProfileViewPage = () => {
       prefAge,
       prefHeight,
       prefMarital: formatMarital((p as any).prefMaritalStatus || p.partnerPreference?.maritalStatus?.[0] || prefObj.maritalStatus),
-      prefReligion: prefObj.religion || 'Not Specified',
-      prefCommunity: prefObj.community || 'Not Specified',
-      prefEducation: prefObj.education || 'Not Specified',
-      prefLocation: prefObj.location || 'Not Specified',
+      prefReligion: prefObj.religion || p.partnerPreference?.religion || (p as any).prefReligion || 'Not Specified',
+      prefCommunity: prefObj.community || prefObj.caste || p.partnerPreference?.community || p.partnerPreference?.caste || (p as any).prefCommunity || (p as any).prefCaste || 'Not Specified',
+      prefLocation: prefObj.location || p.partnerPreference?.location || (p as any).prefLocation || 'Not Specified',
       dosham: (() => {
         const raw = p.horoscope?.dosham || p.dosham || (p as any)?.horoscopeData?.dosham;
         if (!raw) return 'No Dosham';
@@ -1053,7 +1052,6 @@ const ProfileViewPage = () => {
                     ['Preferred Marital Status', profile.prefMarital],
                     ['Preferred Religion', profile.prefReligion],
                     ['Preferred Community', profile.prefCommunity],
-                    ['Preferred Education', profile.prefEducation],
                     ['Preferred Location', profile.prefLocation],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-2 border-b border-slate-100">

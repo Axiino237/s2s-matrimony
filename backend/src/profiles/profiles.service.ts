@@ -142,6 +142,30 @@ export class ProfilesService {
       const birthPlace = profile.horoscope?.birthPlace || devUser.birthPlace || (devUser.horoscopeData as any)?.birthPlace || '';
       const place = cityName || workLocation || nativePlace || birthPlace || '';
 
+      // Unpack aboutPartner JSON if present
+      const parsedAbout = (() => {
+        if (!profile.partnerPreference?.aboutPartner) return {};
+        try {
+          const parsed = typeof profile.partnerPreference.aboutPartner === 'string'
+            ? JSON.parse(profile.partnerPreference.aboutPartner)
+            : profile.partnerPreference.aboutPartner;
+          if (typeof parsed?.about === 'string' && parsed.about.startsWith('{') && parsed.about.includes('religion')) {
+            try {
+              const inner = JSON.parse(parsed.about);
+              if (inner.about !== undefined) parsed.about = inner.about;
+            } catch {}
+          }
+          return parsed || {};
+        } catch {
+          return {};
+        }
+      })();
+
+      const prefCommunityVal = parsedAbout.community || parsedAbout.caste || devUser?.prefCommunity || devUser?.prefCaste || '';
+      const prefReligionVal = parsedAbout.religion || devUser?.prefReligion || '';
+      const prefLocationVal = parsedAbout.location || devUser?.prefLocation || '';
+      const prefAboutVal = parsedAbout.about || devUser?.aboutPartner || '';
+
       return {
         ...profile,
         religion: religionName,
@@ -239,6 +263,16 @@ export class ProfilesService {
         place: place || cityName || nativePlace || birthPlace || 'Chennai',
         partnerPreference: profile.partnerPreference ? {
           ...profile.partnerPreference,
+          caste: prefCommunityVal,
+          community: prefCommunityVal,
+          prefCaste: prefCommunityVal,
+          prefCommunity: prefCommunityVal,
+          religion: prefReligionVal,
+          prefReligion: prefReligionVal,
+          location: prefLocationVal,
+          prefLocation: prefLocationVal,
+          about: prefAboutVal,
+          aboutPartner: prefAboutVal,
           maritalStatus: (profile.partnerPreference.maritalStatus && profile.partnerPreference.maritalStatus.length > 0)
             ? profile.partnerPreference.maritalStatus
             : (devUser?.prefMaritalStatus ? [devUser.prefMaritalStatus] : []),
@@ -249,15 +283,27 @@ export class ProfilesService {
           heightMin: devUser?.prefHeightMin,
           heightMax: devUser?.prefHeightMax,
           maritalStatus: devUser?.prefMaritalStatus ? [devUser.prefMaritalStatus] : [],
+          caste: prefCommunityVal,
+          community: prefCommunityVal,
+          prefCaste: prefCommunityVal,
+          prefCommunity: prefCommunityVal,
+          religion: prefReligionVal,
+          prefReligion: prefReligionVal,
+          location: prefLocationVal,
+          prefLocation: prefLocationVal,
+          about: prefAboutVal,
           aboutPartner: typeof devUser?.aboutPartner === 'string' ? devUser.aboutPartner : JSON.stringify({
             religion: devUser?.prefReligion || '',
             community: devUser?.prefCommunity || '',
-            education: devUser?.prefEducation || '',
             location: devUser?.prefLocation || '',
             maritalStatus: devUser?.prefMaritalStatus || '',
           }),
         } : null),
         prefMaritalStatus: devUser?.prefMaritalStatus || profile.partnerPreference?.maritalStatus?.[0] || '',
+        prefCaste: prefCommunityVal,
+        prefCommunity: prefCommunityVal,
+        prefReligion: prefReligionVal,
+        prefLocation: prefLocationVal,
         ...(() => {
           const threshold = 50000000;
           const selfEval = this.eliteQualService.evaluateProfile(profile, threshold);
@@ -369,15 +415,27 @@ export class ProfilesService {
           heightMin: devUser?.prefHeightMin,
           heightMax: devUser?.prefHeightMax,
           maritalStatus: devUser?.prefMaritalStatus ? [devUser.prefMaritalStatus] : [],
+          caste: devUser?.prefCommunity || devUser?.prefCaste || '',
+          community: devUser?.prefCommunity || devUser?.prefCaste || '',
+          prefCaste: devUser?.prefCommunity || devUser?.prefCaste || '',
+          prefCommunity: devUser?.prefCommunity || devUser?.prefCaste || '',
+          religion: devUser?.prefReligion || '',
+          prefReligion: devUser?.prefReligion || '',
+          location: devUser?.prefLocation || '',
+          prefLocation: devUser?.prefLocation || '',
+          about: devUser?.aboutPartner || '',
           aboutPartner: typeof devUser?.aboutPartner === 'string' ? devUser.aboutPartner : JSON.stringify({
             religion: devUser?.prefReligion || '',
-            community: devUser?.prefCommunity || '',
-            education: devUser?.prefEducation || '',
+            community: devUser?.prefCommunity || devUser?.prefCaste || '',
             location: devUser?.prefLocation || '',
             maritalStatus: devUser?.prefMaritalStatus || '',
           }),
         },
         prefMaritalStatus: devUser?.prefMaritalStatus || '',
+        prefCaste: devUser?.prefCommunity || devUser?.prefCaste || '',
+        prefCommunity: devUser?.prefCommunity || devUser?.prefCaste || '',
+        prefReligion: devUser?.prefReligion || '',
+        prefLocation: devUser?.prefLocation || '',
         profileCompletionPercent: (devUser as any)?.profileCompletionPercent ?? (firstName ? 100 : 85),
         isVerified: true,
         membershipTier: (devUser as any)?.membershipTier || 'FREE',
@@ -428,12 +486,12 @@ export class ProfilesService {
         throw new NotFoundException('Profile is not available');
       }
 
-      // Backend Category Visibility Enforcement
+      // Backend Visibility Enforcement
       const threshold = await this.eliteQualService.getEliteThreshold();
-      const viewerCategory = await this.eliteQualService.getViewerCategory(requesterUserId, threshold);
+      const viewerStatus = await this.eliteQualService.getViewerStatus(requesterUserId, threshold);
       const targetEval = this.eliteQualService.evaluateProfile(profile, threshold);
 
-      if (targetEval.membershipCategory !== viewerCategory) {
+      if (!this.eliteQualService.isProfileVisibleToViewer(viewerStatus, targetEval.eliteStatus)) {
         throw new NotFoundException('Profile is not available');
       }
     }
@@ -474,6 +532,45 @@ export class ProfilesService {
         : profile.horoscope,
     };
 
+    if (result.partnerPreference) {
+      let prefObj: any = {};
+      try {
+        if (result.partnerPreference.aboutPartner) {
+          prefObj = typeof result.partnerPreference.aboutPartner === 'string'
+            ? JSON.parse(result.partnerPreference.aboutPartner)
+            : result.partnerPreference.aboutPartner;
+          if (typeof prefObj?.about === 'string' && prefObj.about.startsWith('{') && prefObj.about.includes('religion')) {
+            try {
+              const inner = JSON.parse(prefObj.about);
+              if (inner.about !== undefined) prefObj.about = inner.about;
+            } catch {}
+          }
+        }
+      } catch {}
+
+      const pComm = prefObj.community || prefObj.caste || '';
+      const pRel = prefObj.religion || '';
+      const pLoc = prefObj.location || '';
+      const pAbout = prefObj.about || '';
+
+      result.partnerPreference = {
+        ...result.partnerPreference,
+        caste: pComm,
+        community: pComm,
+        prefCaste: pComm,
+        prefCommunity: pComm,
+        religion: pRel,
+        prefReligion: pRel,
+        location: pLoc,
+        prefLocation: pLoc,
+        about: pAbout,
+      };
+      result.prefCaste = pComm;
+      result.prefCommunity = pComm;
+      result.prefReligion = pRel;
+      result.prefLocation = pLoc;
+    }
+
     if (!isOwner && !isStaff) {
       result.assetValue = null;
       result.bankBalance = null;
@@ -497,7 +594,16 @@ export class ProfilesService {
 
   async updateProfile(userId: string, data: any) {
     try {
-      let existing: any = await this.prisma.profile.findUnique({ where: { userId }, include: { horoscope: true } }).catch(() => null);
+      let existing: any = await this.prisma.profile.findUnique({
+        where: { userId },
+        include: {
+          horoscope: true,
+          education: true,
+          occupation: true,
+          family: true,
+          partnerPreference: true,
+        },
+      }).catch(() => null);
 
       const fieldsToCheck = [
         data.firstName || existing?.firstName,
@@ -506,19 +612,24 @@ export class ProfilesService {
         data.dateOfBirth || existing?.dateOfBirth,
         data.maritalStatus || existing?.maritalStatus,
         data.motherTongue || existing?.motherTongue,
-        data.religion || existing?.religionId,
-        data.community || existing?.communityId,
-        data.about || existing?.about,
+        data.religion || existing?.religionId || existing?.religion?.name,
+        data.community || data.caste || existing?.communityId || existing?.community?.name,
+        data.about || data.aboutMe || existing?.about,
         data.heightCm || existing?.heightCm,
-        data.educationDegree || data.education,
-        data.occupation,
-        data.annualIncome,
-        data.fatherName,
-        data.star,
-        data.rasi,
+        data.educationDegree || data.education || existing?.education?.degree,
+        data.occupation || existing?.occupation?.designation || existing?.occupation?.title,
+        data.annualIncome || existing?.occupation?.annualIncome,
+        data.fatherName || existing?.family?.fatherName,
+        data.star || existing?.horoscope?.star,
+        data.rasi || existing?.horoscope?.rasi,
       ];
       const filledCount = fieldsToCheck.filter((f) => Boolean(f && String(f).trim().length > 0)).length;
-      const calcPercent = Math.max(30, Math.min(100, Math.round((filledCount / fieldsToCheck.length) * 100)));
+      let calcPercent = Math.max(30, Math.min(100, Math.round((filledCount / fieldsToCheck.length) * 100)));
+      if (data.profileCompletionPercent !== undefined) {
+        calcPercent = Math.max(calcPercent, Number(data.profileCompletionPercent));
+      } else if (existing?.profileCompletionPercent === 100) {
+        calcPercent = 100;
+      }
 
       const updateData: any = {
         profileCompletionPercent: calcPercent,
@@ -966,7 +1077,7 @@ export class ProfilesService {
         }
 
         // Upsert PartnerPreference relation
-        if (data.prefGender || data.prefAgeMin || data.prefAgeMax || data.prefHeightMin || data.prefHeightMax || data.prefMaritalStatus || data.aboutPartner || data.prefReligion || data.prefCaste || data.prefCommunity || data.prefLocation || data.prefEducation) {
+        if (data.prefGender !== undefined || data.prefAgeMin !== undefined || data.prefAgeMax !== undefined || data.prefHeightMin !== undefined || data.prefHeightMax !== undefined || data.prefMaritalStatus !== undefined || data.aboutPartner !== undefined || data.prefReligion !== undefined || data.prefCaste !== undefined || data.prefCommunity !== undefined || data.prefLocation !== undefined) {
           let maritalStatusArr: MaritalStatus[] = [];
           if (data.prefMaritalStatus) {
             const rawMarital = String(data.prefMaritalStatus).toUpperCase().replace(/\s+/g, '_');
@@ -976,14 +1087,39 @@ export class ProfilesService {
               maritalStatusArr = [];
             }
           }
+
+          let existingAboutObj: any = {};
+          if (existing?.partnerPreference?.aboutPartner) {
+            try {
+              existingAboutObj = typeof existing.partnerPreference.aboutPartner === 'string'
+                ? JSON.parse(existing.partnerPreference.aboutPartner)
+                : existing.partnerPreference.aboutPartner;
+            } catch {}
+          }
+
+          const incomingCommunity = data.prefCommunity !== undefined ? data.prefCommunity : (data.prefCaste !== undefined ? data.prefCaste : undefined);
+          const communityVal = incomingCommunity !== undefined ? incomingCommunity : (existingAboutObj.community || existingAboutObj.caste || '');
+
+          const incomingReligion = data.prefReligion !== undefined ? data.prefReligion : (existingAboutObj.religion || '');
+          const incomingLocation = data.prefLocation !== undefined ? data.prefLocation : (existingAboutObj.location || '');
+
+          let cleanAbout = data.aboutPartner !== undefined ? data.aboutPartner : (existingAboutObj.about || '');
+          if (typeof cleanAbout === 'string' && cleanAbout.startsWith('{') && cleanAbout.includes('religion')) {
+            try {
+              const parsed = JSON.parse(cleanAbout);
+              cleanAbout = parsed.about || '';
+            } catch {}
+          }
+
           const aboutObj = JSON.stringify({
-            religion: data.prefReligion || '',
-            community: data.prefCommunity || data.prefCaste || '',
-            education: data.prefEducation || '',
-            location: data.prefLocation || '',
-            about: data.aboutPartner || '',
-            maritalStatus: data.prefMaritalStatus || '',
+            religion: incomingReligion || '',
+            community: communityVal || '',
+            caste: communityVal || '',
+            location: incomingLocation || '',
+            about: cleanAbout || '',
+            maritalStatus: data.prefMaritalStatus || existingAboutObj.maritalStatus || '',
           });
+
           await this.prisma.partnerPreference.upsert({
             where: { profileId },
             create: {
@@ -1067,11 +1203,15 @@ export class ProfilesService {
       devStore.update(userId, {
         ...data,
         prefMaritalStatus: data.prefMaritalStatus !== undefined ? data.prefMaritalStatus : (existingDev.prefMaritalStatus || ''),
+        prefCommunity: data.prefCommunity || data.prefCaste || (existingDev as any).prefCommunity || (existingDev as any).prefCaste || '',
+        prefCaste: data.prefCommunity || data.prefCaste || (existingDev as any).prefCaste || (existingDev as any).prefCommunity || '',
+        prefReligion: data.prefReligion !== undefined ? data.prefReligion : (existingDev as any).prefReligion,
+        prefLocation: data.prefLocation !== undefined ? data.prefLocation : (existingDev as any).prefLocation,
         ...calcDevSiblings(existingDev),
         horoscopeData: mergedHoroscopeData,
         rasiChart: mergedHoroscopeData.rasiChart,
         amsamChart: mergedHoroscopeData.amsamChart,
-        profileCompletionPercent: 100,
+        profileCompletionPercent: calcPercent,
       });
       return this.getProfileByUserId(userId);
     } catch (err: any) {
@@ -1850,8 +1990,8 @@ export class ProfilesService {
     const pref = extractedData.partnerPreference || extractedData.partner_preference || {};
     const con = extractedData.contact || {};
 
-    // 1. Extract and sanitize contact phone (Mandatory for AI direct-save)
-    let contactPhone: string | null = null;
+    // 1. Extract and sanitize contact phone
+    let extractedPhone: string | null = null;
     let mobileDigits: string = '';
     const rawMobile = con.mobile || con.phone || p.mobile || p.phone;
     if (rawMobile) {
@@ -1859,17 +1999,32 @@ export class ProfilesService {
       const cleaned = mobileStr.replace(/\D/g, '');
       if (cleaned.length >= 10) {
         mobileDigits = cleaned;
-        contactPhone = cleaned.startsWith('91') && cleaned.length === 12
+        extractedPhone = cleaned.startsWith('91') && cleaned.length === 12
           ? `+${cleaned}`
           : `+91${cleaned.slice(-10)}`;
       }
     }
 
-    if (!contactPhone || !mobileDigits || mobileDigits.length < 10) {
-      throw new BadRequestException('Mobile number is required to create this member account.');
+    const isMobileMissing = !extractedPhone || !mobileDigits || mobileDigits.length < 10;
+    let contactPhone: string;
+    if (isMobileMissing) {
+      mobileDigits = '0000';
+      // Generate unique placeholder phone using 0000 to satisfy PostgreSQL unique constraint
+      let candidatePhone = '+910000000000';
+      const existingCandidate = await this.prisma.user.findFirst({
+        where: { phone: candidatePhone },
+      });
+      if (existingCandidate) {
+        do {
+          candidatePhone = `+910000${Math.floor(100000 + Math.random() * 900000)}`;
+        } while (await this.prisma.user.findFirst({ where: { phone: candidatePhone } }));
+      }
+      contactPhone = candidatePhone;
+    } else {
+      contactPhone = extractedPhone!;
     }
 
-    const last4Digits = mobileDigits.slice(-4);
+    const last4Digits = mobileDigits.length >= 4 ? mobileDigits.slice(-4) : '0000';
 
     // 2. Extract and format member first name
     // Email uses lowercase first name; Password uses first name with normal capitalization
@@ -1898,39 +2053,52 @@ export class ProfilesService {
     }
 
     // If email is present in extracted biodata, use it; otherwise generate: firstname + last4Digits + @gmail.com
-    const loginEmail = contactEmail || `${lowercaseFirstName}${last4Digits}@gmail.com`;
+    let loginEmail = contactEmail || `${lowercaseFirstName}${last4Digits}@gmail.com`;
 
-    // Initial password: Firstname (normal capitalization) + @ + last4Digits of mobile
+    // Initial password: Firstname (normal capitalization) + @ + last4Digits of mobile (e.g. Member@0000)
     const rawPassword = `${capitalizedFirstName}@${last4Digits}`;
     const passwordHash = await bcrypt.hash(rawPassword, 10);
 
     // 4. Duplicate checks before user creation
-    const existingUserWithEmail = await this.prisma.user.findFirst({
-      where: {
-        email: { equals: loginEmail, mode: 'insensitive' },
-      },
-    });
+    if (isMobileMissing && !contactEmail) {
+      // If auto-generated email with 0000 already exists, generate a unique variant
+      let suffix = 0;
+      let checkEmail = loginEmail;
+      while (await this.prisma.user.findFirst({ where: { email: { equals: checkEmail, mode: 'insensitive' } } })) {
+        suffix++;
+        checkEmail = `${lowercaseFirstName}${last4Digits}_${suffix}@gmail.com`;
+      }
+      loginEmail = checkEmail;
+    } else {
+      const existingUserWithEmail = await this.prisma.user.findFirst({
+        where: {
+          email: { equals: loginEmail, mode: 'insensitive' },
+        },
+      });
 
-    if (existingUserWithEmail) {
-      throw new BadRequestException(
-        `A user account with email "${loginEmail}" already exists. Please resolve the duplicate email before saving.`
-      );
+      if (existingUserWithEmail) {
+        throw new BadRequestException(
+          `A user account with email "${loginEmail}" already exists. Please resolve the duplicate email before saving.`
+        );
+      }
     }
 
-    const existingUserWithPhone = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { phone: contactPhone },
-          { phone: contactPhone.slice(-10) },
-          { phone: `+91${contactPhone.slice(-10)}` },
-        ],
-      },
-    });
+    if (!isMobileMissing) {
+      const existingUserWithPhone = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { phone: contactPhone },
+            { phone: contactPhone.slice(-10) },
+            { phone: `+91${contactPhone.slice(-10)}` },
+          ],
+        },
+      });
 
-    if (existingUserWithPhone) {
-      throw new BadRequestException(
-        `A user account with mobile number "${contactPhone}" already exists. Please resolve the duplicate mobile number before saving.`
-      );
+      if (existingUserWithPhone) {
+        throw new BadRequestException(
+          `A user account with mobile number "${contactPhone}" already exists. Please resolve the duplicate mobile number before saving.`
+        );
+      }
     }
 
     // 5. Create new user account with hashed password
@@ -2336,12 +2504,14 @@ export class ProfilesService {
       status: saved.status,
       credentials: {
         identifier: user.email,
-        phone: contactPhone,
+        phone: isMobileMissing ? 'Not Mentioned (Default 0000)' : contactPhone,
+        rawPhone: contactPhone,
         email: user.email,
         loginEmail: user.email,
         password: rawPassword,
         initialPassword: rawPassword,
         memberId: saved.memberId,
+        isMobileMissing,
       },
       savedData: {
         profileId: saved.id,

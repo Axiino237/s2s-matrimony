@@ -325,7 +325,8 @@ export class HoroscopeMatchingService {
     }
 
     const threshold = await this.eliteQualService.getEliteThreshold();
-    const viewerCategory = access.membershipCategory;
+    const viewerStatus = await this.eliteQualService.getViewerStatus(userId, threshold);
+    const viewerCategory = viewerStatus === 'GENERAL' ? 'GENERAL' : 'ELITE';
 
     // 4. Query pre-calculated stored matches from DB
     const storedMatches = await this.prisma.horoscopeMatch.findMany({
@@ -404,9 +405,9 @@ export class HoroscopeMatchingService {
       const candCheck = this.isHoroscopeComplete(candidate);
       if (!candCheck.isComplete) continue;
 
-      // Centralized category visibility: GENERAL viewer sees GENERAL members; ELITE viewer sees ELITE members
+      // Centralized visibility matrix enforcement
       const candidateEval = this.eliteQualService.evaluateProfile(candidate, threshold);
-      if (candidateEval.membershipCategory !== viewerCategory) {
+      if (!this.eliteQualService.isProfileVisibleToViewer(viewerStatus, candidateEval.eliteStatus)) {
         continue;
       }
 

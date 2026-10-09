@@ -214,7 +214,6 @@ const ProfileEditPage = () => {
     prefMaritalStatus: '',
     prefReligion: '',
     prefCommunity: '',
-    prefEducation: '',
     prefLocation: '',
     // Privacy Settings
     photoPrivacy: 'ALL',
@@ -365,10 +364,9 @@ const ProfileEditPage = () => {
               if (normalized === 'ANY' || normalized === 'ANY_STATUS' || normalized === 'ALL') return 'ANY';
               return raw;
             })(),
-            prefReligion: aboutPartnerObj.religion || 'Hindu',
-            prefCommunity: aboutPartnerObj.community || '',
-            prefEducation: aboutPartnerObj.education || '',
-            prefLocation: aboutPartnerObj.location || '',
+            prefReligion: aboutPartnerObj.religion || data.partnerPreference?.religion || (data as any).prefReligion || 'Hindu',
+            prefCommunity: aboutPartnerObj.community || aboutPartnerObj.caste || data.partnerPreference?.community || data.partnerPreference?.caste || (data as any).prefCommunity || (data as any).prefCaste || '',
+            prefLocation: aboutPartnerObj.location || data.partnerPreference?.location || (data as any).prefLocation || '',
             // Privacy Settings from DB
             photoPrivacy: data.privacySetting?.whoCanViewProfile || 'ALL',
             phonePrivacy: data.privacySetting?.showPhone ? 'ACCEPTED' : 'PREMIUM',
@@ -657,8 +655,9 @@ const ProfileEditPage = () => {
       prefMaritalStatus: formData.prefMaritalStatus || undefined,
       prefReligion: formData.prefReligion || undefined,
       prefCommunity: formData.prefCommunity || undefined,
-      prefEducation: formData.prefEducation || undefined,
+      prefCaste: formData.prefCommunity || undefined,
       prefLocation: formData.prefLocation || undefined,
+      profileCompletionPercent: isAlreadyComplete ? 100 : undefined,
       // Privacy Settings
       photoPrivacy: formData.photoPrivacy || undefined,
       phonePrivacy: formData.phonePrivacy || undefined,
@@ -792,8 +791,11 @@ const ProfileEditPage = () => {
     if (formData.community && !unique.includes(formData.community)) {
       unique.unshift(formData.community);
     }
+    if (formData.prefCommunity && !unique.includes(formData.prefCommunity) && formData.prefCommunity !== 'Any') {
+      unique.unshift(formData.prefCommunity);
+    }
     return unique;
-  }, [mainCommunities, formData.community]);
+  }, [mainCommunities, formData.community, formData.prefCommunity]);
 
   const matchedCommunity = useMemo(() => {
     if (!formData.community) return null;
@@ -1996,27 +1998,6 @@ const ProfileEditPage = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="input-label">Preferred Education</label>
-                <select
-                  className="input border-slate-200 text-text-primary w-full"
-                  value={formData.prefEducation}
-                  onChange={(e) => handleChange('prefEducation', e.target.value)}
-                >
-                  <option value="">-- Select Preferred Education --</option>
-                  <option value="Any Education">Any Education</option>
-                  <option value="B.E / B.Tech">B.E / B.Tech</option>
-                  <option value="M.E / M.Tech">M.E / M.Tech</option>
-                  <option value="B.Sc / M.Sc">B.Sc / M.Sc</option>
-                  <option value="B.Com / M.Com">B.Com / M.Com</option>
-                  <option value="BBA / MBA">BBA / MBA</option>
-                  <option value="BCA / MCA">BCA / MCA</option>
-                  <option value="MBBS / MD / Medical">MBBS / MD / Medical</option>
-                  <option value="Diploma">Diploma</option>
-                  <option value="Graduate & Above">Graduate & Above</option>
-                  <option value="Post Graduate & Above">Post Graduate & Above</option>
-                </select>
-              </div>
 
               <div className="sm:col-span-2">
                 <label className="input-label">Preferred Location / State</label>
