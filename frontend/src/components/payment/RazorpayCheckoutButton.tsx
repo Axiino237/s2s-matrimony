@@ -86,12 +86,8 @@ export const RazorpayCheckoutButton: React.FC<RazorpayCheckoutButtonProps> = ({
       if (receipt) orderPayload.receipt = receipt;
 
       const orderData = await paymentsApi.createOrder(orderPayload);
-      const razorpayKey =
-        orderData.key ||
-        import.meta.env.VITE_RAZORPAY_KEY_ID ||
-        'rzp_test_TjJrVTHa9GKmXb';
-
-      const orderId = orderData.order_id || orderData.razorpayOrderId || orderData.orderId;
+      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || orderData.key;
+      const orderId = orderData.order_id || orderData.id || orderData.razorpayOrderId || orderData.orderId;
 
       toast.dismiss(toastId);
 
@@ -103,7 +99,7 @@ export const RazorpayCheckoutButton: React.FC<RazorpayCheckoutButtonProps> = ({
         name: 'S2S Community Matrimony',
         description: planName,
         image: '/images/logo.png',
-        ...(orderId && !orderId.startsWith('order_mock_') ? { order_id: orderId } : {}),
+        order_id: orderId,
         handler: async (response: any) => {
           const verifyToast = toast.loading('Verifying payment signature...');
           try {

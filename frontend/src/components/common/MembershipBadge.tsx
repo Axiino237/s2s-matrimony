@@ -5,13 +5,21 @@ export type TierType = 'FREE' | 'SILVER' | 'GOLD' | 'DIAMOND' | 'ELITE' | 'PLATI
 
 export interface MembershipBadgeProps {
   tier?: TierType | null;
+  category?: 'GENERAL' | 'ELITE' | string | null;
   size?: 'xs' | 'sm' | 'md';
   className?: string;
   showIcon?: boolean;
 }
 
-export const formatTierName = (tier?: string | null): string => {
+export const formatTierName = (tier?: string | null, category?: string | null): string => {
   const t = (tier || 'FREE').toUpperCase();
+  const isElite = (category || '').toUpperCase() === 'ELITE' || t === 'ELITE';
+
+  if (isElite) {
+    if (t === 'FREE' || t === 'ELITE') return '★ Elite Member';
+    return `★ Elite ${t.charAt(0) + t.slice(1).toLowerCase()} Member`;
+  }
+
   switch (t) {
     case 'FREE':
       return 'Free Member';
@@ -21,8 +29,6 @@ export const formatTierName = (tier?: string | null): string => {
       return '★ Gold Member';
     case 'DIAMOND':
       return '★ Diamond Member';
-    case 'ELITE':
-      return '★ Elite Member';
     case 'PLATINUM':
       return '★ Platinum Member';
     default:
@@ -30,8 +36,14 @@ export const formatTierName = (tier?: string | null): string => {
   }
 };
 
-export const getTierBadgeClass = (tier?: string | null): string => {
+export const getTierBadgeClass = (tier?: string | null, category?: string | null): string => {
   const t = (tier || 'FREE').toUpperCase();
+  const isElite = (category || '').toUpperCase() === 'ELITE' || t === 'ELITE';
+
+  if (isElite) {
+    return 'bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-500 text-white shadow-sm border border-purple-400/40 font-semibold';
+  }
+
   switch (t) {
     case 'SILVER':
       return 'bg-gradient-to-r from-slate-400 to-slate-500 text-white shadow-sm border border-slate-300/40';
@@ -39,8 +51,6 @@ export const getTierBadgeClass = (tier?: string | null): string => {
       return 'bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-white shadow-sm border border-amber-300/40 font-semibold';
     case 'DIAMOND':
       return 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm border border-blue-400/40 font-semibold';
-    case 'ELITE':
-      return 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-sm border border-purple-400/40 font-semibold';
     case 'PLATINUM':
       return 'bg-gradient-to-r from-cyan-500 to-teal-600 text-white shadow-sm border border-cyan-400/40 font-semibold';
     case 'FREE':
@@ -56,6 +66,7 @@ export const isPaidTier = (tier?: string | null): boolean => {
 
 export const MembershipBadge: React.FC<MembershipBadgeProps> = ({
   tier = 'FREE',
+  category = 'GENERAL',
   size = 'xs',
   className = '',
   showIcon = false,
@@ -69,8 +80,8 @@ export const MembershipBadge: React.FC<MembershipBadgeProps> = ({
     md: 'text-sm px-3 py-1.5',
   };
 
-  const styleClass = getTierBadgeClass(normalizedTier);
-  const label = formatTierName(normalizedTier);
+  const styleClass = getTierBadgeClass(normalizedTier, category);
+  const label = formatTierName(normalizedTier, category);
 
   return (
     <span

@@ -9,6 +9,25 @@ import {
 import api from '../../../services/api';
 import { useAuthStore } from '../../../store/auth.store';
 import { communitiesApi, CommunityData } from '../../../services/communities.service';
+import { BILINGUAL_STARS, BILINGUAL_RASIS, normalizeStar, normalizeRasi } from '../../../constants/index';
+
+function formatTo24HourTime(timeStr?: string): string {
+  if (!timeStr) return '';
+  const trimmed = timeStr.trim();
+  if (/^([01]\d|2[0-3]):([0-5]\d)$/.test(trimmed)) {
+    return trimmed;
+  }
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
+  if (match) {
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const modifier = match[3] ? match[3].toUpperCase() : null;
+    if (modifier === 'PM' && hours < 12) hours += 12;
+    if (modifier === 'AM' && hours === 12) hours = 0;
+    return `${hours.toString().padStart(2, '0')}:${minutes}`;
+  }
+  return '';
+}
 
 // ─── Step Configuration (Unified S2S Brand Palette) ────────────────────
 const STEPS = [
@@ -194,6 +213,9 @@ const ProfileCompletePage = () => {
     // Step 5: Lifestyle & Property
     residentStatus: '',
     propertyDetails: '',
+    assetValue: '',
+    bankBalance: '',
+    netWorth: '',
     diet: 'VEG',
     smoking: 'false',
     drinking: 'false',
@@ -272,7 +294,16 @@ const ProfileCompletePage = () => {
             motherTongue: p.motherTongue || prev.motherTongue || 'Tamil',
             heightCm: p.heightCm ? String(p.heightCm) : prev.heightCm,
             weightKg: p.weight ? String(p.weight) : prev.weightKg,
-            complexion: p.complexion || prev.complexion,
+            complexion: (() => {
+              const val = p.complexion;
+              if (!val) return prev.complexion;
+              const upper = String(val).toUpperCase().replace(/\s+/g, '_');
+              if (upper === 'VERY_FAIR' || upper === 'VERY FAIR') return 'Very Fair';
+              if (upper === 'FAIR') return 'Fair';
+              if (upper === 'WHEATISH') return 'Wheatish';
+              if (upper === 'DARK') return 'Dark';
+              return val;
+            })(),
             bodyType: p.bodyType || prev.bodyType,
             aboutMe: p.about || prev.aboutMe,
             religion: religionVal || prev.religion || 'Hindu',
@@ -280,16 +311,16 @@ const ProfileCompletePage = () => {
             subcaste: subCasteVal || prev.subcaste,
             gothram: p.horoscope?.gothram || p.gothram || prev.gothram,
             kuladeivam: p.horoscope?.kuladeivam || prev.kuladeivam,
-            star: p.horoscope?.star || p.star || prev.star,
+            star: normalizeStar(p.horoscope?.star || p.star || prev.star),
             starPadam: p.horoscope?.starPadam ? String(p.horoscope.starPadam) : prev.starPadam,
-            rasi: p.horoscope?.rasi || p.rasi || prev.rasi,
+            rasi: normalizeRasi(p.horoscope?.rasi || p.rasi || prev.rasi),
             dosham: p.horoscope?.dosham || p.dosham || prev.dosham || 'No Dosham',
             dasaBalance: p.horoscope?.dasaBalance || prev.dasaBalance,
-            timeOfBirth: p.horoscope?.timeOfBirth || p.timeOfBirth || prev.timeOfBirth,
+            timeOfBirth: formatTo24HourTime(p.horoscope?.birthTime || p.timeOfBirth || prev.timeOfBirth),
             placeOfBirth: p.horoscope?.placeOfBirth || p.placeOfBirth || prev.placeOfBirth,
             education: p.education?.degree || p.education?.qualification || (typeof p.education === 'string' ? p.education : prev.education),
-            educationDetail: p.education?.fieldOfStudy || p.educationDetail || prev.educationDetail,
-            college: p.education?.college || prev.college || '',
+            educationDetail: p.education?.fieldOfStudy || p.education?.university || p.education?.college || p.educationDetail || prev.educationDetail || '',
+            college: p.education?.college || p.education?.university || prev.college || '',
             occupation: p.occupation?.designation || p.occupation?.title || (typeof p.occupation === 'string' ? p.occupation : prev.occupation),
             employedIn: p.occupation?.employmentType || prev.employedIn || 'PRIVATE',
             companyName: p.occupation?.company || prev.companyName,
@@ -301,6 +332,9 @@ const ProfileCompletePage = () => {
             residenceStatus: p.residenceStatus || prev.residenceStatus || 'Citizen',
             residentStatus: p.residentStatus || prev.residentStatus,
             propertyDetails: p.propertyDetails || prev.propertyDetails,
+            assetValue: p.assetValue !== null && p.assetValue !== undefined ? String(p.assetValue) : (prev.assetValue || ''),
+            bankBalance: p.bankBalance !== null && p.bankBalance !== undefined ? String(p.bankBalance) : (prev.bankBalance || ''),
+            netWorth: p.netWorth !== null && p.netWorth !== undefined ? String(p.netWorth) : (prev.netWorth || ''),
             fatherName: p.family?.fatherName || p.fatherName || prev.fatherName,
             fatherOccupation: p.family?.fatherOccupation || p.fatherOccupation || prev.fatherOccupation,
             motherName: p.family?.motherName || p.motherName || prev.motherName,
@@ -345,6 +379,8 @@ const ProfileCompletePage = () => {
             prefCaste: p.partnerPreference?.caste || prev.prefCaste,
             prefLocation: p.partnerPreference?.location || prev.prefLocation,
             aboutPartner: p.partnerPreference?.aboutPartner || prev.aboutPartner,
+            rasiChart: p.rasiChart || p.horoscope?.rasiChart || p.horoscope?.horoscopeData?.rasiChart || prev.rasiChart || {},
+            amsamChart: p.amsamChart || p.horoscope?.amsamChart || p.horoscope?.horoscopeData?.amsamChart || p.horoscope?.horoscopeData?.navamsamChart || prev.amsamChart || {},
           }));
         }
       } catch {
@@ -413,10 +449,10 @@ const ProfileCompletePage = () => {
   const togglePlanetChart = (chartKey: 'rasiChart' | 'amsamChart', houseId: string, planet: string) => {
     setForm(prev => {
       const current = (prev[chartKey] as Record<string, string>)[houseId] || '';
-      const planets = current ? current.split(' ') : [];
+      const planets = current ? current.split(/[, ]+/).filter(Boolean) : [];
       const idx = planets.indexOf(planet);
       const updated = idx >= 0 ? planets.filter(p => p !== planet) : [...planets, planet];
-      return { ...prev, [chartKey]: { ...(prev[chartKey] as Record<string, string>), [houseId]: updated.join(' ') } };
+      return { ...prev, [chartKey]: { ...(prev[chartKey] as Record<string, string>), [houseId]: updated.join(', ') } };
     });
   };
 
@@ -488,8 +524,8 @@ const ProfileCompletePage = () => {
       dasaBalance: form.dasaBalance,
       timeOfBirth: form.timeOfBirth,
       placeOfBirth: form.placeOfBirth,
-      rasiChart: form.rasiChart,
-      amsamChart: form.amsamChart,
+      rasiChart: form.rasiChart && Object.keys(form.rasiChart).length > 0 ? form.rasiChart : undefined,
+      amsamChart: form.amsamChart && Object.keys(form.amsamChart).length > 0 ? form.amsamChart : undefined,
       education: form.education,
       educationDetail: form.educationDetail,
       college: form.college,
@@ -504,6 +540,9 @@ const ProfileCompletePage = () => {
       residenceStatus: form.residenceStatus,
       residentStatus: form.residentStatus,
       propertyDetails: form.propertyDetails,
+      assetValue: form.assetValue ? Number(form.assetValue) : undefined,
+      bankBalance: form.bankBalance ? Number(form.bankBalance) : undefined,
+      netWorth: form.netWorth ? Number(form.netWorth) : undefined,
       fatherName: form.fatherName,
       fatherOccupation: form.fatherOccupation,
       motherName: form.motherName,
@@ -692,10 +731,14 @@ const ProfileCompletePage = () => {
       <Input label="Weight (kg)" type="number" value={form.weightKg} onChange={(e: any) => set('weightKg', e.target.value)} placeholder="e.g. 65" />
       <Select label="Complexion" value={form.complexion} onChange={(e: any) => set('complexion', e.target.value)}>
         <option value="">Select complexion</option>
-        <option value="FAIR">Fair</option>
-        <option value="VERY_FAIR">Very Fair</option>
-        <option value="WHEATISH">Wheatish</option>
-        <option value="DARK">Dark</option>
+        <option value="Fair">Fair</option>
+        <option value="Very Fair">Very Fair</option>
+        <option value="Wheatish">Wheatish</option>
+        <option value="Dark">Dark</option>
+        <option value="FAIR" className="hidden">Fair</option>
+        <option value="VERY_FAIR" className="hidden">Very Fair</option>
+        <option value="WHEATISH" className="hidden">Wheatish</option>
+        <option value="DARK" className="hidden">Dark</option>
       </Select>
       <Select label="Body Type" value={form.bodyType} onChange={(e: any) => set('bodyType', e.target.value)}>
         <option value="">Select body type</option>
@@ -758,9 +801,12 @@ const ProfileCompletePage = () => {
         <Input label="Gothram" value={form.gothram} onChange={(e: any) => set('gothram', e.target.value)} placeholder="e.g. Shiva, Bharadwaj" />
         <Input label="Kuladeivam (குலதெய்வம்)" value={form.kuladeivam} onChange={(e: any) => set('kuladeivam', e.target.value)} placeholder="e.g. Angalamman, Perumal" />
 
-        <Select label="Star (Nakshatram)" value={form.star} onChange={(e: any) => set('star', e.target.value)}>
+        <Select label="Star (Nakshatram)" value={normalizeStar(form.star) || form.star} onChange={(e: any) => set('star', e.target.value)}>
           <option value="">Select Star</option>
-          {STARS.map(s => <option key={s} value={s}>{s}</option>)}
+          {BILINGUAL_STARS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          {form.star && !BILINGUAL_STARS.some(s => s.value === normalizeStar(form.star) || s.value === form.star) && (
+            <option value={form.star}>{form.star}</option>
+          )}
         </Select>
 
         <Select label="Star Padham (பாதம்)" value={form.starPadam} onChange={(e: any) => set('starPadam', e.target.value)}>
@@ -771,9 +817,12 @@ const ProfileCompletePage = () => {
           <option value="4">4th Padham (4-ஆம் பாதம்)</option>
         </Select>
 
-        <Select label="Rasi (Zodiac)" value={form.rasi} onChange={(e: any) => set('rasi', e.target.value)}>
+        <Select label="Rasi (Zodiac)" value={normalizeRasi(form.rasi) || form.rasi} onChange={(e: any) => set('rasi', e.target.value)}>
           <option value="">Select Rasi</option>
-          {RASIS.map(r => <option key={r} value={r}>{r}</option>)}
+          {BILINGUAL_RASIS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+          {form.rasi && !BILINGUAL_RASIS.some(r => r.value === normalizeRasi(form.rasi) || r.value === form.rasi) && (
+            <option value={form.rasi}>{form.rasi}</option>
+          )}
         </Select>
 
         <Select label="Dosham" value={form.dosham} onChange={(e: any) => set('dosham', e.target.value)}>
@@ -854,9 +903,14 @@ const ProfileCompletePage = () => {
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
       <Select label="Highest Qualification" required value={form.education} onChange={(e: any) => set('education', e.target.value)} error={errors.education}>
         <option value="">Select Qualification</option>
-        {['B.E / B.Tech', 'M.E / M.Tech', 'B.Sc / M.Sc', 'B.Com / M.Com', 'BBA / MBA', 'MBBS / MD', 'BDS / MDS', 'B.Pharm / M.Pharm', 'CA / CS / ICWA', 'LLB / LLM', 'PhD / Doctorate', 'Diploma / ITI', 'High School', 'Other'].map(e => (
+        {['MBA', 'BBA / MBA', 'B.E / B.Tech', 'M.E / M.Tech', 'B.Sc / M.Sc', 'B.Com / M.Com', 'BCA / MCA', 'MBBS / MD', 'BDS / MDS', 'B.Pharm / M.Pharm', 'CA / CS / ICWA', 'LLB / LLM', 'PhD / Doctorate', 'Diploma / ITI', 'High School', 'Other'].map(e => (
           <option key={e} value={e}>{e}</option>
         ))}
+        {form.education && ![
+          'MBA', 'BBA / MBA', 'B.E / B.Tech', 'M.E / M.Tech', 'B.Sc / M.Sc', 'B.Com / M.Com', 'BCA / MCA', 'MBBS / MD', 'BDS / MDS', 'B.Pharm / M.Pharm', 'CA / CS / ICWA', 'LLB / LLM', 'PhD / Doctorate', 'Diploma / ITI', 'High School', 'Other'
+        ].includes(form.education) && (
+          <option value={form.education}>{form.education}</option>
+        )}
       </Select>
 
       <Input label="Degree / Specialization Detail" value={form.educationDetail} onChange={(e: any) => set('educationDetail', e.target.value)} placeholder="e.g. Computer Science, General Medicine" />
@@ -1066,12 +1120,59 @@ const ProfileCompletePage = () => {
         <option value="Quarters">Quarters (குவாட்டர்ஸ்)</option>
       </Select>
       <Input label="Property Details (சொத்து விவரங்கள்)" value={form.propertyDetails} onChange={(e: any) => set('propertyDetails', e.target.value)} placeholder="e.g. 2 PLOTS, CHENNAI" />
+      <Input
+        label="Asset Value (சொத்து மதிப்பு) (₹)"
+        type="number"
+        value={form.assetValue}
+        onChange={(e: any) => {
+          const val = e.target.value;
+          set('assetValue', val);
+          const av = Number(val) || 0;
+          const bb = Number(form.bankBalance) || 0;
+          if (val === '' && (form.bankBalance === '' || !form.bankBalance)) {
+            set('netWorth', '');
+          } else {
+            set('netWorth', String(av + bb));
+          }
+        }}
+        placeholder="e.g. 5000000"
+      />
+      <Input
+        label="Bank Balance (வங்கி இருப்பு) (₹)"
+        type="number"
+        value={form.bankBalance}
+        onChange={(e: any) => {
+          const val = e.target.value;
+          set('bankBalance', val);
+          const av = Number(form.assetValue) || 0;
+          const bb = Number(val) || 0;
+          if (val === '' && (form.assetValue === '' || !form.assetValue)) {
+            set('netWorth', '');
+          } else {
+            set('netWorth', String(av + bb));
+          }
+        }}
+        placeholder="e.g. 500000"
+      />
+      <div className="sm:col-span-2">
+        <Input
+          label="Net Worth (நிகர மதிப்பு) (₹) (Private)"
+          type="number"
+          value={form.netWorth}
+          onChange={(e: any) => set('netWorth', e.target.value)}
+          placeholder="e.g. 5500000"
+        />
+        {form.netWorth && Number(form.netWorth) > 0 && (
+          <p className="text-xs text-primary-600 font-medium mt-1">
+            ₹ {Number(form.netWorth).toLocaleString('en-IN')}
+          </p>
+        )}
+      </div>
       <Select label="Food Preference" value={form.diet} onChange={(e: any) => set('diet', e.target.value)}>
         <option value="VEG">Vegetarian</option>
         <option value="NON_VEG">Non-Vegetarian</option>
         <option value="EGGETARIAN">Eggetarian</option>
         <option value="VEGAN">Vegan</option>
-        <option value="JAIN">Jain</option>
       </Select>
       <Select label="Smoking" value={form.smoking} onChange={(e: any) => set('smoking', e.target.value)}>
         <option value="false">No</option>

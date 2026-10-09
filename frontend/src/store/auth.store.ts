@@ -26,6 +26,7 @@ interface AuthStore {
   isAdmin: () => boolean;
   isSuperAdmin: () => boolean;
   isPremium: () => boolean;
+  isElite: () => boolean;
   getMembershipTier: () => string;
 }
 
@@ -49,6 +50,10 @@ export const useAuthStore = create<AuthStore>()(
           if (user && user.membershipTier && !user.membershipStatus) {
             user.membershipStatus = user.membershipTier;
           }
+          if (user?.entitlements?.category) {
+            user.membershipCategory = user.entitlements.category;
+            user.isElite = user.entitlements.isElite;
+          }
           const accessToken = res.data.accessToken || res.data.data?.accessToken;
           set({ user, accessToken, isAuthenticated: true });
           return user;
@@ -64,6 +69,10 @@ export const useAuthStore = create<AuthStore>()(
           const user = res.data.user || res.data.data?.user;
           if (user && user.membershipTier && !user.membershipStatus) {
             user.membershipStatus = user.membershipTier;
+          }
+          if (user?.entitlements?.category) {
+            user.membershipCategory = user.entitlements.category;
+            user.isElite = user.entitlements.isElite;
           }
           const accessToken = res.data.accessToken || res.data.data?.accessToken;
           set({ user, accessToken, isAuthenticated: true });
@@ -90,6 +99,10 @@ export const useAuthStore = create<AuthStore>()(
           const user = data.user || data;
           if (user && user.membershipTier && !user.membershipStatus) {
             user.membershipStatus = user.membershipTier;
+          }
+          if (user?.entitlements?.category) {
+            user.membershipCategory = user.entitlements.category;
+            user.isElite = user.entitlements.isElite;
           }
           const accessToken = data.accessToken || user.accessToken || get().accessToken;
           set({ user, accessToken, isAuthenticated: true });
@@ -157,6 +170,8 @@ export const useAuthStore = create<AuthStore>()(
               ...currentUser,
               membershipStatus: entitlements?.tier || currentUser.membershipStatus,
               membershipTier: entitlements?.tier || currentUser.membershipTier,
+              membershipCategory: entitlements?.category || currentUser.membershipCategory,
+              isElite: entitlements?.isElite ?? currentUser.isElite,
               entitlements,
             },
           });
@@ -174,6 +189,16 @@ export const useAuthStore = create<AuthStore>()(
         if (tier === 'FREE' || tier === 'NONE' || !tier) return false;
         if (ent && ent.isActive === false) return false;
         return true;
+      },
+      isElite: () => {
+        const user = get().user;
+        if (!user) return false;
+        if (get().isAdmin()) return true;
+        const ent = user.entitlements;
+        if (ent?.isStaff || ent?.isElite || ent?.category === 'ELITE') return true;
+        if (user.membershipCategory === 'ELITE' || user.isElite === true) return true;
+        const tier = (ent?.tier || user.membershipTier || user.membershipStatus || '').toUpperCase();
+        return tier === 'ELITE';
       },
       getMembershipTier: () => {
         const user = get().user;

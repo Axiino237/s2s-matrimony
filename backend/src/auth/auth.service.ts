@@ -11,6 +11,7 @@ import { RegisterDto, LoginDto, VerifyOtpDto } from './dto/auth.dto';
 import { ROLE_PERMISSIONS, Role } from '../common/enums/rbac.enum';
 import { devStore, devOtpStore } from '../common/dev-store';
 import { EntitlementsService } from '../common/entitlements.service';
+import { checkIsMaintenanceModeActive } from '../common/maintenance.util';
 
 @Injectable()
 export class AuthService {
@@ -34,6 +35,15 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
+    const isMaintenance = await checkIsMaintenanceModeActive(this.prisma);
+    if (isMaintenance) {
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        error: 'Service Unavailable',
+        message: 'The platform is currently undergoing scheduled maintenance. New registrations are temporarily paused.',
+        maintenance: true,
+      });
+    }
     try {
       const phoneDigits = dto.phone ? dto.phone.replace(/\D/g, '') : '';
       const last10 = phoneDigits.slice(-10);
@@ -284,6 +294,24 @@ export class AuthService {
         // Ignore background OTP dispatch error if phone invalid or test mode
       }
 
+      this.prisma.auditLog.create({
+        data: {
+          action: 'USER_REGISTERED',
+          entity: 'User',
+          entityId: user.id,
+          userId: user.id,
+          ipAddress: '127.0.0.1',
+          userAgent: 'Web Browser',
+          newValue: {
+            email: user.email,
+            phone: user.phone,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            role: 'MEMBER',
+          },
+        },
+      }).catch(() => null);
+
       const authRes = await this.generateAuthResponse(user.id, user.email, user.phone, [Role.MEMBER], 'FREE');
       (authRes as any).otp = otpRes?.otp || '123456';
       return authRes;
@@ -373,16 +401,53 @@ export class AuthService {
 
     const roles = user.userRoles.map((ur) => ur.role.name);
     const membershipTier = user.profile?.membership?.tier || 'FREE';
+    const isStaff = roles.some((r) => ['SUPER_ADMIN', 'ADMIN'].includes(r));
+
+    const isMaintenance = await checkIsMaintenanceModeActive(this.prisma);
+    if (isMaintenance && !isStaff) {
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        error: 'Service Unavailable',
+        message: 'The platform is currently undergoing scheduled maintenance. Regular member login is temporarily unavailable.',
+        maintenance: true,
+      });
+    }
 
     await this.prisma.user.update({
       where: { id: user.id },
       data: { lastActive: new Date() },
     });
 
+    this.prisma.auditLog.create({
+      data: {
+        action: isStaff ? 'ADMIN_LOGIN' : 'USER_LOGIN',
+        entity: 'Auth',
+        entityId: user.id,
+        userId: user.id,
+        ipAddress: '127.0.0.1',
+        userAgent: 'Web Browser',
+        newValue: {
+          email: user.email,
+          role: roles[0] || 'MEMBER',
+          authMethod: 'PASSWORD',
+        },
+      },
+    }).catch(() => null);
+
     return this.generateAuthResponse(user.id, user.email, user.phone, roles, membershipTier);
   }
 
   async verifyOtpAndLogin(dto: VerifyOtpDto) {
+    const isMaintenance = await checkIsMaintenanceModeActive(this.prisma);
+    if (isMaintenance) {
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        error: 'Service Unavailable',
+        message: 'The platform is currently undergoing scheduled maintenance. Regular member login is temporarily unavailable.',
+        maintenance: true,
+      });
+    }
+
     const phoneDigits = dto.phone ? dto.phone.replace(/\D/g, '') : '';
     const last10 = phoneDigits.slice(-10);
     const formattedPhone = dto.phone.startsWith('+') ? dto.phone : `+91${last10 || dto.phone}`;
@@ -553,6 +618,23 @@ export class AuthService {
       });
 
       const roles = finalUser?.userRoles?.length ? finalUser.userRoles.map((ur) => ur.role.name) : [Role.MEMBER];
+
+      this.prisma.auditLog.create({
+        data: {
+          action: 'USER_LOGIN',
+          entity: 'Auth',
+          entityId: user.id,
+          userId: user.id,
+          ipAddress: '127.0.0.1',
+          userAgent: 'Web Browser',
+          newValue: {
+            phone: user.phone,
+            authMethod: 'OTP',
+            role: roles[0] || 'MEMBER',
+          },
+        },
+      }).catch(() => null);
+
       return this.generateAuthResponse(user.id, finalUser?.email || user.email, finalUser?.phone || user.phone, roles, 'FREE');
     } catch (err: any) {
       if (!this.allowDevAuth) {
@@ -892,6 +974,8 @@ export class AuthService {
       icon: m.icon,
     }));
 
+    const entitlements = await this.entitlementsService.getUserEntitlements(userId);
+
     const payload = {
       sub: userId,
       email,
@@ -899,7 +983,9 @@ export class AuthService {
       role: mainRole,
       roles,
       permissions,
-      membershipTier,
+      membershipTier: entitlements.tier,
+      membershipCategory: entitlements.category,
+      isElite: entitlements.isElite,
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -935,7 +1021,6 @@ export class AuthService {
         : '';
 
     const profileCompletionPercent = profile?.profileCompletionPercent ?? (devUser as any)?.profileCompletionPercent ?? (firstName ? 100 : 0);
-    const entitlements = await this.entitlementsService.getUserEntitlements(userId);
 
     return {
       accessToken,
@@ -950,6 +1035,8 @@ export class AuthService {
         routes,
         membershipTier: entitlements.tier,
         membershipStatus: entitlements.tier,
+        membershipCategory: entitlements.category,
+        isElite: entitlements.isElite,
         entitlements,
         firstName,
         lastName,
@@ -1059,6 +1146,8 @@ export class AuthService {
       roles,
       permissions,
       membershipTier: entitlements.tier,
+      membershipCategory: entitlements.category,
+      isElite: entitlements.isElite,
     };
     const accessToken = this.jwtService.sign(payload);
 
@@ -1074,6 +1163,8 @@ export class AuthService {
       profileCompletionPercent,
       membershipTier: entitlements.tier,
       membershipStatus: entitlements.tier,
+      membershipCategory: entitlements.category,
+      isElite: entitlements.isElite,
       entitlements,
     };
   }
@@ -1115,19 +1206,37 @@ export class AuthService {
   private async getDemoAuthResponse(dto: LoginDto) {
     if (!this.allowDevAuth) return null;
 
+    let role: string | null = null;
+    let authRes: any = null;
+
     if (dto.email === 'superadmin@s2smatrimony.com' && dto.password === 'admin123') {
-      return this.generateAuthResponse('super-admin-001', dto.email, '+919999999999', ['SUPER_ADMIN'], 'ELITE');
-    }
-    if (dto.email === 'admin@s2smatrimony.com' && dto.password === 'admin123') {
-      return this.generateAuthResponse('admin-001', dto.email, '+918888888888', ['ADMIN'], 'GOLD');
-    }
-    if (dto.email === 'kavitha@s2smatrimony.com' && dto.password === 'admin123') {
-      return this.generateAuthResponse('user-001', dto.email, '+919876543210', ['MEMBER'], 'FREE');
-    }
-    if (dto.email === 'karthik@s2smatrimony.com' && (dto.password === 'admin123' || dto.password === 'Password@123')) {
-      return this.generateAuthResponse('user-male-001', dto.email, '+919876543211', ['MEMBER'], 'GOLD');
+      role = 'SUPER_ADMIN';
+      authRes = this.generateAuthResponse('super-admin-001', dto.email, '+919999999999', ['SUPER_ADMIN'], 'ELITE');
+    } else if (dto.email === 'admin@s2smatrimony.com' && dto.password === 'admin123') {
+      role = 'ADMIN';
+      authRes = this.generateAuthResponse('admin-001', dto.email, '+918888888888', ['ADMIN'], 'GOLD');
+    } else if (dto.email === 'kavitha@s2smatrimony.com' && dto.password === 'admin123') {
+      role = 'MEMBER';
+      authRes = this.generateAuthResponse('user-001', dto.email, '+919876543210', ['MEMBER'], 'FREE');
+    } else if (dto.email === 'karthik@s2smatrimony.com' && (dto.password === 'admin123' || dto.password === 'Password@123')) {
+      role = 'MEMBER';
+      authRes = this.generateAuthResponse('user-male-001', dto.email, '+919876543211', ['MEMBER'], 'GOLD');
     }
 
-    return null;
+    if (!authRes) return null;
+
+    if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') {
+      const isMaintenance = await checkIsMaintenanceModeActive(this.prisma);
+      if (isMaintenance) {
+        throw new ServiceUnavailableException({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: 'The platform is currently undergoing scheduled maintenance. Regular member login is temporarily unavailable.',
+          maintenance: true,
+        });
+      }
+    }
+
+    return authRes;
   }
 }

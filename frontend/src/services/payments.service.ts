@@ -1,8 +1,9 @@
 import api from './api';
 
 export const paymentsApi = {
-  getPlans: async () => {
-    const res = await api.get('/payments/plans');
+  getPlans: async (category?: string) => {
+    const params = category ? { category } : {};
+    const res = await api.get('/payments/plans', { params });
     return res.data;
   },
 

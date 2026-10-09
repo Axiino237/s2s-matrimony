@@ -48,3 +48,5 @@ pnpm-debug.log*
 # Uploads and media cache
 uploads/
 **/uploads/
+
+FUNCTIONAL_TEST_CASES.md

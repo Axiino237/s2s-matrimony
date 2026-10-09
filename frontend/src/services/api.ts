@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
 import { useAuthStore } from '../store/auth.store';
+import { useSettingsStore } from '../store/settings.store';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
@@ -75,6 +76,13 @@ api.interceptors.response.use(
       } finally {
         isRefreshing = false;
       }
+    }
+
+    if (
+      error.response?.status === 503 &&
+      (error.response?.data?.maintenance || String(error.response?.data?.message || '').toLowerCase().includes('maintenance'))
+    ) {
+      useSettingsStore.getState().setSettings({ maintenanceMode: true });
     }
 
     return Promise.reject(error);

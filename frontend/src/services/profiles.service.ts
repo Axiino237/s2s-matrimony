@@ -85,4 +85,14 @@ export const profilesApi = {
     const res = await api.post(`/profiles/${ownerId}/view`);
     return res.data.data || res.data;
   },
+
+  getHoroscopeMatches: async () => {
+    const res = await api.get('/profiles/horoscope-matches');
+    return res.data;
+  },
+
+  backfillHoroscopeMatches: async () => {
+    const res = await api.post('/profiles/horoscope-matches/backfill');
+    return res.data;
+  },
 };

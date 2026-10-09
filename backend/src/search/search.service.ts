@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { devStore } from '../common/dev-store';
+import { EliteQualificationService } from '../common/elite-qualification.service';
 
 @Injectable()
 export class SearchService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eliteQualService: EliteQualificationService,
+  ) {}
 
   async searchProfiles(query: {
     gender?: 'MALE' | 'FEMALE' | string;
@@ -62,6 +66,57 @@ export class SearchService {
       where.id = { not: excludeProfileId };
     }
 
+    const threshold = await this.eliteQualService.getEliteThreshold();
+    const viewerCategory = await this.eliteQualService.getViewerCategory(excludeUserId, threshold);
+    const viewerStatus = await this.eliteQualService.getViewerStatus(excludeUserId, threshold);
+
+    // Backend Category Visibility Enforcement at Query Level:
+    // 1. General viewer -> General targets only
+    // 2. Elite viewer -> Elite targets only
+    if (viewerCategory === 'GENERAL') {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { netWorth: null },
+            { netWorth: { lt: threshold } },
+          ],
+        },
+        {
+          OR: [
+            { membership: null },
+            {
+              membership: {
+                plan: {
+                  category: { not: 'ELITE' },
+                  id: { notIn: ['elite-plan-silver', 'elite-plan-gold', 'elite-plan-platinum'] },
+                },
+              },
+            },
+          ],
+        },
+      ];
+    } else {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { netWorth: { gte: threshold } },
+            {
+              membership: {
+                plan: {
+                  OR: [
+                    { category: 'ELITE' },
+                    { id: { in: ['elite-plan-silver', 'elite-plan-gold', 'elite-plan-platinum'] } },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      ];
+    }
+
     let myProfile: any = null;
     if (excludeUserId) {
       myProfile = await this.prisma.profile.findFirst({
@@ -79,9 +134,9 @@ export class SearchService {
       where.gender = genderUpper;
     } else if (genderUpper === 'ALL' || genderUpper === 'ANY' || genderUpper === 'BOTH') {
       // Explicitly show both Bride and Groom — do not set where.gender
-    } else if ((query as any).usePartnerPref && myProfile) {
+    } else if (myProfile) {
       const prefGender = myProfile.partnerPreference?.gender;
-      if (prefGender && ['MALE', 'FEMALE'].includes(prefGender)) {
+      if (prefGender && ['MALE', 'FEMALE'].includes(prefGender) && prefGender !== myProfile.gender) {
         where.gender = prefGender;
       } else if (myProfile.gender === 'MALE') {
         where.gender = 'FEMALE';
@@ -90,8 +145,10 @@ export class SearchService {
       }
     }
 
-    // Automatically apply Partner Preference filters if usePartnerPref is requested
-    if ((query as any).usePartnerPref && myProfile?.partnerPreference) {
+    // Automatically apply Partner Preference filters if usePartnerPref is requested AND not in Recommended mode
+    // (In Recommended mode, partner preferences are scored dynamically via calculateMatchScore to avoid hard exclusion)
+    const isRecommendedMode = !query.tab || String(query.tab).toLowerCase().trim() === 'recommended';
+    if ((query as any).usePartnerPref && myProfile?.partnerPreference && !isRecommendedMode) {
       const pref = myProfile.partnerPreference;
       if (pref.ageMin && pref.ageMax) {
         where.age = { gte: pref.ageMin, lte: pref.ageMax };
@@ -314,25 +371,39 @@ export class SearchService {
       ]);
 
       if (profiles && profiles.length > 0) {
-        let profilesWithScores = profiles.map((p) => {
-          const plain = JSON.parse(JSON.stringify(p));
-          const plan = p.membership?.plan;
-          const features: string[] = Array.isArray(plan?.features) ? (plan.features as string[]) : [];
-          const hasHighlight = (plan as any)?.hasProfileHighlight || features.some((f) => String(f).toLowerCase().includes('highlight') || String(f).toLowerCase().includes('priority'));
-          const isPremium = Boolean(
-            p.membership &&
-            p.membership.isActive &&
-            p.membership.tier !== 'FREE' &&
-            (!p.membership.endDate || new Date(p.membership.endDate) >= new Date())
-          );
-          const membershipTier = isPremium ? p.membership?.tier : 'FREE';
-          return {
-            ...plain,
-            isPremium,
-            membershipTier,
-            matchScore: this.calculateMatchScore(p, myProfile),
-          };
-        });
+        let profilesWithScores = profiles
+          .map((p) => {
+            const targetEval = this.eliteQualService.evaluateProfile(p, threshold);
+            if (targetEval.membershipCategory !== viewerCategory) {
+              return null;
+            }
+
+            const plain = JSON.parse(JSON.stringify(p));
+            delete plain.assetValue;
+            delete plain.bankBalance;
+            delete plain.netWorth;
+            const plan = p.membership?.plan;
+            const features: string[] = Array.isArray(plan?.features) ? (plan.features as string[]) : [];
+            const hasHighlight = (plan as any)?.hasProfileHighlight || features.some((f) => String(f).toLowerCase().includes('highlight') || String(f).toLowerCase().includes('priority'));
+            const isPremium = Boolean(
+              p.membership &&
+              p.membership.isActive &&
+              p.membership.tier !== 'FREE' &&
+              (!p.membership.endDate || new Date(p.membership.endDate) >= new Date())
+            );
+            const membershipTier = isPremium ? p.membership?.tier : 'FREE';
+            return {
+              ...plain,
+              membershipCategory: targetEval.membershipCategory,
+              isElite: targetEval.isElite,
+              isEliteQualified: targetEval.isQualified,
+              eliteStatus: targetEval.eliteStatus,
+              isPremium,
+              membershipTier,
+              matchScore: this.calculateMatchScore(p, myProfile),
+            };
+          })
+          .filter(Boolean) as any[];
 
         // Case-insensitive Tab Filtering & Sorting
         const tabLower = (query.tab || '').toLowerCase().trim();

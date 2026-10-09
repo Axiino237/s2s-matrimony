@@ -17,6 +17,8 @@ export interface UserEntitlements {
   planId: string;
   planName: string;
   tier: string;
+  category: 'GENERAL' | 'ELITE';
+  isElite: boolean;
   isActive: boolean;
   isStaff: boolean;
 
@@ -39,6 +41,8 @@ export interface UserEntitlements {
   hasAiMatch: boolean;
   hasVideoProfile: boolean;
   hasHoroscope: boolean;
+  hasHoroscopeReport: boolean;
+  canAccessHoroscopeMatching: boolean;
   hasAdvancedSearch: boolean;
   hasProfileHighlight: boolean;
   hasPriorityListing: boolean;
@@ -62,6 +66,8 @@ export interface JwtPayload {
   routes?: { id: string; slug: string; name: string; path: string; icon?: string }[];
   membershipStatus: MembershipTier;
   membershipTier?: string;
+  membershipCategory?: 'GENERAL' | 'ELITE';
+  isElite?: boolean;
   entitlements?: UserEntitlements;
   profileCompletionPercent?: number;   // 0-100 — gates dashboard access
   communityId?: string;
@@ -115,12 +121,20 @@ export interface Profile {
   complexion?: string;
   residentStatus?: string;
   propertyDetails?: string;
+  assetValue?: number;
+  bankBalance?: number;
+  netWorth?: number;
   motherTongue?: string;
   about?: string;
   status: ProfileStatus;
   isVerified: boolean;
   isPremium: boolean;
   membershipTier: MembershipTier;
+  membershipCategory?: 'GENERAL' | 'ELITE';
+  isElite?: boolean;
+  isEliteQualified?: boolean;
+  eliteStatus?: 'GENERAL' | 'ELITE_QUALIFIED' | 'ELITE_NOT_QUALIFIED';
+  eliteThreshold?: number;
   matchScore?: number;
   profileCompletionPercent: number;
   mainPhoto?: string;

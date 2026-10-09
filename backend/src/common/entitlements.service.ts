@@ -6,6 +6,8 @@ export interface UserEntitlements {
   planId: string;
   planName: string;
   tier: string;
+  category: 'GENERAL' | 'ELITE';
+  isElite: boolean;
   isActive: boolean;
   isStaff: boolean;
 
@@ -28,6 +30,8 @@ export interface UserEntitlements {
   hasAiMatch: boolean;
   hasVideoProfile: boolean;
   hasHoroscope: boolean;
+  hasHoroscopeReport: boolean;
+  canAccessHoroscopeMatching: boolean;
   hasAdvancedSearch: boolean;
   hasProfileHighlight: boolean;
   hasPriorityListing: boolean;
@@ -39,9 +43,14 @@ export interface UserEntitlements {
   features: string[];
 }
 
+import { EliteQualificationService } from './elite-qualification.service';
+
 @Injectable()
 export class EntitlementsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eliteQualService: EliteQualificationService,
+  ) {}
 
   /**
    * Resolves the user's active membership plan and complete dynamic capabilities from the database.
@@ -69,6 +78,8 @@ export class EntitlementsService {
         planId: 'staff-plan',
         planName: 'Staff Full Access',
         tier: 'ELITE',
+        category: 'ELITE',
+        isElite: true,
         isActive: true,
         isStaff: true,
         contacts: {
@@ -88,6 +99,8 @@ export class EntitlementsService {
         hasAiMatch: true,
         hasVideoProfile: true,
         hasHoroscope: true,
+        hasHoroscopeReport: true,
+        canAccessHoroscopeMatching: true,
         hasAdvancedSearch: true,
         hasProfileHighlight: true,
         hasPriorityListing: true,
@@ -195,20 +208,69 @@ export class EntitlementsService {
     const hasChat = Boolean(resolvedPlan.hasChat) || hasFeature('chat') || hasFeature('message');
     const hasAiMatch = Boolean(resolvedPlan.hasAiMatch) || hasFeature('ai match') || hasFeature('ai-match');
     const hasVideoProfile = Boolean(resolvedPlan.hasVideoProfile) || hasFeature('video');
-    const hasHoroscope = hasFeature('horoscope');
     const hasAdvancedSearch = hasFeature('advanced search');
     const hasProfileHighlight = hasFeature('profile highlighting') || hasFeature('highlight');
     const hasPriorityListing = hasFeature('priority listing');
     const hasVerificationBadge = hasFeature('verification badge') || hasFeature('verified');
     const hasWhatsappConnect = hasFeature('whatsapp');
-    const hasDedicatedManager = hasFeature('manager');
-    const hasPrioritySupport = hasFeature('support');
+    const dedicatedManagerFeature = hasFeature('manager');
+    const prioritySupportFeature = hasFeature('support');
+
+    // Elite plan / category classification
+    // Business rule: membershipCategory must have ONLY two values: 'GENERAL' or 'ELITE'.
+    // 'GOLD' is a plan tier, never a membership category.
+    // Elite plan family: elite-plan-silver, elite-plan-gold, elite-plan-platinum -> category ELITE
+    // Regular plans (e.g. regular Gold Plan) -> category GENERAL
+    let isElite = this.eliteQualService.isElitePlan(resolvedPlan);
+    let category: 'GENERAL' | 'ELITE' = isElite ? 'ELITE' : 'GENERAL';
+    if (userId) {
+      try {
+        const userProf = await this.prisma.profile.findFirst({
+          where: { userId },
+          include: {
+            membership: { include: { plan: true } },
+          },
+        });
+        if (userProf) {
+          const threshold = await this.eliteQualService.getEliteThreshold();
+          const evaluation = this.eliteQualService.evaluateProfile(userProf, threshold);
+          category = evaluation.membershipCategory;
+          isElite = evaluation.isElite;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const hasHoroscopeMatchingOnPlan =
+      hasFeature('horoscope matching report') ||
+      hasFeature('horoscope matching') ||
+      hasFeature('horoscope report') ||
+      hasFeature('horoscope-matching');
+
+    // Rule: Horoscope Matching is EXCLUSIVELY for Elite members whose plan has Horoscope Matching enabled by Admin.
+    // General members (whose net worth is < elite threshold / general category) CANNOT access or view horoscope matching.
+    const isEliteCategory = category === 'ELITE' || isElite;
+    const canAccessHoroscopeMatching = Boolean(isEliteCategory && hasHoroscopeMatchingOnPlan);
+    const hasHoroscopeReport = canAccessHoroscopeMatching;
+    const hasHoroscope = canAccessHoroscopeMatching;
+
+    // Filter out horoscope perks from features list for General category members
+    const effectiveFeatures = isEliteCategory
+      ? features
+      : features.filter(
+          (f) =>
+            typeof f === 'string' &&
+            !f.toLowerCase().includes('horoscope'),
+        );
 
     return {
       userId,
       planId: resolvedPlan.id,
       planName: resolvedPlan.name,
       tier: (resolvedPlan.tier || 'FREE').toUpperCase(),
+      category,
+      isElite,
       isActive: isActiveMembership || resolvedPlan.tier === 'FREE' || Number(resolvedPlan.price ?? 0) === 0,
       isStaff: false,
       contacts: {
@@ -228,14 +290,16 @@ export class EntitlementsService {
       hasAiMatch,
       hasVideoProfile,
       hasHoroscope,
+      hasHoroscopeReport,
+      canAccessHoroscopeMatching,
       hasAdvancedSearch,
       hasProfileHighlight,
       hasPriorityListing,
       hasVerificationBadge,
       hasWhatsappConnect,
-      hasDedicatedManager,
-      hasPrioritySupport,
-      features,
+      hasDedicatedManager: dedicatedManagerFeature,
+      hasPrioritySupport: prioritySupportFeature,
+      features: effectiveFeatures,
     };
   }
 

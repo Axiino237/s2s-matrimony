@@ -63,8 +63,8 @@ export const AiBiodataModal = ({ isOpen, onClose, onApplyExtracted }: AiBiodataM
       );
       setExtractedData(data);
       toast.success('✨ AI extracted all biodata fields successfully!');
-    } catch {
-      toast.error('Failed to extract biodata with AI');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to extract biodata with AI');
     } finally {
       setParsing(false);
     }

@@ -1,7 +1,8 @@
-import { Controller, Get, Patch, Post, Delete, Param, Body, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Delete, Param, Body, Query, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ProfilesService } from './profiles.service';
 import { BiodataParserService } from './biodata-parser.service';
+import { HoroscopeMatchingService } from './horoscope-matching.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Public, RequirePermissions, Roles } from '../common/decorators/rbac.decorator';
 import { Permission, Role } from '../common/enums/rbac.enum';
@@ -14,6 +15,7 @@ export class ProfilesController {
   constructor(
     private readonly profilesService: ProfilesService,
     private readonly biodataParserService: BiodataParserService,
+    private readonly horoscopeMatchingService: HoroscopeMatchingService,
   ) {}
 
   @Public()
@@ -77,6 +79,25 @@ export class ProfilesController {
   async getMyProfile(@Req() req: any) {
     const userId = req.user.sub || req.user.id;
     return this.profilesService.getProfileByUserId(userId);
+  }
+
+  @Get('horoscope-matches')
+  @RequirePermissions(Permission.MEMBER_SEARCH)
+  @ApiOperation({ summary: 'Get pre-calculated opposite-gender horoscope matches' })
+  async getHoroscopeMatches(@Req() req: any) {
+    const userId = req.user.sub || req.user.id;
+    return this.horoscopeMatchingService.getHoroscopeMatches(userId);
+  }
+
+  @Post('horoscope-matches/backfill')
+  @ApiOperation({ summary: 'Run one-time population backfill of eligible horoscope pairs' })
+  async backfillHoroscopeMatches(@Req() req: any) {
+    const userId = req.user.sub || req.user.id;
+    const isElite = await this.horoscopeMatchingService.isUserElite(userId);
+    if (!isElite) {
+      throw new ForbiddenException('Only Elite members or administrators can trigger horoscope backfill.');
+    }
+    return this.horoscopeMatchingService.backfillAllEligible();
   }
 
   @Get(':id')

@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SearchService } from './search.service';
 import { Public } from '../common/decorators/rbac.decorator';
@@ -25,7 +25,21 @@ export class SearchController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'Search profiles by age, gender, community, location, etc.' })
-  async search(@Query() query: any) {
+  async search(@Query() query: any, @Req() req?: any) {
+    if (!query.excludeUserId && !query.userId) {
+      const auth = req?.headers?.authorization;
+      if (auth && auth.startsWith('Bearer ')) {
+        try {
+          const parts = auth.split(' ')[1].split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+            query.excludeUserId = payload.sub || payload.id;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
     return this.searchService.searchProfiles(query);
   }
 }

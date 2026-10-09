@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { devStore } from '../common/dev-store';
+import { syncMaintenanceModeState } from '../common/maintenance.util';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -297,27 +298,46 @@ export class SuperAdminService {
   }
 
   async getSystemSettings() {
+    let settings: any = {};
     try {
       const record = await this.prisma.setting.findUnique({ where: { key: 'system_settings' } });
       if (record && record.value) {
-        try { return JSON.parse(record.value); } catch { return {}; }
+        try { settings = JSON.parse(record.value); } catch { settings = {}; }
       }
     } catch {}
-    return (devStore as any).systemSettings || {};
+    const devSettings = (devStore as any).systemSettings || {};
+    return {
+      eliteQualificationThreshold: 50000000,
+      ...devSettings,
+      ...settings,
+    };
   }
 
   async updateSystemSettings(data: any) {
     try {
-      const jsonStr = JSON.stringify(data || {});
+      const existing = await this.getSystemSettings();
+      const merged = { ...existing, ...(data || {}) };
+      if (data?.eliteQualificationThreshold !== undefined) {
+        merged.eliteQualificationThreshold = Number(data.eliteQualificationThreshold) || 50000000;
+      }
+      if (data?.maintenanceMode !== undefined) {
+        const isMaint = Boolean(data.maintenanceMode === true || data.maintenanceMode === 'true');
+        merged.maintenanceMode = isMaint;
+        syncMaintenanceModeState(isMaint);
+      }
+      const jsonStr = JSON.stringify(merged);
       await this.prisma.setting.upsert({
         where: { key: 'system_settings' },
         update: { value: jsonStr },
         create: { key: 'system_settings', value: jsonStr, group: 'GLOBAL', isPublic: true },
       });
-      (devStore as any).systemSettings = data;
-      return { success: true, settings: data };
+      (devStore as any).systemSettings = merged;
+      return { success: true, settings: merged };
     } catch {
       (devStore as any).systemSettings = data;
+      if (data?.maintenanceMode !== undefined) {
+        syncMaintenanceModeState(Boolean(data.maintenanceMode === true || data.maintenanceMode === 'true'));
+      }
       return { success: true, settings: data };
     }
   }
@@ -715,28 +735,109 @@ export class SuperAdminService {
     };
   }
 
+  private buildActionFilter(act: string) {
+    const upper = act.toUpperCase().trim();
+    switch (upper) {
+      case 'CREATE':
+        return {
+          OR: [
+            { action: { contains: 'CREATE', mode: 'insensitive' } },
+            { action: { contains: 'REGISTER', mode: 'insensitive' } },
+            { action: { contains: 'NEW', mode: 'insensitive' } },
+            { action: { contains: 'ADD', mode: 'insensitive' } },
+          ],
+        };
+      case 'UPDATE':
+        return {
+          OR: [
+            { action: { contains: 'UPDATE', mode: 'insensitive' } },
+            { action: { contains: 'ASSIGN', mode: 'insensitive' } },
+            { action: { contains: 'CHANGE', mode: 'insensitive' } },
+            { action: { contains: 'MODIFY', mode: 'insensitive' } },
+            { action: { contains: 'EDIT', mode: 'insensitive' } },
+          ],
+        };
+      case 'DELETE':
+        return {
+          OR: [
+            { action: { contains: 'DELETE', mode: 'insensitive' } },
+            { action: { contains: 'REMOVE', mode: 'insensitive' } },
+            { action: { contains: 'PURGE', mode: 'insensitive' } },
+          ],
+        };
+      case 'LOGIN':
+        return {
+          OR: [
+            { action: { contains: 'LOGIN', mode: 'insensitive' } },
+            { action: { contains: 'AUTH', mode: 'insensitive' } },
+            { action: { contains: 'SIGNIN', mode: 'insensitive' } },
+          ],
+        };
+      case 'LOGOUT':
+        return {
+          OR: [
+            { action: { contains: 'LOGOUT', mode: 'insensitive' } },
+            { action: { contains: 'SIGNOUT', mode: 'insensitive' } },
+          ],
+        };
+      case 'VERIFY':
+        return {
+          OR: [
+            { action: { contains: 'VERIF', mode: 'insensitive' } },
+            { action: { contains: 'APPROV', mode: 'insensitive' } },
+            { action: { contains: 'REJECT', mode: 'insensitive' } },
+          ],
+        };
+      case 'SUSPEND':
+        return {
+          OR: [
+            { action: { contains: 'SUSPEND', mode: 'insensitive' } },
+            { action: { contains: 'BAN', mode: 'insensitive' } },
+            { action: { contains: 'BLOCK', mode: 'insensitive' } },
+            { action: { contains: 'DEACTIVATE', mode: 'insensitive' } },
+          ],
+        };
+      case 'PAYMENT':
+        return {
+          OR: [
+            { action: { contains: 'PAYMENT', mode: 'insensitive' } },
+            { action: { contains: 'PURCHASE', mode: 'insensitive' } },
+            { action: { contains: 'SUBSCRIBE', mode: 'insensitive' } },
+            { action: { contains: 'PLAN_ACTIVATED', mode: 'insensitive' } },
+          ],
+        };
+      default:
+        return { action: { contains: act.trim(), mode: 'insensitive' } };
+    }
+  }
+
   async getAuditLogs(page = 1, limit = 20, type?: string, action?: string, entity?: string, search?: string) {
     try {
       const skip = (+page - 1) * +limit;
-      const whereClause: any = {};
-      if (type && type.trim()) {
-        whereClause.action = { contains: type.trim(), mode: 'insensitive' };
-      }
-      if (action && action.trim()) {
-        whereClause.action = { contains: action.trim(), mode: 'insensitive' };
+      const conditions: any[] = [];
+
+      const effectiveAction = action || type;
+      if (effectiveAction && effectiveAction.trim()) {
+        conditions.push(this.buildActionFilter(effectiveAction));
       }
       if (entity && entity.trim()) {
-        whereClause.entity = { contains: entity.trim(), mode: 'insensitive' };
+        conditions.push({ entity: { contains: entity.trim(), mode: 'insensitive' } });
       }
       if (search && search.trim()) {
         const s = search.trim();
-        whereClause.OR = [
-          { action: { contains: s, mode: 'insensitive' } },
-          { entity: { contains: s, mode: 'insensitive' } },
-          { entityId: { contains: s, mode: 'insensitive' } },
-          { ipAddress: { contains: s, mode: 'insensitive' } },
-        ];
+        conditions.push({
+          OR: [
+            { action: { contains: s, mode: 'insensitive' } },
+            { entity: { contains: s, mode: 'insensitive' } },
+            { entityId: { contains: s, mode: 'insensitive' } },
+            { ipAddress: { contains: s, mode: 'insensitive' } },
+            { userId: { contains: s, mode: 'insensitive' } },
+            { adminId: { contains: s, mode: 'insensitive' } },
+          ],
+        });
       }
+
+      const whereClause = conditions.length > 0 ? { AND: conditions } : {};
 
       const [logs, total] = await Promise.all([
         this.prisma.auditLog.findMany({
@@ -771,22 +872,28 @@ export class SuperAdminService {
 
   async getAuditLogsForExport(action?: string, entity?: string, search?: string) {
     try {
-      const whereClause: any = {};
+      const conditions: any[] = [];
       if (action && action.trim()) {
-        whereClause.action = { contains: action.trim(), mode: 'insensitive' };
+        conditions.push(this.buildActionFilter(action));
       }
       if (entity && entity.trim()) {
-        whereClause.entity = { contains: entity.trim(), mode: 'insensitive' };
+        conditions.push({ entity: { contains: entity.trim(), mode: 'insensitive' } });
       }
       if (search && search.trim()) {
         const s = search.trim();
-        whereClause.OR = [
-          { action: { contains: s, mode: 'insensitive' } },
-          { entity: { contains: s, mode: 'insensitive' } },
-          { entityId: { contains: s, mode: 'insensitive' } },
-          { ipAddress: { contains: s, mode: 'insensitive' } },
-        ];
+        conditions.push({
+          OR: [
+            { action: { contains: s, mode: 'insensitive' } },
+            { entity: { contains: s, mode: 'insensitive' } },
+            { entityId: { contains: s, mode: 'insensitive' } },
+            { ipAddress: { contains: s, mode: 'insensitive' } },
+            { userId: { contains: s, mode: 'insensitive' } },
+            { adminId: { contains: s, mode: 'insensitive' } },
+          ],
+        });
       }
+
+      const whereClause = conditions.length > 0 ? { AND: conditions } : {};
 
       return await this.prisma.auditLog.findMany({
         where: whereClause,

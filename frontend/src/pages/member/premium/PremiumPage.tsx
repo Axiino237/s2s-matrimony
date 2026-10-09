@@ -16,12 +16,13 @@ export interface PlanItem {
   price: string | number;
   duration?: string;
   tier: string;
+  category?: string;
   contactLimit?: number;
   features?: string[];
   isPopular?: boolean;
 }
 
-import { isFeatureAllowed } from '../../../components/plans/PlanFormModal';
+import { sanitizePlanFeatures } from '../../../components/plans/PlanFormModal';
 
 export const sortPlans = (plansList: PlanItem[]): PlanItem[] => {
   const getPlanRank = (plan: PlanItem): number => {
@@ -31,8 +32,8 @@ export const sortPlans = (plansList: PlanItem[]): PlanItem[] => {
     if (tier === 'FREE' || name.includes('free')) return 1;
     if (tier === 'SILVER' || name.includes('silver')) return 2;
     if (tier === 'GOLD' || name.includes('gold')) return 3;
-    if (tier === 'ELITE' || name.includes('elite')) return 4;
-    if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
+    if (tier === 'PLATINUM' || name.includes('platinum')) return 4;
+    if (tier === 'ELITE' || name.includes('elite')) return 5;
     if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
     return 100; // Newly added custom plans go to the end!
   };
@@ -40,7 +41,13 @@ export const sortPlans = (plansList: PlanItem[]): PlanItem[] => {
   return [...plansList]
     .map((p) => ({
       ...p,
-      features: (Array.isArray(p.features) ? p.features : []).filter(isFeatureAllowed),
+      category: ((p as any).category || 'GENERAL').toUpperCase(),
+      features: sanitizePlanFeatures(
+        p.features,
+        (p as any).maxInterests,
+        (p as any).hasChat,
+        (p as any).hasAiMatch,
+      ),
     }))
     .sort((a, b) => {
       const rankA = getPlanRank(a);
@@ -69,6 +76,7 @@ const loadRazorpayScript = (): Promise<boolean> => {
 const PremiumPage = () => {
   const { user, fetchMe } = useAuthStore();
   const [plans, setPlans] = useState<PlanItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<'GENERAL' | 'ELITE'>('GENERAL');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingPlanId, setProcessingPlanId] = useState<string | null>(null);
@@ -128,8 +136,8 @@ const PremiumPage = () => {
         return;
       }
 
-      const razorpayKey = order.key || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TjJrVTHa9GKmXb';
-      const orderId = order.order_id || order.razorpayOrderId || order.orderId;
+      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID || order.key;
+      const orderId = order.order_id || order.id || order.razorpayOrderId || order.orderId;
 
       toast.dismiss(toastId);
       const options: any = {
@@ -139,6 +147,7 @@ const PremiumPage = () => {
         name: 'S2S Community Matrimony',
         description: `${plan.name} Upgrade (${plan.duration || 'Standard'})`,
         image: '/images/logo.png',
+        order_id: orderId,
         handler: async (response: any) => {
           // This callback ONLY executes when the member successfully completes payment in the Razorpay gateway!
           const verifyToast = toast.loading('Verifying Razorpay payment signature...');
@@ -172,10 +181,6 @@ const PremiumPage = () => {
           },
         },
       };
-
-      if (orderId && !orderId.startsWith('order_mock_')) {
-        options.order_id = orderId;
-      }
 
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', function (response: any) {
@@ -245,52 +250,135 @@ const PremiumPage = () => {
           </button>
         </div>
       ) : (
-        /* Plans Grid - Strictly Ordered: Free -> Silver -> Gold -> Elite -> Custom Plans */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-          {plans.map((plan) => {
-            const isCurrent = currentTier.toUpperCase() === (plan.tier || '').toUpperCase();
-            const isProcessing = processingPlanId === plan.id;
-            const displayPrice = String(plan.price).startsWith('₹') ? plan.price : `₹${plan.price}`;
-
-            // Brand Theme per tier
-            const isGold = (plan.tier || '').toUpperCase() === 'GOLD' || plan.name.toLowerCase().includes('gold');
-            const isPopular = plan.isPopular || isGold;
-
-            return (
-              <div
-                key={plan.id}
-                className={`relative flex flex-col bg-white rounded-3xl p-6 border transition-all duration-300 shadow-lg hover:shadow-2xl ${isPopular
-                    ? 'border-2 border-primary shadow-primary/20 scale-[1.02] lg:-translate-y-2'
-                    : 'border-slate-200 hover:border-slate-300'
-                  }`}
+        <div className="space-y-8">
+          {/* Category Toggle: General | Elite */}
+          <div className="flex flex-col items-center justify-center gap-3">
+            <div className="inline-flex p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/90 shadow-inner">
+              <button
+                type="button"
+                id="premium-category-toggle-general"
+                onClick={() => setSelectedCategory('GENERAL')}
+                className={`flex items-center gap-2.5 px-8 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
+                  selectedCategory === 'GENERAL'
+                    ? 'bg-white text-slate-900 shadow-md border border-slate-200/70 scale-[1.02]'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/40'
+                }`}
               >
-                {isPopular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-amber-500 text-white text-[11px] font-black uppercase tracking-wider px-4 py-1 rounded-full shadow-md flex items-center gap-1.5 z-10">
-                    <Zap className="w-3.5 h-3.5 fill-white" /> Most Popular Choice
-                  </div>
-                )}
+                <span>General</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    selectedCategory === 'GENERAL'
+                      ? 'bg-rose-50 text-rose-600'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {plans.filter((p) => ((p as any).category || 'GENERAL').toUpperCase() === 'GENERAL').length} Plans
+                </span>
+              </button>
 
-                <div className="mb-4 pt-1">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-display font-bold text-xl text-slate-900">{plan.name}</h3>
-                    {isCurrent && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        Current
-                      </span>
-                    )}
-                  </div>
+              <button
+                type="button"
+                id="premium-category-toggle-elite"
+                onClick={() => setSelectedCategory('ELITE')}
+                className={`flex items-center gap-2.5 px-8 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
+                  selectedCategory === 'ELITE'
+                    ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white shadow-md shadow-amber-500/20 scale-[1.02]'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/40'
+                }`}
+              >
+                <Crown className={`w-4 h-4 ${selectedCategory === 'ELITE' ? 'text-amber-100 fill-amber-100' : 'text-amber-500'}`} />
+                <span>Elite</span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    selectedCategory === 'ELITE'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {plans.filter((p) => ((p as any).category || 'GENERAL').toUpperCase() === 'ELITE' && (p.tier || '').toUpperCase() !== 'FREE').length} Plans
+                </span>
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">
+              {selectedCategory === 'GENERAL'
+                ? 'General Plans: Free, Silver, Gold, Platinum'
+                : 'Exclusive Elite Tier Plans: Silver, Gold, Platinum (No Free Tier)'}
+            </p>
+          </div>
 
-                  <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-slate-900 tracking-tight">{displayPrice}</span>
-                    {plan.duration && <span className="text-xs text-slate-500 font-semibold">/ {plan.duration}</span>}
-                  </div>
+          {/* Plans Grid */}
+          {plans.filter((p) => {
+            const cat = ((p as any).category || 'GENERAL').toUpperCase();
+            if (selectedCategory === 'ELITE') {
+              return cat === 'ELITE' && (p.tier || '').toUpperCase() !== 'FREE';
+            }
+            return cat === 'GENERAL';
+          }).length === 0 ? (
+            <div className="text-center py-12 px-4 bg-white rounded-3xl border border-slate-200 shadow-sm max-w-md mx-auto">
+              <p className="text-slate-600 font-medium text-sm">
+                No {selectedCategory === 'ELITE' ? 'Elite' : 'General'} plans available currently.
+              </p>
+            </div>
+          ) : (
+            <div
+              className={`grid gap-6 items-stretch ${
+                selectedCategory === 'ELITE'
+                  ? 'grid-cols-1 md:grid-cols-3 max-w-5xl mx-auto'
+                  : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
+              }`}
+            >
+              {plans
+                .filter((p) => {
+                  const cat = ((p as any).category || 'GENERAL').toUpperCase();
+                  if (selectedCategory === 'ELITE') {
+                    return cat === 'ELITE' && (p.tier || '').toUpperCase() !== 'FREE';
+                  }
+                  return cat === 'GENERAL';
+                })
+                .map((plan) => {
+                  const isCurrent = currentTier.toUpperCase() === (plan.tier || '').toUpperCase();
+                  const isProcessing = processingPlanId === plan.id;
+                  const displayPrice = String(plan.price).startsWith('₹') ? plan.price : `₹${plan.price}`;
 
-                  {plan.contactLimit && (
-                    <p className="text-xs text-primary font-bold mt-1.5 flex items-center gap-1">
-                      <Star className="w-3.5 h-3.5 fill-primary text-primary" /> Includes {plan.contactLimit} Phone/Contact Views
-                    </p>
-                  )}
-                </div>
+                  // Brand Theme per tier
+                  const isGold = (plan.tier || '').toUpperCase() === 'GOLD' || plan.name.toLowerCase().includes('gold');
+                  const isPopular = plan.isPopular || isGold;
+
+                  return (
+                    <div
+                      key={plan.id}
+                      className={`relative flex flex-col bg-white rounded-3xl p-6 border transition-all duration-300 shadow-lg hover:shadow-2xl ${isPopular
+                          ? 'border-2 border-primary shadow-primary/20 scale-[1.02] lg:-translate-y-2'
+                          : 'border-slate-200 hover:border-slate-300'
+                        }`}
+                    >
+                      {isPopular && (
+                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-primary to-amber-500 text-white text-[11px] font-black uppercase tracking-wider px-4 py-1 rounded-full shadow-md flex items-center gap-1.5 z-10">
+                          <Zap className="w-3.5 h-3.5 fill-white" /> Most Popular Choice
+                        </div>
+                      )}
+
+                      <div className="mb-4 pt-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-display font-bold text-xl text-slate-900">{plan.name}</h3>
+                          {isCurrent && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              Current
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-3 flex items-baseline gap-1">
+                          <span className="text-3xl font-black text-slate-900 tracking-tight">{displayPrice}</span>
+                          {plan.duration && <span className="text-xs text-slate-500 font-semibold">/ {plan.duration}</span>}
+                        </div>
+
+                        {typeof plan.contactLimit === 'number' && plan.contactLimit > 0 && (
+                          <p className="text-xs text-primary font-bold mt-1.5 flex items-center gap-1">
+                            <Star className="w-3.5 h-3.5 fill-primary text-primary" /> Includes {plan.contactLimit} Phone/Contact Views
+                          </p>
+                        )}
+                      </div>
 
                 <ul className="flex-1 space-y-3 mb-6 pt-4 border-t border-slate-100">
                   {plan.features?.map((feat, fIdx) => (
@@ -330,6 +418,8 @@ const PremiumPage = () => {
             );
           })}
         </div>
+      )}
+      </div>
       )}
 
       {/* Trust Badges */}

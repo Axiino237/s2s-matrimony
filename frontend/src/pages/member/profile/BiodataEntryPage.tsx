@@ -6,7 +6,7 @@ import api from '../../../services/api';
 import { profilesApi } from '../../../services/profiles.service';
 import { useAuthStore } from '../../../store/auth.store';
 import { useSettingsStore } from '../../../store/settings.store';
-import { STARS, RASIS, DOSHAMS, CASTE_SUBCASTES } from '../../../constants/index';
+import { STARS, RASIS, DOSHAMS, CASTE_SUBCASTES, BILINGUAL_STARS, BILINGUAL_RASIS, normalizeStar, normalizeRasi } from '../../../constants/index';
 
 // Planet choices for 12-box chart grids
 const PLANETS = ['சூரி (Sun)', 'சந் (Moon)', 'செவ் (Mars)', 'புத (Merc)', 'குரு (Jup)', 'சுக் (Ven)', 'சனி (Sat)', 'ராகு (Rahu)', 'கேது (Ketu)', 'லக் (Lag)'];
@@ -791,13 +791,20 @@ export default function BiodataEntryPage() {
 
               <div className="border-b border-slate-200 pb-1">
                 <span className="font-bold text-slate-700">Complexion: </span>
-                <input
-                  type="text"
-                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1"
+                <select
+                  className={`font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1 bg-transparent ${!form.complexion ? 'print:text-transparent' : ''}`}
                   value={form.complexion}
                   onChange={(e) => handleSet('complexion', e.target.value)}
-                  placeholder="Wheatish"
-                />
+                >
+                  <option value="">Select Complexion</option>
+                  <option value="Very Fair">Very Fair</option>
+                  <option value="Fair">Fair</option>
+                  <option value="Wheatish">Wheatish</option>
+                  <option value="Dark">Dark</option>
+                  {form.complexion && !['Very Fair', 'Fair', 'Wheatish', 'Dark'].includes(form.complexion) && (
+                    <option value={form.complexion}>{form.complexion}</option>
+                  )}
+                </select>
               </div>
 
               <div className="border-b border-slate-200 pb-1">
@@ -884,13 +891,42 @@ export default function BiodataEntryPage() {
 
               <div className="border-b border-slate-200 pb-1">
                 <span className="font-bold text-slate-700">Salary: </span>
-                <input
-                  type="text"
-                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1"
+                <select
+                  className={`font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1 bg-transparent ${!form.salary ? 'print:text-transparent' : ''}`}
                   value={form.salary}
                   onChange={(e) => handleSet('salary', e.target.value)}
-                  placeholder="350000 per / month"
-                />
+                >
+                  <option value="">Select Salary</option>
+                  <option value="20000 - 30000 per month">₹20,000 - ₹30,000 per month</option>
+                  <option value="30000 - 50000 per month">₹30,000 - ₹50,000 per month</option>
+                  <option value="50000 - 75000 per month">₹50,000 - ₹75,000 per month</option>
+                  <option value="80000 per month">80000 per month</option>
+                  <option value="75000 - 100000 per month">₹75,000 - ₹1,00,000 per month</option>
+                  <option value="100000 - 150000 per month">₹1,00,000 - ₹1,50,000 per month</option>
+                  <option value="150000 - 250000 per month">₹1,50,000 - ₹2,50,000 per month</option>
+                  <option value="Above 250000 per month">Above ₹2,50,000 per month</option>
+                  <option value="300000">₹2 Lakhs – ₹3 Lakhs per annum</option>
+                  <option value="500000">₹3 Lakhs – ₹5 Lakhs per annum</option>
+                  <option value="800000">₹5 Lakhs – ₹8 Lakhs per annum</option>
+                  <option value="1200000">₹8 Lakhs – ₹12 Lakhs per annum</option>
+                  <option value="1800000">₹12 Lakhs – ₹18 Lakhs per annum</option>
+                  <option value="2500000">₹18 Lakhs – ₹25 Lakhs per annum</option>
+                  <option value="3500000">₹25 Lakhs – ₹35 Lakhs per annum</option>
+                  <option value="5000000">Above ₹35 Lakhs per annum</option>
+                  {form.salary && ![
+                    '20000 - 30000 per month',
+                    '30000 - 50000 per month',
+                    '50000 - 75000 per month',
+                    '80000 per month',
+                    '75000 - 100000 per month',
+                    '100000 - 150000 per month',
+                    '150000 - 250000 per month',
+                    'Above 250000 per month',
+                    '300000', '500000', '800000', '1200000', '1800000', '2500000', '3500000', '5000000'
+                  ].includes(form.salary) && (
+                    <option value={form.salary}>{form.salary}</option>
+                  )}
+                </select>
               </div>
 
               <div className="border-b border-slate-200 pb-1">
@@ -1170,24 +1206,36 @@ export default function BiodataEntryPage() {
             <div className="border-2 border-rose-900 border-t-0 p-4 rounded-b-md text-xs space-y-3">
               <div>
                 <span className="font-bold text-slate-700">Rasi: </span>
-                <input
-                  type="text"
-                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1"
-                  value={form.rasi}
+                <select
+                  className={`font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1 bg-transparent ${!form.rasi ? 'print:text-transparent' : ''}`}
+                  value={normalizeRasi(form.rasi) || form.rasi}
                   onChange={(e) => handleSet('rasi', e.target.value)}
-                  placeholder="மிதுனம்"
-                />
+                >
+                  <option value="">Select Rasi</option>
+                  {BILINGUAL_RASIS.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                  {form.rasi && !BILINGUAL_RASIS.some(r => r.value === normalizeRasi(form.rasi) || r.value === form.rasi) && (
+                    <option value={form.rasi}>{form.rasi}</option>
+                  )}
+                </select>
               </div>
 
               <div>
                 <span className="font-bold text-slate-700">Natchathiram: </span>
-                <input
-                  type="text"
-                  className="font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1"
-                  value={form.natchathiram}
+                <select
+                  className={`font-semibold text-slate-900 focus:outline-none border-b border-slate-300 ml-1 bg-transparent ${!form.natchathiram ? 'print:text-transparent' : ''}`}
+                  value={normalizeStar(form.natchathiram) || form.natchathiram}
                   onChange={(e) => handleSet('natchathiram', e.target.value)}
-                  placeholder="புனர்பூசம்"
-                />
+                >
+                  <option value="">Select Star</option>
+                  {BILINGUAL_STARS.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                  {form.natchathiram && !BILINGUAL_STARS.some(s => s.value === normalizeStar(form.natchathiram) || s.value === form.natchathiram) && (
+                    <option value={form.natchathiram}>{form.natchathiram}</option>
+                  )}
+                </select>
               </div>
 
               <div>

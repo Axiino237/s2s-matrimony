@@ -167,6 +167,9 @@ const ProfileEditPage = () => {
     diet: '',
     residentStatus: '',
     propertyDetails: '',
+    assetValue: '',
+    bankBalance: '',
+    netWorth: '',
     educationDegree: '',
     college: '',
     occupation: '',
@@ -303,6 +306,9 @@ const ProfileEditPage = () => {
             diet: formatDiet(data.diet || prev.diet || ''),
             residentStatus: data.residentStatus || prev.residentStatus || '',
             propertyDetails: data.propertyDetails || prev.propertyDetails || '',
+            assetValue: data.assetValue !== null && data.assetValue !== undefined ? String(data.assetValue) : (prev.assetValue || ''),
+            bankBalance: data.bankBalance !== null && data.bankBalance !== undefined ? String(data.bankBalance) : (prev.bankBalance || ''),
+            netWorth: data.netWorth !== null && data.netWorth !== undefined ? String(data.netWorth) : (prev.netWorth || ''),
             educationDegree: data.education?.degree || (data as any).educationDegree || prev.educationDegree || '',
             college: data.education?.college || (data as any).college || prev.college || '',
             occupation: data.occupation?.designation || data.occupation?.title || (data as any).occupation || prev.occupation || '',
@@ -601,6 +607,9 @@ const ProfileEditPage = () => {
       diet: formData.diet || undefined,
       residentStatus: formData.residentStatus || undefined,
       propertyDetails: formData.propertyDetails || undefined,
+      assetValue: formData.assetValue ? Number(formData.assetValue) : undefined,
+      bankBalance: formData.bankBalance ? Number(formData.bankBalance) : undefined,
+      netWorth: formData.netWorth ? Number(formData.netWorth) : undefined,
       educationDegree: formData.educationDegree || undefined,
       college: formData.college || undefined,
       occupation: formData.occupation || undefined,
@@ -1281,7 +1290,7 @@ const ProfileEditPage = () => {
                   <option value="Non-Vegetarian">Non-Vegetarian</option>
                   <option value="Eggetarian">Eggetarian</option>
                   <option value="Vegan">Vegan</option>
-                  {formData.diet && !['Vegetarian', 'Non-Vegetarian', 'Eggetarian', 'Vegan'].includes(formData.diet) && (
+                  {formData.diet && !['Vegetarian', 'Non-Vegetarian', 'Eggetarian', 'Vegan', 'Jain', 'JAIN'].includes(formData.diet) && (
                     <option value={formData.diet}>{formData.diet}</option>
                   )}
                 </select>
@@ -1301,6 +1310,76 @@ const ProfileEditPage = () => {
               <div className="sm:col-span-2">
                 <label className="input-label">Property Details (சொத்து விவரங்கள்)</label>
                 <input placeholder="e.g. 2 PLOTS, CHENNAI / Individual House" className="input border-slate-200 text-text-primary w-full" value={formData.propertyDetails} onChange={(e) => handleChange('propertyDetails', e.target.value)} />
+              </div>
+              <div>
+                <label className="input-label">Asset Value (சொத்து மதிப்பு) (₹)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 5000000"
+                    className="input pl-8 border-slate-200 text-text-primary w-full"
+                    value={formData.assetValue}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      handleChange('assetValue', val);
+                      const av = Number(val) || 0;
+                      const bb = Number(formData.bankBalance) || 0;
+                      if (val === '' && (formData.bankBalance === '' || !formData.bankBalance)) {
+                        handleChange('netWorth', '');
+                      } else {
+                        handleChange('netWorth', String(av + bb));
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="input-label">Bank Balance (வங்கி இருப்பு) (₹)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 500000"
+                    className="input pl-8 border-slate-200 text-text-primary w-full"
+                    value={formData.bankBalance}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      handleChange('bankBalance', val);
+                      const av = Number(formData.assetValue) || 0;
+                      const bb = Number(val) || 0;
+                      if (val === '' && (formData.assetValue === '' || !formData.assetValue)) {
+                        handleChange('netWorth', '');
+                      } else {
+                        handleChange('netWorth', String(av + bb));
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="input-label flex items-center justify-between">
+                  <span>Net Worth (நிகர மதிப்பு) (₹)</span>
+                  <span className="text-xs text-slate-400 font-normal">Private • Visible only to you & staff</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 5500000"
+                    className="input pl-8 border-slate-200 text-text-primary w-full font-medium"
+                    value={formData.netWorth}
+                    onChange={(e) => handleChange('netWorth', e.target.value)}
+                  />
+                </div>
+                {formData.netWorth && Number(formData.netWorth) > 0 && (
+                  <p className="text-xs text-primary-600 font-medium mt-1">
+                    ₹ {Number(formData.netWorth).toLocaleString('en-IN')}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1338,7 +1417,20 @@ const ProfileEditPage = () => {
               </div>
               <div>
                 <label className="input-label">Annual Salary Range</label>
-                <input className="input border-slate-200 text-text-primary w-full" value={formData.annualIncome} onChange={(e) => handleChange('annualIncome', e.target.value)} />
+                <select className="input border-slate-200 text-text-primary w-full font-medium" value={formData.annualIncome} onChange={(e) => handleChange('annualIncome', e.target.value)}>
+                  <option value="">-- Select Annual Income --</option>
+                  <option value="300000">₹2 Lakhs – ₹3 Lakhs</option>
+                  <option value="500000">₹3 Lakhs – ₹5 Lakhs</option>
+                  <option value="800000">₹5 Lakhs – ₹8 Lakhs</option>
+                  <option value="1200000">₹8 Lakhs – ₹12 Lakhs</option>
+                  <option value="1800000">₹12 Lakhs – ₹18 Lakhs</option>
+                  <option value="2500000">₹18 Lakhs – ₹25 Lakhs</option>
+                  <option value="3500000">₹25 Lakhs – ₹35 Lakhs</option>
+                  <option value="5000000">Above ₹35 Lakhs</option>
+                  {formData.annualIncome && !['300000', '500000', '800000', '1200000', '1800000', '2500000', '3500000', '5000000'].includes(formData.annualIncome) && (
+                    <option value={formData.annualIncome}>{formData.annualIncome}</option>
+                  )}
+                </select>
               </div>
               <div>
                 <label className="input-label">Work Location</label>

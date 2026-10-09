@@ -302,9 +302,9 @@ const ProfileViewPage = () => {
       subCaste: subCasteName,
       religion: religionName,
       education: p.education?.degree || p.educationDegree || (typeof p.education === 'string' ? p.education : '') || 'Not Specified',
-      fieldOfStudy: p.education?.fieldOfStudy || (p as any).educationDetail || '',
+      fieldOfStudy: p.education?.fieldOfStudy || p.education?.university || (p as any).educationDetail || '',
       college: (() => {
-        const rawCol = p.education?.college || (p as any).college || '';
+        const rawCol = p.education?.college || p.education?.university || (p as any).college || '';
         const rawField = p.education?.fieldOfStudy || (p as any).educationDetail || '';
         if (rawCol && rawField && rawCol.trim().toLowerCase() === rawField.trim().toLowerCase()) {
           return '';
@@ -368,6 +368,15 @@ const ProfileViewPage = () => {
       complexion: p.complexion ?? 'Fair',
       weight: p.weight ? `${p.weight} kg` : 'Not Specified',
       diet: p.diet ?? 'Vegetarian',
+      residentStatus: p.residentStatus || 'Not Specified',
+      propertyDetails: p.propertyDetails || 'Not Specified',
+      assetValue: p.assetValue !== null && p.assetValue !== undefined ? Number(p.assetValue) : null,
+      bankBalance: p.bankBalance !== null && p.bankBalance !== undefined ? Number(p.bankBalance) : null,
+      netWorth: p.netWorth !== null && p.netWorth !== undefined ? Number(p.netWorth) : null,
+      membershipCategory: p.membershipCategory || (p.isElite ? 'ELITE' : 'GENERAL'),
+      isElite: Boolean(p.isElite || p.membershipCategory === 'ELITE'),
+      isEliteQualified: Boolean(p.isEliteQualified || p.eliteStatus === 'ELITE_QUALIFIED'),
+      eliteStatus: p.eliteStatus || (p.membershipCategory === 'ELITE' ? 'ELITE_NOT_QUALIFIED' : 'GENERAL'),
       about: p.about || `Welcome to ${name}'s profile page.`,
       isVerified: p.isVerified ?? false,
       membershipTier: (
@@ -836,21 +845,90 @@ const ProfileViewPage = () => {
               )}
 
               {activeTab === 'family' && (
-                <div className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
-                  {[
-                    ['Father Name', profile.fatherName],
-                    ['Father Occupation', profile.fatherOccupation],
-                    ['Mother Name', profile.motherName],
-                    ['Mother Occupation', profile.motherOccupation],
-                    ['Native Place (சொந்த ஊர்)', profile.nativePlace],
-                    ['Place / Current City', profile.place],
-                    ['Country', profile.country],
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between py-2 border-b border-slate-100">
-                      <span className="text-text-muted text-xs font-medium">{k}</span>
-                      <span className="text-text-primary text-xs font-semibold">{v}</span>
+                <div className="space-y-6">
+                  <div className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
+                    {[
+                      ['Father Name', profile.fatherName],
+                      ['Father Occupation', profile.fatherOccupation],
+                      ['Mother Name', profile.motherName],
+                      ['Mother Occupation', profile.motherOccupation],
+                      ['Native Place (சொந்த ஊர்)', profile.nativePlace],
+                      ['Place / Current City', profile.place],
+                      ['Country', profile.country],
+                    ].map(([k, v]) => (
+                      <div key={k} className="flex justify-between py-2 border-b border-slate-100">
+                        <span className="text-text-muted text-xs font-medium">{k}</span>
+                        <span className="text-text-primary text-xs font-semibold">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Private Financial & Property Details - shown to profile owner */}
+                  {isOwnProfile && (
+                    <div className="mt-6 pt-5 border-t border-slate-100">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                          Property & Financial Assets
+                        </h4>
+                        <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200/50">
+                          Private • Visible only to you
+                        </span>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
+                        <div className="flex justify-between py-2 border-b border-slate-100">
+                          <span className="text-text-muted text-xs font-medium">Resident Status</span>
+                          <span className="text-text-primary text-xs font-semibold">{profile.residentStatus}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-slate-100">
+                          <span className="text-text-muted text-xs font-medium">Property Details</span>
+                          <span className="text-text-primary text-xs font-semibold">{profile.propertyDetails}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-slate-100">
+                          <span className="text-text-muted text-xs font-medium">Asset Value</span>
+                          <span className="text-text-primary text-xs font-semibold">
+                            {profile.assetValue !== null ? `₹ ${profile.assetValue.toLocaleString('en-IN')}` : 'Not Specified'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-slate-100">
+                          <span className="text-text-muted text-xs font-medium">Bank Balance</span>
+                          <span className="text-text-primary text-xs font-semibold">
+                            {profile.bankBalance !== null ? `₹ ${profile.bankBalance.toLocaleString('en-IN')}` : 'Not Specified'}
+                          </span>
+                        </div>
+                        <div className="sm:col-span-2 flex justify-between py-2.5 px-3 bg-emerald-50/60 rounded-lg border border-emerald-100">
+                          <span className="text-emerald-800 text-xs font-bold">Net Worth</span>
+                          <span className="text-emerald-700 text-sm font-extrabold">
+                            {profile.netWorth !== null ? `₹ ${profile.netWorth.toLocaleString('en-IN')}` : 'Not Specified'}
+                          </span>
+                        </div>
+                        <div className="sm:col-span-2 flex justify-between items-center py-2 px-3 bg-amber-50/70 rounded-lg border border-amber-200">
+                          <div>
+                            <span className="text-amber-900 text-xs font-bold block">Membership Category</span>
+                            <span className="text-[11px] text-amber-700">
+                              {profile.membershipCategory === 'ELITE' || profile.isElite ? 'Elite Member' : 'General Member'}
+                            </span>
+                          </div>
+                          <div>
+                            {profile.membershipCategory === 'ELITE' || profile.isElite ? (
+                              profile.isEliteQualified || profile.eliteStatus === 'ELITE_QUALIFIED' ? (
+                                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  ✨ Elite — Qualified
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                  Elite — Not Qualified
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-100 text-blue-800">
+                                Standard General Member
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
 

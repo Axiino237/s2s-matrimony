@@ -18,16 +18,36 @@ interface AuditLog {
   createdAt: string;
 }
 
-const ACTION_COLORS: Record<string, string> = {
-  CREATE: 'bg-green-100 text-green-700',
-  UPDATE: 'bg-blue-100 text-blue-700',
-  DELETE: 'bg-rose-100 text-rose-700',
-  LOGIN: 'bg-violet-100 text-violet-700',
-  LOGOUT: 'bg-slate-100 text-slate-600',
-  VERIFY: 'bg-cyan-100 text-cyan-700',
-  SUSPEND: 'bg-orange-100 text-orange-700',
-  PAYMENT: 'bg-amber-100 text-amber-700',
-  EXPORT: 'bg-indigo-100 text-indigo-700',
+export const getActionBadgeStyle = (action: string): string => {
+  const act = (action || '').toUpperCase();
+  if (act.includes('CREATE') || act.includes('REGISTER') || act.includes('NEW') || act.includes('ADD')) {
+    return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+  }
+  if (act.includes('UPDATE') || act.includes('ASSIGN') || act.includes('MODIFY') || act.includes('EDIT') || act.includes('CHANGE')) {
+    return 'bg-blue-100 text-blue-800 border border-blue-200';
+  }
+  if (act.includes('DELETE') || act.includes('REMOVE') || act.includes('PURGE')) {
+    return 'bg-rose-100 text-rose-800 border border-rose-200';
+  }
+  if (act.includes('LOGIN') || act.includes('AUTH') || act.includes('SIGNIN')) {
+    return 'bg-violet-100 text-violet-800 border border-violet-200';
+  }
+  if (act.includes('LOGOUT') || act.includes('SIGNOUT')) {
+    return 'bg-slate-100 text-slate-700 border border-slate-200';
+  }
+  if (act.includes('VERIF') || act.includes('APPROV')) {
+    return 'bg-cyan-100 text-cyan-800 border border-cyan-200';
+  }
+  if (act.includes('SUSPEND') || act.includes('BAN') || act.includes('BLOCK')) {
+    return 'bg-amber-100 text-amber-900 border border-amber-300';
+  }
+  if (act.includes('PAY') || act.includes('PURCHASE') || act.includes('SUBSCRIBE')) {
+    return 'bg-teal-100 text-teal-800 border border-teal-200';
+  }
+  if (act.includes('EXPORT')) {
+    return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
+  }
+  return 'bg-slate-100 text-slate-700 border border-slate-200';
 };
 
 const FALLBACK_LOGS: AuditLog[] = Array.from({ length: 20 }, (_, i) => ({
@@ -58,7 +78,7 @@ const SuperAdminAuditLogs = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, [page, actionFilter, entityFilter]);
+  }, [page, actionFilter, entityFilter, search]);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -66,6 +86,7 @@ const SuperAdminAuditLogs = () => {
       const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
       if (actionFilter) params.set('action', actionFilter);
       if (entityFilter) params.set('entity', entityFilter);
+      if (search.trim()) params.set('search', search.trim());
       const res = await api.get(`/super-admin/audit-logs?${params}`);
       const data = res.data;
       setLogs(data?.data || data?.logs || FALLBACK_LOGS);
@@ -147,13 +168,14 @@ const SuperAdminAuditLogs = () => {
   };
 
   const filteredLogs = logs.filter(log =>
-    !search || log.action.toLowerCase().includes(search.toLowerCase()) ||
-    log.entity.toLowerCase().includes(search.toLowerCase()) ||
-    log.ipAddress?.includes(search)
+    !search || (log.action && log.action.toLowerCase().includes(search.toLowerCase())) ||
+    (log.entity && log.entity.toLowerCase().includes(search.toLowerCase())) ||
+    (log.ipAddress && log.ipAddress.includes(search))
   );
 
   const ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT', 'VERIFY', 'SUSPEND', 'PAYMENT'];
-  const ENTITIES = ['User', 'Profile', 'Plan', 'Blog', 'Payment', 'Admin', 'Permission', 'Role'];
+  const DEFAULT_ENTITIES = ['User', 'Profile', 'Plan', 'Payment', 'Community', 'Role', 'Settings', 'Admin', 'Auth', 'Blog'];
+  const allEntities = Array.from(new Set([...DEFAULT_ENTITIES, ...logs.map(l => l.entity).filter(Boolean)]));
 
   return (
     <div className="space-y-6">
@@ -220,7 +242,7 @@ const SuperAdminAuditLogs = () => {
             className="px-4 py-2.5 border border-slate-200 rounded-xl text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
             <option value="">All Entities</option>
-            {ENTITIES.map(e => <option key={e} value={e}>{e}</option>)}
+            {allEntities.map(e => <option key={e} value={e}>{e}</option>)}
           </select>
         </div>
       </div>
@@ -254,7 +276,7 @@ const SuperAdminAuditLogs = () => {
                         onClick={() => setExpanded(expanded === log.id ? null : log.id)}
                       >
                         <td className="px-5 py-3.5">
-                          <span className={`text-[11px] font-bold px-2 py-1 rounded-full ${ACTION_COLORS[log.action] || 'bg-slate-100 text-slate-600'}`}>
+                          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${getActionBadgeStyle(log.action)}`}>
                             {log.action}
                           </span>
                         </td>

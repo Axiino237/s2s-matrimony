@@ -20,11 +20,12 @@ import {
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
-import { PlanFormModal, Plan, TIERS, TIER_COLORS, isFeatureAllowed } from '../../components/plans/PlanFormModal';
+import { PlanFormModal, Plan, TIERS, TIER_COLORS, isFeatureAllowed, sanitizePlanFeatures } from '../../components/plans/PlanFormModal';
 
 // ─── Main Page ─────────────────────────────────────────────────────────
 const SuperAdminPlans = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<'GENERAL' | 'ELITE'>('GENERAL');
   const [loading, setLoading] = useState(true);
   const [modalPlan, setModalPlan] = useState<Partial<Plan> | null | undefined>(undefined);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -40,6 +41,7 @@ const SuperAdminPlans = () => {
       if (Array.isArray(data) && data.length > 0) {
         const normalized: Plan[] = data.map((p: any) => {
           const tier = (p.tier || 'SILVER').toUpperCase();
+          const category = ((p.category as string) || 'GENERAL').toUpperCase() as 'GENERAL' | 'ELITE';
           const contacts =
             p.maxContacts !== undefined
               ? Number(p.maxContacts)
@@ -52,23 +54,28 @@ const SuperAdminPlans = () => {
               ? Number(p.maxInterests)
               : 0;
 
+          const hasChat = p.hasChat !== undefined ? Boolean(p.hasChat) : false;
+          const hasAiMatch = Boolean(p.hasAiMatch);
+          const rawFeatures = Array.isArray(p.features)
+            ? p.features
+            : typeof p.features === 'string'
+            ? JSON.parse(p.features)
+            : [];
+
           return {
             id: p.id,
             name: p.name,
             tier,
+            category,
             price: Number(p.price ?? 0),
             durationMonths: p.durationMonths !== undefined ? Number(p.durationMonths) : 0,
             contactViewLimit: contacts,
             maxContacts: contacts,
             maxInterests: interests,
-            hasChat: p.hasChat !== undefined ? Boolean(p.hasChat) : false,
-            hasAiMatch: Boolean(p.hasAiMatch),
+            hasChat,
+            hasAiMatch,
             hasVideoProfile: false,
-            features: (Array.isArray(p.features)
-              ? p.features
-              : typeof p.features === 'string'
-              ? JSON.parse(p.features)
-              : []).filter(isFeatureAllowed),
+            features: sanitizePlanFeatures(rawFeatures, interests, hasChat, hasAiMatch),
             isActive: p.isActive !== false,
             isPopular: p.isPopular === true,
             description: p.description || '',
@@ -82,8 +89,8 @@ const SuperAdminPlans = () => {
           if (tier === 'FREE' || name.includes('free')) return 1;
           if (tier === 'SILVER' || name.includes('silver')) return 2;
           if (tier === 'GOLD' || name.includes('gold')) return 3;
-          if (tier === 'ELITE' || name.includes('elite')) return 4;
-          if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
+          if (tier === 'PLATINUM' || name.includes('platinum')) return 4;
+          if (tier === 'ELITE' || name.includes('elite')) return 5;
           if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
           return 100;
         };
@@ -172,7 +179,7 @@ const SuperAdminPlans = () => {
           </p>
         </div>
         <button
-          onClick={() => setModalPlan({})}
+          onClick={() => setModalPlan({ category: selectedCategory })}
           className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary to-secondary text-white rounded-xl text-sm font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
         >
           <Plus className="w-4 h-4" /> Create Plan
@@ -198,9 +205,74 @@ const SuperAdminPlans = () => {
         })}
       </div>
 
+      {/* Category Toggle (General | Elite) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Plan Category:</span>
+          <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              id="superadmin-category-toggle-general"
+              onClick={() => setSelectedCategory('GENERAL')}
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-bold transition-all ${
+                selectedCategory === 'GENERAL'
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span>General</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                selectedCategory === 'GENERAL' ? 'bg-rose-50 text-rose-600' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {plans.filter((p) => (p.category || 'GENERAL').toUpperCase() === 'GENERAL').length}
+              </span>
+            </button>
+            <button
+              type="button"
+              id="superadmin-category-toggle-elite"
+              onClick={() => setSelectedCategory('ELITE')}
+              className={`flex items-center gap-2 px-5 py-2 rounded-lg text-xs font-bold transition-all ${
+                selectedCategory === 'ELITE'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Crown className="w-3.5 h-3.5" />
+              <span>Elite</span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                selectedCategory === 'ELITE' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {plans.filter((p) => (p.category || 'GENERAL').toUpperCase() === 'ELITE').length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-500 font-medium">
+          {selectedCategory === 'GENERAL'
+            ? 'General Membership Plans (Free, Silver, Gold, Platinum)'
+            : 'Elite High-Net-Worth Membership Plans (Silver, Gold, Platinum — No Free Tier)'}
+        </p>
+      </div>
+
       {/* Plans Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-        {plans.map((plan) => (
+      {plans.filter((p) => (p.category || 'GENERAL').toUpperCase() === selectedCategory).length === 0 ? (
+        <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-12 text-center">
+          <p className="text-slate-500 text-sm font-medium">
+            No {selectedCategory === 'ELITE' ? 'Elite' : 'General'} membership plans configured yet.
+          </p>
+          <button
+            onClick={() => setModalPlan({ category: selectedCategory })}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow hover:bg-rose-700"
+          >
+            <Plus className="w-4 h-4" /> Create {selectedCategory === 'ELITE' ? 'Elite' : 'General'} Plan
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+          {plans
+            .filter((p) => (p.category || 'GENERAL').toUpperCase() === selectedCategory)
+            .map((plan) => (
           <div
             key={plan.id}
             className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between
@@ -344,19 +416,6 @@ const SuperAdminPlans = () => {
           </div>
         ))}
       </div>
-
-      {plans.length === 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-          <Crown className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-slate-600 mb-2">No Plans Yet</h3>
-          <p className="text-sm text-slate-400 mb-4">Create your first membership plan to get started</p>
-          <button
-            onClick={() => setModalPlan({})}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-bold"
-          >
-            <Plus className="w-4 h-4" /> Create First Plan
-          </button>
-        </div>
       )}
 
       {/* Plan Form Modal */}

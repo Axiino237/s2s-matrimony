@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { Users, Search, Eye, Ban, CheckCircle2, X, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Users, Search, Eye, Ban, CheckCircle2, X, Loader2, RefreshCw, Trash2, Crown, Sparkles } from 'lucide-react';
 import { adminApi } from '../../services/admin.service';
 import { useAuthStore } from '../../store/auth.store';
 
@@ -12,12 +12,22 @@ type UserRecord = {
   phone: string;
   isActive: boolean;
   createdAt: string;
+  membershipCategory?: 'GENERAL' | 'ELITE';
+  membershipTier?: string;
+  planTier?: string;
+  planName?: string;
+  isElite?: boolean;
   profile?: {
     firstName?: string;
     lastName?: string;
     photos?: { url: string }[];
     photoUrl?: string;
     community?: { name: string };
+    membershipCategory?: 'GENERAL' | 'ELITE';
+    membershipTier?: string;
+    planTier?: string;
+    planName?: string;
+    isElite?: boolean;
   };
   userRoles?: { role: { name: string } }[];
 };
@@ -78,6 +88,22 @@ const AdminUsers = () => {
     if (u.email.includes('superadmin')) return 'SUPER_ADMIN';
     if (u.email.includes('admin')) return 'ADMIN';
     return 'MEMBER';
+  };
+
+  const getCategoryLabel = (u: UserRecord): 'Elite' | 'General' => {
+    const cat = (u.membershipCategory || u.profile?.membershipCategory || (u.isElite || u.profile?.isElite ? 'ELITE' : 'GENERAL')).toUpperCase();
+    return cat === 'ELITE' ? 'Elite' : 'General';
+  };
+
+  const getPlanTierLabel = (u: UserRecord): string => {
+    const t = (u.planTier || u.membershipTier || u.profile?.planTier || u.profile?.membershipTier || 'FREE').toUpperCase();
+    switch (t) {
+      case 'PLATINUM': return 'Platinum';
+      case 'GOLD': return 'Gold';
+      case 'SILVER': return 'Silver';
+      case 'DIAMOND': return 'Diamond';
+      default: return 'Free';
+    }
   };
 
   const filtered = useMemo(() => {
@@ -174,14 +200,14 @@ const AdminUsers = () => {
             <table className="w-full min-w-[720px] text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {['User', 'Contact', 'Role', 'Community', 'Joined', 'Status', 'Actions'].map((h) => (
+                  {['User', 'Contact', 'Role', 'Membership', 'Community', 'Joined', 'Status', 'Actions'].map((h) => (
                     <th key={h} className="px-4 py-3.5 text-text-muted text-xs font-bold uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-10 text-text-muted font-medium">No user records found in database</td></tr>
+                  <tr><td colSpan={8} className="text-center py-10 text-text-muted font-medium">No user records found in database</td></tr>
                 ) : filtered.map((u) => {
                   const name = getUserName(u);
                   const role = getUserRole(u);
@@ -220,6 +246,29 @@ const AdminUsers = () => {
                         <span className={`badge text-xs ${getRoleBadgeStyle(role)}`}>
                           {role.replace('_', ' ')}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                            getCategoryLabel(u) === 'Elite'
+                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
+                            {getCategoryLabel(u) === 'Elite' && (
+                              <Sparkles className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />
+                            )}
+                            {getCategoryLabel(u)}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                            <Crown className="w-3 h-3 text-slate-400" />
+                            {getPlanTierLabel(u)}
+                            {(u.planName || u.profile?.planName) && (
+                              <span className="text-[10px] text-slate-400 font-normal">
+                                ({u.planName || u.profile?.planName})
+                              </span>
+                            )}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-text-secondary text-sm font-medium whitespace-nowrap">{community}</td>
                       <td className="px-4 py-3 text-text-muted text-xs font-medium whitespace-nowrap">{joined}</td>
@@ -301,6 +350,36 @@ const AdminUsers = () => {
                 <span className={`badge text-xs ${getRoleBadgeStyle(getUserRole(viewUser))}`}>
                   {getUserRole(viewUser).replace('_', ' ')}
                 </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-text-muted font-medium">Membership Category</span>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                  getCategoryLabel(viewUser) === 'Elite'
+                    ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-xs'
+                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                }`}>
+                  {getCategoryLabel(viewUser) === 'Elite' && (
+                    <Sparkles className="w-3 h-3 text-amber-500 fill-amber-400" />
+                  )}
+                  {getCategoryLabel(viewUser)}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-text-muted font-medium">Plan Tier</span>
+                <span className="font-bold text-text-primary flex items-center gap-1.5">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                    {getPlanTierLabel(viewUser)}
+                  </span>
+                  {(viewUser.planName || viewUser.profile?.planName) && (
+                    <span className="text-xs font-normal text-text-muted">
+                      ({viewUser.planName || viewUser.profile?.planName})
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-text-muted font-medium">Community</span>
+                <span className="font-bold text-text-primary">{getUserCommunity(viewUser)}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-text-muted font-medium">Status</span>

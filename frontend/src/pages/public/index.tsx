@@ -7,6 +7,7 @@ import { contactApi } from '../../services/contact.service';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/auth.store';
 import { useSettingsStore } from '../../store/settings.store';
+import { Crown } from 'lucide-react';
 
 
 // Stub pages for public routes
@@ -130,6 +131,7 @@ export const SuccessStoriesPage = () => {
 
 export const MembershipPage = () => {
   const [dbPlans, setDbPlans] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<'GENERAL' | 'ELITE'>('GENERAL');
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
 
@@ -142,14 +144,30 @@ export const MembershipPage = () => {
     }).catch(() => {});
   }, []);
 
-  const defaultPlans = [
-    { name: 'Free', price: '₹0', features: ['5 Daily Interests', 'Basic Search', '5 Profile Views/day'] },
-    { name: 'Silver', price: '₹599', period: '/month', features: ['50 Interests/day', '50 Contact Views', 'Direct Chat'] },
-    { name: 'Elite', price: '₹999', period: '/3 months', features: ['Unlimited Interests', 'Chat Access', '100 Contact Views', 'Priority Listing'] },
-    { name: 'Platinum', price: '₹1,799', period: '/6 months', features: ['Everything in Elite', 'Unlimited Contacts', 'AI Match Score', 'Horoscope Report'] },
+  const defaultGeneralPlans = [
+    { name: 'Free Plan', tier: 'FREE', category: 'GENERAL', price: '₹0', features: ['5 Daily Interests', 'Basic Search', '5 Profile Views/day'] },
+    { name: 'Silver Plan', tier: 'SILVER', category: 'GENERAL', price: '₹599', period: '/month', features: ['50 Interests/day', '50 Contact Views', 'Direct Chat'] },
+    { name: 'Gold Plan', tier: 'GOLD', category: 'GENERAL', price: '₹999', period: '/3 months', isPopular: true, features: ['Unlimited Interests', 'Chat Access', '100 Contact Views', 'Priority Listing'] },
+    { name: 'Platinum Plan', tier: 'PLATINUM', category: 'GENERAL', price: '₹1,899', period: '/6 months', features: ['Everything in Gold', 'Unlimited Contacts', 'AI Match Score', 'Horoscope Report'] },
   ];
 
-  const rawPlans = dbPlans.length > 0 ? dbPlans : defaultPlans;
+  const defaultElitePlans = [
+    { name: 'Silver Plan', tier: 'SILVER', category: 'ELITE', price: '₹1,499', period: '/3 months', features: ['100 Daily Interests', '100 Contact Views', 'Direct Live Chat', 'Verified Elite Badge'] },
+    { name: 'Gold Plan', tier: 'GOLD', category: 'ELITE', price: '₹2,999', period: '/6 months', isPopular: true, features: ['Unlimited Interests', 'Unlimited Contact Unlocks', 'Direct Chat', 'Priority Profile Ranking', 'AI Match Score'] },
+    { name: 'Platinum Plan', tier: 'PLATINUM', category: 'ELITE', price: '₹4,999', period: '/12 months', features: ['All Elite Privileges', 'Unlimited Contact Unlocks', 'Dedicated Support', 'Horoscope Matching Report'] },
+  ];
+
+  const rawPlans = dbPlans.length > 0
+    ? dbPlans
+    : selectedCategory === 'ELITE' ? defaultElitePlans : defaultGeneralPlans;
+
+  const filteredPlans = rawPlans.filter((p: any) => {
+    const cat = ((p as any).category || 'GENERAL').toUpperCase();
+    if (selectedCategory === 'ELITE') {
+      return cat === 'ELITE' && (p.tier || '').toUpperCase() !== 'FREE';
+    }
+    return cat === 'GENERAL';
+  });
 
   const getPlanRank = (plan: any): number => {
     const tier = (plan.tier || '').toUpperCase();
@@ -158,13 +176,13 @@ export const MembershipPage = () => {
     if (tier === 'FREE' || name.includes('free')) return 1;
     if (tier === 'SILVER' || name.includes('silver')) return 2;
     if (tier === 'GOLD' || name.includes('gold')) return 3;
-    if (tier === 'ELITE' || name.includes('elite')) return 4;
-    if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
+    if (tier === 'PLATINUM' || name.includes('platinum')) return 4;
+    if (tier === 'ELITE' || name.includes('elite')) return 5;
     if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
     return 100;
   };
 
-  const sortedPlans = [...rawPlans].sort((a, b) => {
+  const sortedPlans = [...filteredPlans].sort((a, b) => {
     const rankA = getPlanRank(a);
     const rankB = getPlanRank(b);
     if (rankA !== rankB) return rankA - rankB;
@@ -199,11 +217,11 @@ export const MembershipPage = () => {
     return {
       id: p.id,
       tier: p.tier,
-      name: p.name === 'Diamond Plan' || p.name === 'Diamond' ? 'Elite Plan' : p.name,
+      name: p.name,
       price: `₹${parseFloat(String(p.price).replace(/[^\d.]/g, '') || '0')}`,
       period: p.period || p.duration || (p.durationMonths ? `/${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : ''),
       features: filteredFeats,
-      isPopular: p.isPopular || (p.tier === 'ELITE' && !sortedPlans.some((x: any) => x.isPopular && x.id !== p.id)),
+      isPopular: p.isPopular || (p.tier === 'GOLD' && !sortedPlans.some((x: any) => x.isPopular && x.id !== p.id)),
     };
   });
 
@@ -225,11 +243,67 @@ export const MembershipPage = () => {
   return (
     <div className="pt-20 min-h-screen flex justify-center w-full">
       <div className="container mx-auto px-4 md:px-8 py-16 flex flex-col items-center w-full">
-        <div className="text-center mb-12 max-w-2xl mx-auto">
+        <div className="text-center mb-6 max-w-2xl mx-auto">
           <h1 className="section-title mb-4">Membership <span className="text-gradient">Plans</span></h1>
           <p className="section-subtitle">Choose the plan that fits you</p>
         </div>
-        <div className={`grid grid-cols-1 md:grid-cols-2 ${plansToRender.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-6 max-w-6xl mx-auto w-full`}>
+
+        {/* General | Elite Toggle */}
+        <div className="flex flex-col items-center justify-center gap-3 mb-12">
+          <div className="inline-flex p-1.5 bg-slate-100 rounded-2xl border border-slate-200/90 shadow-inner">
+            <button
+              type="button"
+              id="membership-category-toggle-general"
+              onClick={() => setSelectedCategory('GENERAL')}
+              className={`flex items-center gap-2.5 px-7 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                selectedCategory === 'GENERAL'
+                  ? 'bg-white text-slate-900 shadow-md border border-slate-200/70 scale-[1.02]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/40'
+              }`}
+            >
+              <span>General</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  selectedCategory === 'GENERAL'
+                    ? 'bg-rose-50 text-rose-600'
+                    : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                4 Plans
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="membership-category-toggle-elite"
+              onClick={() => setSelectedCategory('ELITE')}
+              className={`flex items-center gap-2.5 px-7 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                selectedCategory === 'ELITE'
+                  ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white shadow-md shadow-amber-500/20 scale-[1.02]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/40'
+              }`}
+            >
+              <Crown className={`w-4 h-4 ${selectedCategory === 'ELITE' ? 'text-amber-100 fill-amber-100' : 'text-amber-500'}`} />
+              <span>Elite</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  selectedCategory === 'ELITE'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                3 Plans
+              </span>
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 font-medium">
+            {selectedCategory === 'GENERAL'
+              ? 'General Plans: Free, Silver, Gold, Platinum'
+              : 'Exclusive Elite Tier Plans: Silver, Gold, Platinum (No Free Tier)'}
+          </p>
+        </div>
+
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${selectedCategory === 'ELITE' ? 'lg:grid-cols-3 max-w-5xl' : 'lg:grid-cols-4 max-w-6xl'} gap-6 mx-auto w-full`}>
           {plansToRender.map((plan: any, i: number) => {
             const isPopular = plan.isPopular || (plansToRender.length === 3 && i === 2) || (plansToRender.length === 4 && i === 2);
             return (

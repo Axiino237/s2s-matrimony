@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Search, Sparkles, Heart, ShieldCheck, UserCheck, ArrowRight, Star, 
-  Users, CheckCircle2, Award, Zap, Phone, Lock, MessageSquare, Globe, X, Loader2
+  Users, CheckCircle2, Award, Zap, Phone, Lock, MessageSquare, Globe, X, Loader2, Crown
 } from 'lucide-react';
 import { adminApi } from '../../services/admin.service';
 import { communitiesApi, CommunityData } from '../../services/communities.service';
 import { profilesApi, ProfileData } from '../../services/profiles.service';
 import { paymentsApi } from '../../services/payments.service';
+import { sanitizePlanFeatures } from '../../components/plans/PlanFormModal';
 
 
 // ── Hero Section ──────────────────────────────────────────────
@@ -474,6 +475,7 @@ const CommunitiesSection = () => {
 // ── Pricing & Plans Section ──────────────────────────────────
 const PricingPlansSection = () => {
   const [dbPlans, setDbPlans] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<'GENERAL' | 'ELITE'>('GENERAL');
 
   useEffect(() => {
     paymentsApi.getPlans().then((res) => {
@@ -484,26 +486,22 @@ const PricingPlansSection = () => {
     }).catch(() => {});
   }, []);
 
-  const defaultPlans = [
+  const defaultGeneralPlans = [
     {
       id: 'free',
-      name: 'Free Starter',
+      name: 'Free Plan',
+      tier: 'FREE',
+      category: 'GENERAL',
       price: '₹0',
-      period: 'Lifetime Free',
+      period: 'for 12 months',
       popular: false,
-      badge: 'Free Forever',
+      badge: 'Free',
       badgeBg: 'bg-slate-100 text-slate-700 border-slate-300 font-semibold',
       checkColor: 'text-slate-500',
-      description: 'Ideal for exploring verified profiles and getting started',
+      description: 'Unlock contact details & start connecting with matches',
       features: [
-        { text: '5 Daily Expressed Interests', active: true },
-        { text: 'Basic Search Filters (Age, Religion, Community)', active: true },
-        { text: '5 Profile Views per Day', active: true },
-        { text: 'Basic Compatibility Score', active: true },
-        { text: 'Contact Numbers & Email Unlocks', active: false },
-        { text: 'Direct Instant Messaging & Live Chat', active: false },
-        { text: 'Priority Search Ranking in Results', active: false },
-        { text: 'Dedicated Matchmaking Manager', active: false },
+        { text: 'Basic Search Filters', active: true },
+        { text: '5 Profile Views / day', active: true },
       ],
       ctaText: 'Register Free',
       ctaLink: '/register',
@@ -512,78 +510,152 @@ const PricingPlansSection = () => {
     {
       id: 'silver',
       name: 'Silver Plan',
+      tier: 'SILVER',
+      category: 'GENERAL',
       price: '₹599',
-      period: 'per month',
+      period: 'for 1 month',
       popular: false,
-      badge: 'Popular Choice',
+      badge: 'Silver',
       badgeBg: 'bg-teal-50 text-secondary-dark border-secondary/30 font-bold',
       checkColor: 'text-secondary',
       description: 'Unlock contact details & start connecting with matches',
       features: [
-        { text: '50 Daily Expressed Interests', active: true },
-        { text: 'Advanced Search & Education Filters', active: true },
-        { text: '50 Contact Number & Email Unlocks', active: true },
-        { text: 'Direct Instant Messaging & Live Chat', active: true },
-        { text: 'Verified Badge Priority on Search', active: true },
-        { text: 'Full Horoscope Overview', active: true },
-        { text: 'Priority Search Ranking in Results', active: false },
-        { text: 'Dedicated Matchmaking Manager', active: false },
+        { text: '50 Daily Interests', active: true },
+        { text: '50 Contact Views', active: true },
+        { text: 'Direct Chat', active: true },
       ],
-      ctaText: 'Choose Silver',
+      ctaText: 'Choose Silver Plan',
       ctaLink: '/register',
-      ctaStyle: 'btn bg-gradient-secondary text-white font-bold shadow-md hover:opacity-95 border-0',
+      ctaStyle: 'btn bg-slate-900 text-white font-bold hover:bg-slate-800 border-0',
     },
     {
-      id: 'elite',
-      name: 'Elite Plan',
+      id: 'gold',
+      name: 'Gold Plan',
+      tier: 'GOLD',
+      category: 'GENERAL',
       price: '₹999',
       period: 'for 3 months',
       popular: true,
       badge: 'Most Popular ⭐',
-      badgeBg: 'bg-indigo-100 text-indigo-900 border-indigo-300 font-extrabold',
-      checkColor: 'text-indigo-700',
-      description: 'Maximum visibility & unlimited connection privileges',
+      badgeBg: 'bg-rose-50 text-primary border-primary/30 font-extrabold',
+      checkColor: 'text-primary',
+      description: 'Unlock contact details & start connecting with matches',
       features: [
-        { text: 'UNLIMITED Expressed Interests', active: true },
-        { text: 'Full Horoscope & Porutham Match Reports', active: true },
-        { text: '100 Direct Contact & Phone Unlocks', active: true },
-        { text: 'Unlimited Direct Messaging & Chat', active: true },
-        { text: 'TOP 10 Priority Ranking in Search', active: true },
-        { text: 'AI Matchmaking & Compatibility Score', active: true },
-        { text: 'Privacy Shield & Photo Lock Control', active: true },
-        { text: 'Dedicated Matchmaking Manager', active: false },
+        { text: 'Unlimited Interests', active: true },
+        { text: '100 Contact Unlocks', active: true },
+        { text: 'Direct Chat', active: true },
+        { text: 'Priority Profile Ranking', active: true },
+        { text: 'AI Match Score', active: true },
       ],
-      ctaText: 'Get Elite Plan',
+      ctaText: 'Choose Gold Plan',
       ctaLink: '/register',
-      ctaStyle: 'btn bg-indigo-600 text-white font-extrabold shadow-lg hover:bg-indigo-700 border-0',
+      ctaStyle: 'btn bg-gradient-primary text-white font-extrabold shadow-lg hover:opacity-95 border-0',
     },
     {
       id: 'platinum',
-      name: 'Platinum VIP',
-      price: '₹1,799',
+      name: 'Platinum Plan',
+      tier: 'PLATINUM',
+      category: 'GENERAL',
+      price: '₹1,899',
       period: 'for 6 months',
       popular: false,
-      badge: 'Royal VIP Service',
-      badgeBg: 'bg-cyan-100 text-cyan-900 border-cyan-300 font-extrabold',
-      checkColor: 'text-cyan-700',
-      description: 'Dedicated personal manager and full VIP privileges',
+      badge: 'Platinum',
+      badgeBg: 'bg-purple-100 text-purple-900 border-purple-300 font-extrabold',
+      checkColor: 'text-purple-700',
+      description: 'Everything in Gold plus unlimited unlocks and horoscope matching',
       features: [
-        { text: 'UNLIMITED Expressed Interests', active: true },
-        { text: 'Full Horoscope & Koota Analysis', active: true },
-        { text: 'UNLIMITED Direct Contact Unlocks', active: true },
-        { text: 'Unlimited Direct Messaging & Video Call', active: true },
-        { text: 'DEDICATED Personal Match Manager', active: true },
-        { text: 'Elite Badge Highlighted Profile Card', active: true },
-        { text: 'VIP 24/7 Priority Concierge Support', active: true },
-        { text: 'Custom Verified Background Check', active: true },
+        { text: 'Everything in Gold', active: true },
+        { text: 'Unlimited Contact Unlocks', active: true },
+        { text: 'Horoscope Matching Report', active: true },
       ],
-      ctaText: 'Join Platinum VIP',
+      ctaText: 'Choose Platinum Plan',
       ctaLink: '/register',
-      ctaStyle: 'btn bg-cyan-600 text-white font-black shadow-xl hover:bg-cyan-700 border-0',
+      ctaStyle: 'btn bg-slate-900 text-white font-bold hover:bg-slate-800 border-0',
     },
   ];
 
-  const rawPlans = dbPlans.length > 0 ? dbPlans : defaultPlans;
+  const defaultElitePlans = [
+    {
+      id: 'elite-silver',
+      name: 'Silver Plan',
+      tier: 'SILVER',
+      category: 'ELITE',
+      price: '₹1,499',
+      period: 'for 3 months',
+      popular: false,
+      badge: 'Elite Silver',
+      badgeBg: 'bg-slate-100 text-slate-800 border-slate-300 font-bold',
+      checkColor: 'text-slate-700',
+      description: 'Unlock contact details & start connecting with matches',
+      features: [
+        { text: '100 Daily Interests', active: true },
+        { text: '100 Contact Views', active: true },
+        { text: 'Direct Live Chat', active: true },
+        { text: 'Priority Profile Ranking', active: true },
+        { text: 'Verified Elite Badge', active: true },
+      ],
+      ctaText: 'Choose Silver Plan',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-slate-900 text-white font-bold hover:bg-slate-800 border-0',
+    },
+    {
+      id: 'elite-gold',
+      name: 'Gold Plan',
+      tier: 'GOLD',
+      category: 'ELITE',
+      price: '₹2,999',
+      period: 'for 6 months',
+      popular: true,
+      badge: 'Most Popular ⭐',
+      badgeBg: 'bg-amber-100 text-amber-900 border-amber-300 font-extrabold',
+      checkColor: 'text-amber-700',
+      description: 'Unlock contact details & start connecting with matches',
+      features: [
+        { text: 'Unlimited Interests', active: true },
+        { text: 'Unlimited Contact Unlocks', active: true },
+        { text: 'Direct Chat', active: true },
+        { text: 'Priority Profile Ranking', active: true },
+        { text: 'AI Match Score', active: true },
+      ],
+      ctaText: 'Choose Gold Plan',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-gradient-to-r from-amber-500 to-amber-700 text-white font-extrabold shadow-lg hover:opacity-95 border-0',
+    },
+    {
+      id: 'elite-platinum',
+      name: 'Platinum Plan',
+      tier: 'PLATINUM',
+      category: 'ELITE',
+      price: '₹4,999',
+      period: 'for 12 months',
+      popular: false,
+      badge: 'Elite Platinum',
+      badgeBg: 'bg-purple-100 text-purple-900 border-purple-300 font-extrabold',
+      checkColor: 'text-purple-700',
+      description: 'All elite privileges and unlimited contact unlocks',
+      features: [
+        { text: 'All Elite Privileges', active: true },
+        { text: 'Unlimited Contact Unlocks', active: true },
+        { text: 'Dedicated Support', active: true },
+        { text: 'Horoscope Matching Report', active: true },
+      ],
+      ctaText: 'Choose Platinum Plan',
+      ctaLink: '/register',
+      ctaStyle: 'btn bg-slate-900 text-white font-bold hover:bg-slate-800 border-0',
+    },
+  ];
+
+  const rawPlans = dbPlans.length > 0
+    ? dbPlans
+    : selectedCategory === 'ELITE' ? defaultElitePlans : defaultGeneralPlans;
+
+  const filteredPlans = rawPlans.filter((p: any) => {
+    const cat = ((p as any).category || 'GENERAL').toUpperCase();
+    if (selectedCategory === 'ELITE') {
+      return cat === 'ELITE' && (p.tier || '').toUpperCase() !== 'FREE';
+    }
+    return cat === 'GENERAL';
+  });
 
   const getPlanRank = (plan: any): number => {
     const tier = (plan.tier || '').toUpperCase();
@@ -592,13 +664,13 @@ const PricingPlansSection = () => {
     if (tier === 'FREE' || name.includes('free')) return 1;
     if (tier === 'SILVER' || name.includes('silver')) return 2;
     if (tier === 'GOLD' || name.includes('gold')) return 3;
-    if (tier === 'ELITE' || name.includes('elite')) return 4;
-    if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
+    if (tier === 'PLATINUM' || name.includes('platinum')) return 4;
+    if (tier === 'ELITE' || name.includes('elite')) return 5;
     if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
     return 100;
   };
 
-  const sortedPlans = [...rawPlans].sort((a, b) => {
+  const sortedPlans = [...filteredPlans].sort((a, b) => {
     const rankA = getPlanRank(a);
     const rankB = getPlanRank(b);
     if (rankA !== rankB) return rankA - rankB;
@@ -608,19 +680,22 @@ const PricingPlansSection = () => {
   });
 
   const plansToRender = sortedPlans.map((p) => {
-    let name = p.name || 'Membership Plan';
-    if (name === 'Diamond Plan' || name === 'Diamond') name = 'Elite Plan';
-    const isPopular = p.isPopular || p.tier === 'ELITE' || p.tier === 'ELITE_PLAN';
-    const featuresList = Array.isArray(p.features)
-      ? p.features.map((f: any) => ({ text: typeof f === 'string' ? f : f.text, active: true }))
+    const name = p.name || 'Membership Plan';
+    const isPopular = p.isPopular || (p.tier === 'GOLD' && !sortedPlans.some((x: any) => x.isPopular && x.id !== p.id));
+    const rawFeatures = Array.isArray(p.features)
+      ? p.features
       : typeof p.features === 'string'
-      ? JSON.parse(p.features).map((f: any) => ({ text: typeof f === 'string' ? f : f.text, active: true }))
-      : [{ text: 'Unlimited Profile Access', active: true }, { text: 'Direct Chat', active: true }];
+      ? JSON.parse(p.features)
+      : [];
+    const featuresList = sanitizePlanFeatures(rawFeatures, p.maxInterests, p.hasChat, p.hasAiMatch).map((f: any) => ({
+      text: typeof f === 'string' ? f : f.text,
+      active: true,
+    }));
     return {
       id: p.id,
       name,
       price: typeof p.price === 'string' && p.price.startsWith('₹') ? p.price : `₹${p.price ?? 0}`,
-      period: p.period || p.duration || (p.durationMonths ? `for ${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : 'Lifetime'),
+      period: p.period || p.duration || (p.durationMonths ? `for ${p.durationMonths} month${p.durationMonths > 1 ? 's' : ''}` : 'for 12 months'),
       popular: isPopular,
       badge: isPopular ? 'Most Popular ⭐' : (p.badge || p.tier || 'MEMBER'),
       badgeBg: isPopular ? 'bg-primary/10 text-primary-dark border-primary/30 font-extrabold' : (p.badgeBg || 'bg-slate-100 text-slate-700 border-slate-300 font-semibold'),
@@ -636,7 +711,7 @@ const PricingPlansSection = () => {
   return (
     <section className="section bg-slate-100/60 relative overflow-hidden" id="membership-plans">
       <div className="container mx-auto px-4 md:px-8">
-        <div className="text-center mb-16">
+        <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-primary-dark text-xs font-bold uppercase tracking-wider mb-3">
             <Sparkles className="w-3.5 h-3.5 text-primary" /> Transparent Pricing & Benefits
           </div>
@@ -648,7 +723,62 @@ const PricingPlansSection = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-2 max-w-6xl mx-auto">
+        {/* General | Elite Category Switcher */}
+        <div className="flex flex-col items-center justify-center gap-3 mb-12">
+          <div className="inline-flex p-1.5 bg-white/90 rounded-2xl border border-slate-200/90 shadow-sm">
+            <button
+              type="button"
+              id="home-category-toggle-general"
+              onClick={() => setSelectedCategory('GENERAL')}
+              className={`flex items-center gap-2.5 px-7 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                selectedCategory === 'GENERAL'
+                  ? 'bg-slate-900 text-white shadow-md scale-[1.02]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <span>General</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  selectedCategory === 'GENERAL'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                4 Plans
+              </span>
+            </button>
+
+            <button
+              type="button"
+              id="home-category-toggle-elite"
+              onClick={() => setSelectedCategory('ELITE')}
+              className={`flex items-center gap-2.5 px-7 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                selectedCategory === 'ELITE'
+                  ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 text-white shadow-md shadow-amber-500/20 scale-[1.02]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Crown className={`w-4 h-4 ${selectedCategory === 'ELITE' ? 'text-amber-100 fill-amber-100' : 'text-amber-500'}`} />
+              <span>Elite</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  selectedCategory === 'ELITE'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                3 Plans
+              </span>
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 font-medium">
+            {selectedCategory === 'GENERAL'
+              ? 'General Plans: Free, Silver, Gold, Platinum'
+              : 'Exclusive Elite Tier Plans: Silver, Gold, Platinum (No Free Tier)'}
+          </p>
+        </div>
+
+        <div className={`grid grid-cols-1 md:grid-cols-2 ${selectedCategory === 'ELITE' ? 'lg:grid-cols-3 max-w-5xl' : 'lg:grid-cols-4 max-w-6xl'} gap-6 pt-2 mx-auto`}>
           {plansToRender.map((p) => (
             <div
               key={p.id}

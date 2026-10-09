@@ -22,8 +22,8 @@ export class AdminController {
   @Get('plans')
   @RequirePermissions(Permission.PLANS_READ)
   @ApiOperation({ summary: 'Get all membership plans for admin' })
-  async getPlans() {
-    return this.paymentsService.getPlans(true);
+  async getPlans(@Query('category') category?: string) {
+    return this.paymentsService.getPlans(true, category);
   }
 
   @Post('plans')

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { UserCheck, CheckCircle2, X, Eye, Loader2, RefreshCw, User, Briefcase, GraduationCap, Users, Moon, Heart, MapPin, Phone, Mail, Award, Sparkles } from 'lucide-react';
+import { UserCheck, CheckCircle2, X, Eye, Loader2, RefreshCw, User, Briefcase, GraduationCap, Users, Moon, Heart, MapPin, Phone, Mail, Award, Sparkles, Crown } from 'lucide-react';
 import { adminApi } from '../../services/admin.service';
 import { AiBiodataModal } from '../../components/profile/AiBiodataModal';
 
@@ -25,6 +25,18 @@ type ProfileRecord = {
   motherTongue?: string;
   about?: string;
   gothram?: string;
+  residentStatus?: string;
+  propertyDetails?: string;
+  assetValue?: number;
+  bankBalance?: number;
+  netWorth?: number;
+  membershipCategory?: 'GENERAL' | 'ELITE';
+  membershipTier?: string;
+  planTier?: string;
+  planName?: string;
+  isElite?: boolean;
+  isEliteQualified?: boolean;
+  eliteStatus?: 'GENERAL' | 'ELITE_QUALIFIED' | 'ELITE_NOT_QUALIFIED';
   verificationStatus: string;
   profileCompletionPercent?: number;
   createdAt: string;
@@ -113,6 +125,22 @@ const getPhotoUrl = (p: any) => {
 
 const getFallbackAvatar = (gender?: string) =>
   gender === 'FEMALE' ? '/images/bride.png' : '/images/groom.png';
+
+const getCategoryLabel = (p: ProfileRecord): 'Elite' | 'General' => {
+  const cat = (p.membershipCategory || (p.isElite ? 'ELITE' : 'GENERAL')).toUpperCase();
+  return cat === 'ELITE' ? 'Elite' : 'General';
+};
+
+const getPlanTierLabel = (p: ProfileRecord): string => {
+  const t = (p.planTier || p.membershipTier || 'FREE').toUpperCase();
+  switch (t) {
+    case 'PLATINUM': return 'Platinum';
+    case 'GOLD': return 'Gold';
+    case 'SILVER': return 'Silver';
+    case 'DIAMOND': return 'Diamond';
+    default: return 'Free';
+  }
+};
 
 const AdminProfiles = () => {
   const [searchParams] = useSearchParams();
@@ -272,6 +300,22 @@ const AdminProfiles = () => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-text-primary font-bold text-sm sm:text-base truncate">{getName(p)}</p>
                       <span className="text-[11px] sm:text-xs text-text-muted px-2 py-0.5 bg-slate-100 rounded-md font-mono flex-shrink-0">ID: {p.id.slice(0, 8)}</span>
+                      {getCategoryLabel(p) === 'Elite' ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 flex-shrink-0">
+                          ✨ Elite
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 flex-shrink-0">
+                          General
+                        </span>
+                      )}
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 flex-shrink-0 flex items-center gap-1">
+                        <Crown className="w-2.5 h-2.5" />
+                        {getPlanTierLabel(p)}
+                        {p.planName && p.planName !== `${getPlanTierLabel(p)} Plan` && (
+                          <span className="text-purple-400 font-normal">({p.planName})</span>
+                        )}
+                      </span>
                     </div>
                     <p className="text-text-secondary text-xs sm:text-sm mt-0.5 font-medium truncate">
                       {p.age ? `${p.age} yrs • ` : ''}{p.gender} • {getCity(p)} • {getCommunity(p)}
@@ -332,10 +376,26 @@ const AdminProfiles = () => {
                   />
                 </div>
                 <div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <h2 className="text-xl font-bold font-display">{getName(viewProfile)}</h2>
                     <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full ${viewProfile.verificationStatus === 'VERIFIED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}`}>
                       {viewProfile.verificationStatus}
+                    </span>
+                    {getCategoryLabel(viewProfile) === 'Elite' ? (
+                      <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-amber-400/25 text-amber-200 border border-amber-400/40 flex items-center gap-1">
+                        ✨ Elite Member
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-blue-500/20 text-blue-200 border border-blue-400/30">
+                        General Member
+                      </span>
+                    )}
+                    <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-white/20 text-white border border-white/30 flex items-center gap-1">
+                      <Crown className="w-3 h-3 text-amber-300" />
+                      {getPlanTierLabel(viewProfile)} Plan
+                      {viewProfile.planName && viewProfile.planName !== `${getPlanTierLabel(viewProfile)} Plan` && (
+                        <span className="text-white/70">({viewProfile.planName})</span>
+                      )}
                     </span>
                   </div>
                   <p className="text-slate-300 text-xs mt-1">
@@ -403,6 +463,8 @@ const AdminProfiles = () => {
                       {[
                         ['Full Name', getName(viewProfile)],
                         ['Profile Created For', viewProfile.profileFor || 'SELF'],
+                        ['Membership Category', getCategoryLabel(viewProfile)],
+                        ['Plan Tier', `${getPlanTierLabel(viewProfile)}${viewProfile.planName ? ` (${viewProfile.planName})` : ''}`],
                         ['Gender', viewProfile.gender],
                         ['Age', `${viewProfile.age} Yrs`],
                         ['Date of Birth', viewProfile.dateOfBirth ? new Date(viewProfile.dateOfBirth).toLocaleDateString() : '—'],
@@ -508,8 +570,16 @@ const AdminProfiles = () => {
                         ['Designation', viewProfile.occupation?.designation || '—'],
                         ['Company / Firm', viewProfile.occupation?.company || '—'],
                         ['Employment Type', viewProfile.occupation?.employmentType || '—'],
-                        ['Working Location', viewProfile.occupation?.workingLocation || '—'],
-                        ['Annual Salary (Min)', viewProfile.occupation?.salaryMin ? `₹${viewProfile.occupation.salaryMin.toLocaleString()}` : '—'],
+                        ['Annual Salary Range', viewProfile.occupation?.salaryMin ? ({
+                          '300000': '₹2 Lakhs – ₹3 Lakhs',
+                          '500000': '₹3 Lakhs – ₹5 Lakhs',
+                          '800000': '₹5 Lakhs – ₹8 Lakhs',
+                          '1200000': '₹8 Lakhs – ₹12 Lakhs',
+                          '1800000': '₹12 Lakhs – ₹18 Lakhs',
+                          '2500000': '₹18 Lakhs – ₹25 Lakhs',
+                          '3500000': '₹25 Lakhs – ₹35 Lakhs',
+                          '5000000': 'Above ₹35 Lakhs',
+                        }[String(viewProfile.occupation.salaryMin)] || `₹${viewProfile.occupation.salaryMin.toLocaleString()}`) : '—'],
                         ['Annual Salary (Max)', viewProfile.occupation?.salaryMax ? `₹${viewProfile.occupation.salaryMax.toLocaleString()}` : '—'],
                       ].map(([k, v]) => (
                         <div key={k as string} className="flex justify-between py-1.5 border-b border-slate-50">
@@ -553,6 +623,77 @@ const AdminProfiles = () => {
                       <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 mt-1">{viewProfile.family.familyDescription}</p>
                     </div>
                   )}
+
+                  {/* Property & Financial Assets */}
+                  <div className="pt-3 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                        Property & Financial Assets
+                      </h4>
+                      <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded font-medium border border-amber-200">
+                        Confidential Financial Data
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs">
+                      <div className="flex justify-between py-2 border-b border-slate-100">
+                        <span className="text-slate-500 font-medium">Resident Status</span>
+                        <span className="text-slate-900 font-semibold">{viewProfile.residentStatus || '—'}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-slate-100">
+                        <span className="text-slate-500 font-medium">Property Details</span>
+                        <span className="text-slate-900 font-semibold">{viewProfile.propertyDetails || '—'}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-slate-100">
+                        <span className="text-slate-500 font-medium">Asset Value</span>
+                        <span className="text-slate-900 font-semibold">
+                          {viewProfile.assetValue !== undefined && viewProfile.assetValue !== null
+                            ? `₹ ${Number(viewProfile.assetValue).toLocaleString('en-IN')}`
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-slate-100">
+                        <span className="text-slate-500 font-medium">Bank Balance</span>
+                        <span className="text-slate-900 font-semibold">
+                          {viewProfile.bankBalance !== undefined && viewProfile.bankBalance !== null
+                            ? `₹ ${Number(viewProfile.bankBalance).toLocaleString('en-IN')}`
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2.5 border-b border-slate-100 md:col-span-2 bg-emerald-50/70 px-3 rounded-lg border border-emerald-100">
+                        <span className="text-emerald-800 font-bold">Net Worth</span>
+                        <span className="text-emerald-700 font-extrabold text-sm">
+                          {viewProfile.netWorth !== undefined && viewProfile.netWorth !== null
+                            ? `₹ ${Number(viewProfile.netWorth).toLocaleString('en-IN')}`
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2.5 border-b border-slate-100 md:col-span-2 bg-amber-50/70 px-3 rounded-lg border border-amber-200">
+                        <div>
+                          <span className="text-amber-900 font-bold block text-xs">Elite Qualification Status</span>
+                          <span className="text-[11px] text-amber-700">
+                            Category: {viewProfile.membershipCategory === 'ELITE' || viewProfile.isElite ? 'Elite' : 'General'}
+                          </span>
+                        </div>
+                        <div>
+                          {viewProfile.membershipCategory === 'ELITE' || viewProfile.isElite ? (
+                            viewProfile.isEliteQualified || viewProfile.eliteStatus === 'ELITE_QUALIFIED' ? (
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                Qualified (Net Worth ≥ Threshold)
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                                Not Qualified (Net Worth &lt; Threshold)
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-100 text-blue-800">
+                              Standard General Member
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 

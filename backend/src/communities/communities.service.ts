@@ -69,7 +69,7 @@ export class CommunitiesService {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '');
     
-    return this.prisma.community.create({
+    const created = await this.prisma.community.create({
       data: {
         name: data.name,
         slug,
@@ -81,9 +81,21 @@ export class CommunitiesService {
         parent: true,
       },
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'COMMUNITY_CREATED',
+        entity: 'Community',
+        entityId: created.id,
+        newValue: { name: data.name, slug, description: data.description },
+      },
+    }).catch(() => null);
+
+    return created;
   }
 
   async update(id: string, data: { name?: string; description?: string; isActive?: boolean; parentId?: string | null }) {
+    const existing = await this.prisma.community.findUnique({ where: { id } }).catch(() => null);
     const updateData: any = { ...data };
     if (data.name) {
       updateData.slug = data.name
@@ -92,7 +104,7 @@ export class CommunitiesService {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '');
     }
-    return this.prisma.community.update({
+    const updated = await this.prisma.community.update({
       where: { id },
       data: updateData,
       include: {
@@ -100,11 +112,35 @@ export class CommunitiesService {
         parent: true,
       },
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'COMMUNITY_UPDATED',
+        entity: 'Community',
+        entityId: id,
+        oldValue: existing ? { name: existing.name, isActive: existing.isActive } : undefined,
+        newValue: { name: updated.name, isActive: updated.isActive },
+      },
+    }).catch(() => null);
+
+    return updated;
   }
 
   async remove(id: string) {
-    return this.prisma.community.delete({
+    const existing = await this.prisma.community.findUnique({ where: { id } }).catch(() => null);
+    const deleted = await this.prisma.community.delete({
       where: { id },
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'COMMUNITY_DELETED',
+        entity: 'Community',
+        entityId: id,
+        oldValue: existing ? { name: existing.name, slug: existing.slug } : undefined,
+      },
+    }).catch(() => null);
+
+    return deleted;
   }
 }

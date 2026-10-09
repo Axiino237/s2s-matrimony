@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Save, Loader2, Eye, EyeOff, CheckCircle2, Globe, Mail, Phone, CreditCard, Cpu, Server, Palette, Shield, Link as LinkIcon, BarChart2, Upload, Image as ImageIcon } from 'lucide-react';
+import { Settings, Save, Loader2, Eye, EyeOff, CheckCircle2, Globe, Mail, Phone, CreditCard, Cpu, Server, Palette, Shield, Link as LinkIcon, BarChart2, Upload, Image as ImageIcon, Award } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const TAB_GROUPS = [
   { id: 'branding', label: 'Branding', icon: Palette },
+  { id: 'elite', label: 'Elite Qualification', icon: Award },
   { id: 'email', label: 'Email & SMS', icon: Mail },
   { id: 'payment', label: 'Payment Gateway', icon: CreditCard },
   { id: 'ai', label: 'AI & OCR', icon: Cpu },
@@ -177,6 +178,9 @@ const SuperAdminSystemSettings = () => {
     razorpayWebhookSecret: '',
     currency: 'INR',
 
+    // Elite Financial Qualification
+    eliteQualificationThreshold: '50000000',
+
     // AI
     aiProvider: 'gemini',
     geminiApiKey: '',
@@ -227,6 +231,7 @@ const SuperAdminSystemSettings = () => {
     setSaving(true);
     const storePayload = {
       ...settings,
+      maintenanceMode: settings.maintenanceMode === 'true' || (settings.maintenanceMode as any) === true,
       enableBiodataForm: settings.enableBiodataForm === 'true' || (settings.enableBiodataForm as any) === true,
     };
     try {
@@ -551,8 +556,64 @@ const SuperAdminSystemSettings = () => {
     </div>
   );
 
+  const renderEliteQualification = () => {
+    const thresholdNum = Number(settings.eliteQualificationThreshold) || 50000000;
+    const inCrores = (thresholdNum / 10000000).toFixed(2);
+    const inLakhs = (thresholdNum / 100000).toFixed(2);
+    return (
+      <div className="space-y-6">
+        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 flex items-start gap-3">
+          <Award className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="text-xs text-amber-900 space-y-1">
+            <p className="font-bold">Elite Financial Qualification Threshold</p>
+            <p>This threshold determines whether an Elite member is classified as <strong>Elite — Qualified</strong> or <strong>Elite — Not Qualified</strong>.</p>
+            <p>A General member remains General regardless of net worth (General members are not automatically converted to Elite).</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wide block mb-1">
+              Minimum Net Worth Benchmark (₹)
+            </label>
+            <div className="relative max-w-md">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-base">₹</span>
+              <input
+                type="number"
+                min="0"
+                step="100000"
+                value={settings.eliteQualificationThreshold || '50000000'}
+                onChange={(e) => set('eliteQualificationThreshold', e.target.value)}
+                placeholder="50000000"
+                className="w-full pl-9 pr-4 py-3 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+              />
+            </div>
+            <div className="flex items-center gap-3 mt-2 text-xs">
+              <span className="font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded">
+                Formatted: ₹ {thresholdNum.toLocaleString('en-IN')}
+              </span>
+              <span className="text-slate-600 font-medium">
+                ({inCrores} Crore / {inLakhs} Lakhs)
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-700">
+            <p className="font-bold text-slate-900">Enforced Visibility Matrix:</p>
+            <ul className="list-disc list-inside space-y-1 text-slate-600">
+              <li><strong>General viewer:</strong> Can see General members only (cannot see any Elite members).</li>
+              <li><strong>Elite — Not Qualified viewer:</strong> Can see Elite — Qualified and Elite — Not Qualified members (cannot see General).</li>
+              <li><strong>Elite — Qualified viewer:</strong> Can see Elite — Qualified members only (cannot see Not Qualified or General).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const RENDERERS: Record<string, () => React.ReactNode> = {
     branding: renderBranding,
+    elite: renderEliteQualification,
     email: renderEmail,
     payment: renderPayment,
     ai: renderAI,

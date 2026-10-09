@@ -1,15 +1,20 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { devStore } from '../common/dev-store';
+import { syncMaintenanceModeState } from '../common/maintenance.util';
 import * as bcrypt from 'bcrypt';
 import { Gender, MaritalStatus, PhotoStatus } from '@prisma/client';
+import { EliteQualificationService } from '../common/elite-qualification.service';
 
 const devBlogsStore: any[] = [];
 const devStoriesStore: any[] = [];
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eliteQualService: EliteQualificationService,
+  ) {}
 
   async getDashboardStats() {
     try {
@@ -225,7 +230,13 @@ export class AdminService {
                 family: true,
                 education: { include: { educationMaster: true } },
                 occupation: { include: { occupationMaster: true } },
+                membership: { include: { plan: true } },
               },
+            },
+            memberships: {
+              where: { isActive: true },
+              include: { plan: true },
+              take: 1,
             },
             userRoles: { include: { role: true } },
           },
@@ -235,7 +246,42 @@ export class AdminService {
       ]);
 
       if (users) {
-        return { users, total, page: p, totalPages: Math.max(1, Math.ceil(total / l)) };
+        const threshold = await this.eliteQualService.getEliteThreshold();
+        const enrichedUsers = users.map((u) => {
+          const prof = u.profile;
+          const activeMembership = prof?.membership || u.memberships?.[0];
+          const plan = activeMembership?.plan;
+          const rawTier = (plan?.tier || activeMembership?.tier || 'FREE').toString().toUpperCase();
+          const planTier = rawTier === 'ELITE' ? (plan?.tier || 'GOLD') : rawTier;
+          const planName = plan?.name || (planTier === 'FREE' ? 'Free Plan' : `${planTier} Plan`);
+
+          const evalResult = prof
+            ? this.eliteQualService.evaluateProfile(prof, threshold)
+            : { membershipCategory: 'GENERAL' as const, isElite: false };
+
+          const membershipCategory = evalResult.membershipCategory;
+
+          return {
+            ...u,
+            membershipCategory,
+            membershipTier: planTier,
+            planTier,
+            planName,
+            isElite: evalResult.isElite,
+            profile: prof
+              ? {
+                  ...prof,
+                  membershipCategory,
+                  membershipTier: planTier,
+                  planTier,
+                  planName,
+                  isElite: evalResult.isElite,
+                }
+              : null,
+          };
+        });
+
+        return { users: enrichedUsers, total, page: p, totalPages: Math.max(1, Math.ceil(total / l)) };
       }
     } catch (err) {
       console.error('getUsers error:', err);
@@ -289,13 +335,34 @@ export class AdminService {
             family: true,
             horoscope: true,
             partnerPreference: true,
+            membership: { include: { plan: true } },
           },
           orderBy: { createdAt: 'desc' },
         }),
         this.prisma.profile.count({ where: whereClause }),
       ]);
 
-      return { profiles, total, page: p, totalPages: Math.max(1, Math.ceil(total / l)) };
+      const threshold = await this.eliteQualService.getEliteThreshold();
+      const enrichedProfiles = profiles.map((p) => {
+        const plan = p.membership?.plan;
+        const rawTier = (plan?.tier || p.membership?.tier || 'FREE').toString().toUpperCase();
+        const planTier = rawTier === 'ELITE' ? (plan?.tier || 'GOLD') : rawTier;
+        const planName = plan?.name || (planTier === 'FREE' ? 'Free Plan' : `${planTier} Plan`);
+        const evalResult = this.eliteQualService.evaluateProfile(p, threshold);
+
+        return {
+          ...p,
+          membershipCategory: evalResult.membershipCategory,
+          membershipTier: planTier,
+          planTier,
+          planName,
+          isElite: evalResult.isElite,
+          isEliteQualified: evalResult.isQualified,
+          eliteStatus: evalResult.eliteStatus,
+        };
+      });
+
+      return { profiles: enrichedProfiles, total, page: p, totalPages: Math.max(1, Math.ceil(total / l)) };
     } catch (err) {
       console.error('getPendingProfiles error:', err);
       return { profiles: [], total: 0, page: p, totalPages: 1 };
@@ -609,7 +676,7 @@ export class AdminService {
       ? (profile.user && !profile.user.isActive ? 'SUSPENDED' : 'ACTIVE')
       : profile.status;
 
-    return this.prisma.profile.update({
+    const updated = await this.prisma.profile.update({
       where: { id: profileId },
       data: {
         verificationStatus: status,
@@ -617,6 +684,19 @@ export class AdminService {
         status: nextStatus,
       },
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: isVerified ? 'PROFILE_VERIFIED' : 'PROFILE_REJECTED',
+        entity: 'Profile',
+        entityId: profileId,
+        userId: profile.userId,
+        oldValue: { isVerified: profile.isVerified, verificationStatus: profile.verificationStatus },
+        newValue: { isVerified, verificationStatus: status },
+      },
+    }).catch(() => null);
+
+    return updated;
   }
 
   async banUser(currentUser: any, userId: string) {
@@ -655,6 +735,17 @@ export class AdminService {
         status: nextIsActive ? 'ACTIVE' : 'SUSPENDED',
       },
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: nextIsActive ? 'USER_UNBANNED' : 'USER_SUSPENDED',
+        entity: 'User',
+        entityId: userId,
+        adminId: currentUser?.id,
+        oldValue: { isActive: user.isActive },
+        newValue: { isActive: nextIsActive },
+      },
+    }).catch(() => null);
 
     return updatedUser;
   }
@@ -699,6 +790,16 @@ export class AdminService {
       await tx.session.deleteMany({ where: { userId } }).catch(() => null);
       await tx.user.delete({ where: { id: userId } });
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'USER_DELETED',
+        entity: 'User',
+        entityId: userId,
+        adminId: currentUser?.id,
+        oldValue: { email: user.email },
+      },
+    }).catch(() => null);
 
     return { success: true, message: `User ${user.email} deleted successfully` };
   }
@@ -939,21 +1040,28 @@ export class AdminService {
   }
 
   async getSettings() {
+    let settings: any = {};
     try {
       const record = await this.prisma.setting.findUnique({ where: { key: 'system_settings' } });
       if (record && record.value) {
         try {
-          return JSON.parse(record.value);
+          settings = JSON.parse(record.value);
         } catch {
-          return {};
+          settings = {};
         }
       }
     } catch {}
+
+    const devSettings = (devStore as any).systemSettings || {};
+    const merged = { ...devSettings, ...settings };
+
     return {
       facebookUrl: 'https://www.facebook.com/s2smatrimony',
       instagramUrl: 'https://www.instagram.com/s2smatrimony',
       twitterUrl: 'https://x.com/s2smatrimony',
       youtubeUrl: 'https://www.youtube.com/@s2smatrimony',
+      eliteQualificationThreshold: 50000000,
+      ...merged,
     };
   }
 
@@ -962,6 +1070,14 @@ export class AdminService {
       const existing = await this.prisma.setting.findUnique({ where: { key: 'system_settings' } });
       const current = existing && existing.value ? JSON.parse(existing.value) : {};
       const merged = { ...current, ...data };
+      if (data.eliteQualificationThreshold !== undefined) {
+        merged.eliteQualificationThreshold = Number(data.eliteQualificationThreshold) || 50000000;
+      }
+      if (data.maintenanceMode !== undefined) {
+        const isMaint = Boolean(data.maintenanceMode === true || data.maintenanceMode === 'true');
+        merged.maintenanceMode = isMaint;
+        syncMaintenanceModeState(isMaint);
+      }
       const jsonStr = JSON.stringify(merged);
       await this.prisma.setting.upsert({
         where: { key: 'system_settings' },
@@ -969,6 +1085,16 @@ export class AdminService {
         create: { key: 'system_settings', value: jsonStr, group: 'GLOBAL', isPublic: true },
       });
       (devStore as any).systemSettings = merged;
+
+      await this.prisma.auditLog.create({
+        data: {
+          action: 'SETTINGS_UPDATED',
+          entity: 'Settings',
+          oldValue: current,
+          newValue: merged,
+        },
+      }).catch(() => null);
+
       return { success: true, settings: merged };
     } catch (e) {
       console.error('Failed to update settings:', e);
@@ -1221,6 +1347,10 @@ export class AdminService {
       birthOrder: data.birthOrder ? Number(data.birthOrder) : null,
       residentStatus: data.residentStatus || null,
       propertyDetails: data.propertyDetails || null,
+      assetValue: data.assetValue !== undefined && data.assetValue !== null && data.assetValue !== '' ? Number(data.assetValue) : null,
+      bankBalance: data.bankBalance !== undefined && data.bankBalance !== null && data.bankBalance !== '' ? Number(data.bankBalance) : null,
+      netWorth: data.netWorth !== undefined && data.netWorth !== null && data.netWorth !== '' ? Number(data.netWorth) : null,
+      membershipCategory: (data.membershipCategory || data.category || 'GENERAL').toString().toUpperCase() === 'ELITE' ? 'ELITE' : 'GENERAL',
       about: data.about || `Profile for ${displayName}`,
       status: 'ACTIVE',
       isVerified: true,
@@ -1248,17 +1378,21 @@ export class AdminService {
     // Education
     const degree = data.educationDegree || data.education || null;
     const college = data.college || data.educationDetails || null;
-    if (degree || college) {
+    const fieldOfStudy = data.fieldOfStudy || data.educationDetails || null;
+    if (degree || college || fieldOfStudy) {
       await this.prisma.education.upsert({
         where: { profileId: profile.id },
         create: {
           profileId: profile.id,
           degree: degree || 'Graduate',
-          fieldOfStudy: data.fieldOfStudy || null,
+          fieldOfStudy: fieldOfStudy,
+          college: college,
           university: college,
         },
         update: {
           degree: degree || undefined,
+          fieldOfStudy: fieldOfStudy || undefined,
+          college: college || undefined,
           university: college || undefined,
         },
       });
@@ -1343,7 +1477,24 @@ export class AdminService {
     const amsamChart = data.amsamChart || data.horoscopeData?.amsamChart || null;
     const horoscopeData = data.horoscopeData || (rasiChart || amsamChart ? { rasiChart, amsamChart } : null);
 
-    if (star || rasi || lagnam || kuladeivam || dosham || dasaBalance || birthTime || birthPlace || horoscopeData) {
+    const fullHoroscopeJson = {
+      ...(typeof horoscopeData === 'object' && horoscopeData !== null ? horoscopeData : {}),
+      star,
+      starPadam,
+      rasi,
+      lagnam,
+      kuladeivam,
+      dosham,
+      dasaBalance,
+      birthTime,
+      birthPlace,
+      gothram: data.gothram || null,
+      rasiChart: rasiChart || (typeof horoscopeData === 'object' ? horoscopeData?.rasiChart : null) || {},
+      amsamChart: amsamChart || (typeof horoscopeData === 'object' ? horoscopeData?.amsamChart : null) || {},
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (star || rasi || lagnam || kuladeivam || dosham || dasaBalance || birthTime || birthPlace || horoscopeData || rasiChart || amsamChart) {
       await this.prisma.horoscope.upsert({
         where: { profileId: profile.id },
         create: {
@@ -1358,7 +1509,7 @@ export class AdminService {
           birthTime,
           birthPlace,
           gothram: data.gothram || null,
-          horoscopeData: horoscopeData ? (horoscopeData as any) : undefined,
+          horoscopeData: fullHoroscopeJson,
         },
         update: {
           star: star || undefined,
@@ -1371,7 +1522,7 @@ export class AdminService {
           birthTime: birthTime || undefined,
           birthPlace: birthPlace || undefined,
           gothram: data.gothram || undefined,
-          horoscopeData: horoscopeData ? (horoscopeData as any) : undefined,
+          horoscopeData: fullHoroscopeJson,
         },
       });
     }

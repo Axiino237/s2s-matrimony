@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 export interface Plan {
   id: string;
   name: string;
+  category?: 'GENERAL' | 'ELITE';
   tier: string;
   price: number;
   durationMonths: number;
@@ -21,7 +22,7 @@ export interface Plan {
   createdAt?: string;
 }
 
-export const TIERS = ['FREE', 'SILVER', 'GOLD', 'ELITE', 'PLATINUM'];
+export const TIERS = ['FREE', 'SILVER', 'GOLD', 'PLATINUM'];
 
 export const TIER_COLORS: Record<string, string> = {
   FREE: 'bg-slate-100 text-slate-600 font-medium border border-slate-200',
@@ -36,14 +37,12 @@ export const TIER_COLORS: Record<string, string> = {
 // 2. dedicated manager
 // 3. video profile
 // 4. advanced search
+// 5. chat messaging / chat message (unnecessary, covered by Direct Live Chat)
 export const PREDEFINED_FEATURES = [
   'View contact details',
-  'Send interests',
-  'Chat messaging',
   'Profile highlighting',
   'Priority listing',
   'Profile verification badge',
-  'AI-match recommendations',
   'Priority support',
   'Horoscope matching',
 ];
@@ -60,12 +59,104 @@ export const isFeatureAllowed = (feat: string): boolean => {
     'video profile highlight',
     'video highlight',
     'advanced search',
+    'chat messaging',
+    'chat message',
   ];
   return !forbidden.some((k) => lower.includes(k) || k.includes(lower));
 };
 
+export const getPlanInterestPerk = (maxInterests?: number): string | null => {
+  if (maxInterests === -1) return 'Unlimited Interests';
+  if (maxInterests !== undefined && maxInterests > 0) return 'Send interests';
+  return null;
+};
+
+export const sanitizePlanFeatures = (
+  rawFeatures: any,
+  maxInterests?: number,
+  hasChat?: boolean,
+  hasAiMatch?: boolean,
+): string[] => {
+  const list: string[] = Array.isArray(rawFeatures)
+    ? rawFeatures
+    : typeof rawFeatures === 'string'
+    ? JSON.parse(rawFeatures || '[]')
+    : [];
+
+  const result: string[] = [];
+  const seen = new Set<string>();
+  let hasInterest = false;
+
+  for (const item of list) {
+    if (!item || typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    if (!isFeatureAllowed(trimmed)) continue;
+
+    const lower = trimmed.toLowerCase();
+    let norm = trimmed;
+
+    // Normalize duplicates
+    if (lower === 'direct chat' || lower === 'live chat') {
+      norm = 'Direct Live Chat';
+    } else if (lower === 'ai-match recommendations' || lower === 'ai match recommendations') {
+      norm = 'AI Match Score';
+    } else if (lower === 'horoscope matching report') {
+      norm = 'Horoscope matching';
+    }
+
+    // Keep only ONE appropriate Interest benefit per plan
+    if (norm.toLowerCase().includes('interest')) {
+      if (hasInterest) continue; // Skip duplicate interest
+      if (maxInterests === -1) {
+        norm = 'Unlimited Interests';
+      } else if (maxInterests !== undefined && maxInterests <= 0) {
+        continue; // 0 interests -> omit
+      } else if (lower === 'send interest' || lower === 'send interests') {
+        norm = 'Send interests';
+      }
+      hasInterest = true;
+    }
+
+    const key = norm.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(norm);
+    }
+  }
+
+  // Sync Core Tier switches if provided
+  if (hasChat !== undefined) {
+    const chatKey = 'direct live chat';
+    if (hasChat) {
+      if (!seen.has(chatKey)) {
+        seen.add(chatKey);
+        result.push('Direct Live Chat');
+      }
+    } else {
+      const idx = result.findIndex((f) => f.toLowerCase().includes('chat'));
+      if (idx !== -1) result.splice(idx, 1);
+    }
+  }
+
+  if (hasAiMatch !== undefined) {
+    const aiKey = 'ai match score';
+    if (hasAiMatch) {
+      if (!seen.has(aiKey)) {
+        seen.add(aiKey);
+        result.push('AI Match Score');
+      }
+    } else {
+      const idx = result.findIndex((f) => f.toLowerCase().includes('ai match'));
+      if (idx !== -1) result.splice(idx, 1);
+    }
+  }
+
+  return result;
+};
+
 const DEFAULT_PLAN: Omit<Plan, 'id' | 'createdAt'> = {
   name: '',
+  category: 'GENERAL',
   tier: 'SILVER',
   price: 599,
   durationMonths: 1,
@@ -75,7 +166,7 @@ const DEFAULT_PLAN: Omit<Plan, 'id' | 'createdAt'> = {
   hasChat: true,
   hasAiMatch: false,
   hasVideoProfile: false,
-  features: ['View contact details', 'Send interests', 'Chat messaging'],
+  features: ['View contact details', 'Send interests'],
   isActive: true,
   isPopular: false,
   description: '',
@@ -106,11 +197,19 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({ plan, onClose, onS
 
     const dur = plan.durationMonths !== undefined ? plan.durationMonths : 0;
 
-    const cleanedFeatures = (Array.isArray(plan.features) ? plan.features : []).filter(isFeatureAllowed);
+    const cleanedFeatures = sanitizePlanFeatures(
+      plan.features,
+      interests,
+      plan.hasChat !== undefined ? Boolean(plan.hasChat) : false,
+      Boolean(plan.hasAiMatch),
+    );
+
+    const initialCategory = ((plan?.category as string) || 'GENERAL').toUpperCase() as 'GENERAL' | 'ELITE';
 
     return {
       ...DEFAULT_PLAN,
       ...plan,
+      category: initialCategory,
       contactViewLimit: limit,
       maxContacts: limit,
       maxInterests: interests,
@@ -128,7 +227,35 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({ plan, onClose, onS
 
   const set = (field: string, val: any) => setForm((prev) => ({ ...prev, [field]: val }));
 
+  // Single appropriate Interest perk for this plan
+  const activeInterestPerk = useMemo(() => {
+    return getPlanInterestPerk(form.maxInterests);
+  }, [form.maxInterests]);
+
   const toggleFeature = (feat: string) => {
+    // If toggling the Interest benefit:
+    if (feat.toLowerCase().includes('interest')) {
+      const hasAnyInterest = form.features?.some((f) => f.toLowerCase().includes('interest'));
+      if (hasAnyInterest) {
+        // Uncheck -> disable interest and remove perk
+        setForm((prev) => ({
+          ...prev,
+          maxInterests: 0,
+          features: (prev.features || []).filter((f) => !f.toLowerCase().includes('interest')),
+        }));
+      } else {
+        // Check -> enable interest with single appropriate perk
+        const newPerk = form.maxInterests === -1 ? 'Unlimited Interests' : 'Send interests';
+        const newLimit = form.maxInterests <= 0 ? (form.tier === 'FREE' ? 5 : -1) : form.maxInterests;
+        setForm((prev) => ({
+          ...prev,
+          maxInterests: newLimit,
+          features: [newPerk, ...(prev.features || []).filter((f) => !f.toLowerCase().includes('interest'))],
+        }));
+      }
+      return;
+    }
+
     const current = form.features || [];
     if (current.includes(feat)) {
       set('features', current.filter((f) => f !== feat));
@@ -151,23 +278,73 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({ plan, onClose, onS
   };
 
   const allFeatureOptions = useMemo(() => {
-    const set = new Set([...PREDEFINED_FEATURES, ...(form.features || []).filter(isFeatureAllowed)]);
-    return Array.from(set);
-  }, [form.features]);
+    const result: string[] = [];
+    const seen = new Set<string>();
+
+    const addOpt = (f: string) => {
+      if (!isFeatureAllowed(f)) return;
+      const lower = f.toLowerCase();
+      // Exclude core switches & redundant duplicates from the perks grid
+      if (
+        lower === 'direct chat' ||
+        lower === 'direct live chat' ||
+        lower === 'ai match score' ||
+        lower === 'ai-match recommendations'
+      ) {
+        return;
+      }
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        result.push(f);
+      }
+    };
+
+    // 1. Single appropriate Interest benefit
+    const interestPerk = activeInterestPerk || 'Send interests';
+    seen.add(interestPerk.toLowerCase());
+    seen.add('unlimited interests');
+    seen.add('send interests');
+    seen.add('send interest');
+    result.push(interestPerk);
+
+    // 2. Predefined perks
+    for (const f of PREDEFINED_FEATURES) {
+      addOpt(f);
+    }
+
+    // 3. Existing custom features in form, excluding duplicates
+    for (const f of form.features || []) {
+      if (f.toLowerCase().includes('interest')) continue;
+      addOpt(f);
+    }
+
+    return result;
+  }, [form.features, activeInterestPerk]);
 
   const handleSave = async () => {
     if (!form.name || !form.tier || form.price === undefined || form.price === null) {
       toast.error('Please fill plan name, tier, and price');
       return;
     }
+    if (form.category === 'ELITE' && form.tier === 'FREE') {
+      toast.error('Elite category cannot have a Free plan');
+      return;
+    }
     setSaving(true);
     try {
+      const finalFeatures = sanitizePlanFeatures(
+        form.features,
+        form.maxInterests,
+        form.hasChat,
+        form.hasAiMatch,
+      );
+
       const payload = {
         ...form,
         contactLimit: form.contactViewLimit,
         maxContacts: form.contactViewLimit,
         hasVideoProfile: false,
-        features: (form.features || []).filter(isFeatureAllowed),
+        features: finalFeatures,
       };
       await onSave(payload);
       onClose();
@@ -190,24 +367,49 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({ plan, onClose, onS
         </div>
 
         <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {/* Plan Name */}
-          <div className="sm:col-span-2">
+          {/* Category Toggle */}
+          <div>
             <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">
-              Plan Name *
+              Membership Category *
             </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => set('name', e.target.value)}
-              placeholder="e.g. Silver 1 Month, Elite 3 Months, Platinum VIP"
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => set('category', 'GENERAL')}
+                className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                  form.category !== 'ELITE'
+                    ? 'bg-rose-50 border-rose-500 text-rose-700 shadow-xs'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                General
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  set('category', 'ELITE');
+                  if (form.tier === 'FREE') {
+                    set('tier', 'SILVER');
+                    set('hasChat', true);
+                    set('contactViewLimit', 50);
+                    set('maxInterests', 50);
+                  }
+                }}
+                className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all ${
+                  form.category === 'ELITE'
+                    ? 'bg-amber-50 border-amber-500 text-amber-800 shadow-xs'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                ⭐ Elite
+              </button>
+            </div>
           </div>
 
           {/* Tier */}
           <div>
             <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">
-              Tier Category *
+              Tier Level *
             </label>
             <select
               value={form.tier}
@@ -224,14 +426,31 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({ plan, onClose, onS
                   set('maxInterests', 50);
                 }
               }}
-              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             >
-              {TIERS.map((t) => (
+              {(form.category === 'ELITE'
+                ? TIERS.filter((t) => t !== 'FREE')
+                : TIERS
+              ).map((t) => (
                 <option key={t} value={t}>
                   {t}
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Plan Name */}
+          <div className="sm:col-span-2">
+            <label className="text-xs font-bold text-slate-600 uppercase tracking-wide block mb-1">
+              Plan Name *
+            </label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => set('name', e.target.value)}
+              placeholder="e.g. Silver Plan, Gold Plan, Platinum Plan"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
           </div>
 
           {/* Price */}
@@ -299,12 +518,22 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({ plan, onClose, onS
             <input
               type="number"
               value={form.maxInterests}
-              onChange={(e) =>
-                set(
-                  'maxInterests',
-                  isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value),
-                )
-              }
+              onChange={(e) => {
+                const val = isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value);
+                setForm((prev) => {
+                  let updatedFeatures = (prev.features || []).filter((f) => !f.toLowerCase().includes('interest'));
+                  if (val === -1) {
+                    updatedFeatures.unshift('Unlimited Interests');
+                  } else if (val > 0) {
+                    updatedFeatures.unshift('Send interests');
+                  }
+                  return {
+                    ...prev,
+                    maxInterests: val,
+                    features: updatedFeatures,
+                  };
+                });
+              }}
               min={-1}
               placeholder="0 = Disabled (Free), -1 = Unlimited"
               className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"

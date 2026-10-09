@@ -15,6 +15,20 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
+  // Rewrite standard Razorpay payment routes to v1 payments controller
+  app.use((req: any, _res: any, next: any) => {
+    if (req.url === '/api/create-order' || req.url?.startsWith('/api/create-order?')) {
+      req.url = req.url.replace('/api/create-order', '/api/v1/payments/create-order');
+    } else if (req.url === '/api/verify-payment' || req.url?.startsWith('/api/verify-payment?')) {
+      req.url = req.url.replace('/api/verify-payment', '/api/v1/payments/verify-payment');
+    } else if (req.url === '/api/v1/create-order' || req.url?.startsWith('/api/v1/create-order?')) {
+      req.url = req.url.replace('/api/v1/create-order', '/api/v1/payments/create-order');
+    } else if (req.url === '/api/v1/verify-payment' || req.url?.startsWith('/api/v1/verify-payment?')) {
+      req.url = req.url.replace('/api/v1/verify-payment', '/api/v1/payments/verify-payment');
+    }
+    next();
+  });
+
   // Middleware — Body limits & cookie parser
   app.use(json({ limit: '15mb' }));
   app.use(urlencoded({ limit: '15mb', extended: true }));

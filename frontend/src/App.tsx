@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { useSettingsStore } from './store/settings.store';
 import { useAuthStore } from './store/auth.store';
+import MaintenancePage from './pages/public/MaintenancePage';
 
 // Layouts
 import PublicLayout from './components/layout/PublicLayout';
@@ -45,6 +46,7 @@ import ProfileCompletePage from './pages/member/profile/ProfileCompletePage';
 import BiodataEntryPage from './pages/member/profile/BiodataEntryPage';
 import SearchPage from './pages/member/search/SearchPage';
 import MatchesPage from './pages/member/search/MatchesPage';
+import HoroscopeMatchingPage from './pages/member/search/HoroscopeMatchingPage';
 import MessagesPage from './pages/member/messages/MessagesPage';
 import ChatPage from './pages/member/messages/ChatPage';
 import InterestsPage from './pages/member/messages/InterestsPage';
@@ -98,6 +100,50 @@ const queryClient = new QueryClient({
   },
 });
 
+const MaintenanceEnforcer = ({ children }: { children: React.ReactNode }) => {
+  const maintenanceMode = useSettingsStore((s) => s.maintenanceMode);
+  const { user, isAuthenticated } = useAuthStore();
+  const location = useLocation();
+
+  const isAdminOrSuperAdmin =
+    Boolean(isAuthenticated) &&
+    (user?.role === 'ADMIN' ||
+      user?.role === 'SUPER_ADMIN' ||
+      (Array.isArray((user as any)?.roles) &&
+        ((user as any).roles.includes('ADMIN') || (user as any).roles.includes('SUPER_ADMIN'))));
+
+  if (!maintenanceMode || isAdminOrSuperAdmin) {
+    return (
+      <>
+        {maintenanceMode && isAdminOrSuperAdmin && (
+          <div className="bg-amber-600 text-white text-xs font-semibold py-1.5 px-4 text-center sticky top-0 z-50 flex items-center justify-center gap-2 shadow-sm">
+            <span>⚠️ Site Maintenance Mode is ACTIVE. Non-admin users currently see the maintenance page.</span>
+            <a href="/super-admin/settings" className="underline font-bold hover:text-amber-100">
+              Manage in Settings
+            </a>
+          </div>
+        )}
+        {children}
+      </>
+    );
+  }
+
+  // Paths allowed during maintenance for admins to log in or access admin panels
+  const path = location.pathname.toLowerCase();
+  const isAllowedPath =
+    path === '/login' ||
+    path === '/admin/login' ||
+    path === '/verify-otp' ||
+    path.startsWith('/admin') ||
+    path.startsWith('/super-admin');
+
+  if (isAllowedPath) {
+    return <>{children}</>;
+  }
+
+  return <MaintenancePage />;
+};
+
 function App() {
   useEffect(() => {
     useSettingsStore.getState().fetchSettings();
@@ -111,7 +157,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ScrollToTop />
-        <Routes>
+        <MaintenanceEnforcer>
+          <Routes>
           {/* ── Public & Auth Routes ── */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<LandingPage />} />
@@ -161,6 +208,7 @@ function App() {
                 <Route element={<ProtectedRoute permissions={['member:search']} />}>
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/matches" element={<MatchesPage />} />
+                  <Route path="/horoscope-matching" element={<HoroscopeMatchingPage />} />
                 </Route>
                 <Route element={<ProtectedRoute permissions={['member:messages']} />}>
                   <Route path="/messages" element={<MessagesPage />} />
@@ -249,6 +297,7 @@ function App() {
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </MaintenanceEnforcer>
       </BrowserRouter>
 
       <Toaster

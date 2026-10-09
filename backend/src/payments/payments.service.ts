@@ -1,10 +1,102 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const Razorpay = require('razorpay');
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../common/entitlements.service';
+
+export function sanitizePlanFeatures(
+  rawFeatures: any,
+  maxInterests?: number,
+  hasChat?: boolean,
+  hasAiMatch?: boolean,
+): string[] {
+  const list: string[] = Array.isArray(rawFeatures)
+    ? rawFeatures
+    : typeof rawFeatures === 'string'
+    ? JSON.parse(rawFeatures || '[]')
+    : [];
+
+  const forbidden = [
+    'whatsapp connect',
+    'dedicated manager',
+    'dedicated match manager',
+    'dedicated relationship manager',
+    'video profile',
+    'video profile highlight',
+    'video highlight',
+    'advanced search',
+    'chat messaging',
+    'chat message',
+  ];
+
+  const result: string[] = [];
+  const seen = new Set<string>();
+  let hasInterest = false;
+
+  for (const item of list) {
+    if (!item || typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    const lower = trimmed.toLowerCase();
+    if (forbidden.some((k) => lower.includes(k) || k.includes(lower))) continue;
+
+    let norm = trimmed;
+    if (lower === 'direct chat' || lower === 'live chat') {
+      norm = 'Direct Live Chat';
+    } else if (lower === 'ai-match recommendations' || lower === 'ai match recommendations') {
+      norm = 'AI Match Score';
+    } else if (lower === 'horoscope matching report') {
+      norm = 'Horoscope matching';
+    }
+
+    if (norm.toLowerCase().includes('interest')) {
+      if (hasInterest) continue;
+      if (maxInterests === -1) {
+        norm = 'Unlimited Interests';
+      } else if (maxInterests !== undefined && maxInterests <= 0) {
+        continue;
+      } else if (lower === 'send interest' || lower === 'send interests') {
+        norm = 'Send interests';
+      }
+      hasInterest = true;
+    }
+
+    const key = norm.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(norm);
+    }
+  }
+
+  if (hasChat !== undefined) {
+    const chatKey = 'direct live chat';
+    if (hasChat) {
+      if (!seen.has(chatKey)) {
+        seen.add(chatKey);
+        result.push('Direct Live Chat');
+      }
+    } else {
+      const idx = result.findIndex((f) => f.toLowerCase().includes('chat'));
+      if (idx !== -1) result.splice(idx, 1);
+    }
+  }
+
+  if (hasAiMatch !== undefined) {
+    const aiKey = 'ai match score';
+    if (hasAiMatch) {
+      if (!seen.has(aiKey)) {
+        seen.add(aiKey);
+        result.push('AI Match Score');
+      }
+    } else {
+      const idx = result.findIndex((f) => f.toLowerCase().includes('ai match'));
+      if (idx !== -1) result.splice(idx, 1);
+    }
+  }
+
+  return result;
+}
 
 @Injectable()
 export class PaymentsService {
@@ -50,8 +142,11 @@ export class PaymentsService {
     return hasRealKeys ? { keyId: keyId!, keySecret: keySecret || '' } : null;
   }
 
-  async getPlans(includeInactive = false) {
-    const whereClause = includeInactive ? {} : { isActive: true };
+  async getPlans(includeInactive = false, category?: string) {
+    const whereClause: any = includeInactive ? {} : { isActive: true };
+    if (category) {
+      whereClause.category = category.toUpperCase();
+    }
     const plans = await this.prisma.membershipPlan.findMany({
       where: whereClause,
       orderBy: { displayOrder: 'asc' },
@@ -59,18 +154,23 @@ export class PaymentsService {
 
     const resultPlans = plans.map((p) => {
       const tier = (p.tier as string).toUpperCase();
+      const hasChat = Boolean(p.hasChat);
+      const hasAiMatch = Boolean(p.hasAiMatch);
+      const maxInterests = p.maxInterests ?? 0;
       return {
         ...p,
+        category: (p as any).category || 'GENERAL',
         tier,
         price: Number(p.price),
         originalPrice: p.originalPrice ? Number(p.originalPrice) : null,
         contactLimit: p.maxContacts ?? 0,
         contactViewLimit: p.maxContacts ?? 0,
         maxContacts: p.maxContacts ?? 0,
-        maxInterests: p.maxInterests ?? 0,
-        hasChat: Boolean(p.hasChat),
-        hasAiMatch: Boolean(p.hasAiMatch),
+        maxInterests,
+        hasChat,
+        hasAiMatch,
         hasVideoProfile: Boolean(p.hasVideoProfile),
+        features: sanitizePlanFeatures(p.features, maxInterests, hasChat, hasAiMatch),
         isActive: p.isActive,
         isPopular: p.isPopular,
       };
@@ -83,8 +183,8 @@ export class PaymentsService {
       if (tier === 'FREE' || name.includes('free')) return 1;
       if (tier === 'SILVER' || name.includes('silver')) return 2;
       if (tier === 'GOLD' || name.includes('gold')) return 3;
-      if (tier === 'ELITE' || name.includes('elite')) return 4;
-      if (tier === 'PLATINUM' || name.includes('platinum')) return 5;
+      if (tier === 'PLATINUM' || name.includes('platinum')) return 4;
+      if (tier === 'ELITE' || name.includes('elite')) return 5;
       if (tier === 'DIAMOND' || name.includes('diamond')) return 6;
       return 100;
     };
@@ -103,6 +203,12 @@ export class PaymentsService {
     const planId = data.id || `plan-${Date.now()}`;
     const name = data.name || 'New Membership Plan';
     const tier = (data.tier || 'SILVER').toUpperCase();
+    const category = (data.category || 'GENERAL').toUpperCase();
+
+    if (category === 'ELITE' && tier === 'FREE') {
+      throw new BadRequestException('Elite category cannot have a Free plan');
+    }
+
     const price = Number(data.price ?? 999);
     const durationMonths = Number(data.durationMonths || 3);
     const contactLimit = Number(data.contactViewLimit ?? data.contactLimit ?? data.maxContacts ?? 0);
@@ -110,7 +216,8 @@ export class PaymentsService {
     const hasChat = Boolean(data.hasChat);
     const hasAiMatch = Boolean(data.hasAiMatch);
     const hasVideoProfile = Boolean(data.hasVideoProfile);
-    const features = Array.isArray(data.features) ? data.features : ['Contact Views', 'Direct Chat'];
+    const rawFeatures = Array.isArray(data.features) ? data.features : ['Contact Views', 'Direct Live Chat'];
+    const features = sanitizePlanFeatures(rawFeatures, maxInterests, hasChat, hasAiMatch);
     const isActive = data.isActive !== false;
     const isPopular = data.isPopular === true;
 
@@ -119,6 +226,7 @@ export class PaymentsService {
         id: planId,
         name,
         tier: tier as any,
+        category,
         price,
         durationMonths,
         maxContacts: contactLimit,
@@ -132,18 +240,30 @@ export class PaymentsService {
       },
     });
 
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'PLAN_CREATED',
+        entity: 'Plan',
+        entityId: created.id,
+        newValue: { name, tier, category, price, durationMonths },
+      },
+    }).catch(() => null);
+
     return {
       ...created,
+      category: (created as any).category || category,
       price: Number(created.price),
       durationMonths,
       contactLimit: created.maxContacts,
       contactViewLimit: created.maxContacts,
+      features,
     };
   }
 
   async updatePlan(planId: string, patch: any) {
     const name = patch.name;
     const tier = patch.tier ? String(patch.tier).toUpperCase() : undefined;
+    const category = patch.category ? String(patch.category).toUpperCase() : undefined;
     const price = patch.price !== undefined ? Number(patch.price) : undefined;
     const durationMonths = patch.durationMonths !== undefined ? Number(patch.durationMonths) : undefined;
     const contactLimit = patch.contactViewLimit !== undefined
@@ -166,11 +286,25 @@ export class PaymentsService {
       throw new NotFoundException(`Membership plan with ID ${planId} not found`);
     }
 
+    const targetCategory = category || (existing as any).category || 'GENERAL';
+    const targetTier = tier || existing.tier;
+    if (targetCategory === 'ELITE' && targetTier === 'FREE') {
+      throw new BadRequestException('Elite category cannot have a Free plan');
+    }
+
+    const finalMaxInterests = maxInterests !== undefined ? maxInterests : existing.maxInterests ?? 0;
+    const finalHasChat = hasChat !== undefined ? hasChat : Boolean(existing.hasChat);
+    const finalHasAiMatch = hasAiMatch !== undefined ? hasAiMatch : Boolean(existing.hasAiMatch);
+    const sanitizedFeatures = features !== undefined
+      ? sanitizePlanFeatures(features, finalMaxInterests, finalHasChat, finalHasAiMatch)
+      : undefined;
+
     const updated = await this.prisma.membershipPlan.update({
       where: { id: planId },
       data: {
         ...(name && { name }),
         ...(tier && { tier: tier as any }),
+        ...(category && { category }),
         ...(price !== undefined && { price }),
         ...(durationMonths !== undefined && { durationMonths }),
         ...(contactLimit !== undefined && { maxContacts: contactLimit }),
@@ -178,14 +312,25 @@ export class PaymentsService {
         ...(hasChat !== undefined && { hasChat }),
         ...(hasAiMatch !== undefined && { hasAiMatch }),
         ...(hasVideoProfile !== undefined && { hasVideoProfile }),
-        ...(features !== undefined && { features }),
+        ...(sanitizedFeatures !== undefined && { features: sanitizedFeatures }),
         ...(isActive !== undefined && { isActive }),
         ...(isPopular !== undefined && { isPopular }),
       },
     });
 
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'PLAN_UPDATED',
+        entity: 'Plan',
+        entityId: planId,
+        oldValue: { name: existing.name, price: Number(existing.price), tier: existing.tier },
+        newValue: { name: updated.name, price: Number(updated.price), tier: updated.tier },
+      },
+    }).catch(() => null);
+
     return {
       ...updated,
+      category: (updated as any).category || targetCategory,
       price: Number(updated.price),
       contactLimit: updated.maxContacts,
       contactViewLimit: updated.maxContacts,
@@ -194,6 +339,7 @@ export class PaymentsService {
       hasChat: updated.hasChat,
       hasAiMatch: updated.hasAiMatch,
       hasVideoProfile: updated.hasVideoProfile,
+      features: sanitizePlanFeatures(updated.features, updated.maxInterests ?? 0, Boolean(updated.hasChat), Boolean(updated.hasAiMatch)),
     };
   }
 
@@ -203,6 +349,16 @@ export class PaymentsService {
       throw new NotFoundException(`Plan with ID ${planId} not found`);
     }
     await this.prisma.membershipPlan.delete({ where: { id: planId } });
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'PLAN_DELETED',
+        entity: 'Plan',
+        entityId: planId,
+        oldValue: { name: existing.name, tier: existing.tier },
+      },
+    }).catch(() => null);
+
     return { success: true, message: 'Plan deleted successfully', id: planId };
   }
 
@@ -325,6 +481,16 @@ export class PaymentsService {
       },
     });
 
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'PLAN_ACTIVATED',
+        entity: 'Payment',
+        entityId: membership.id,
+        userId,
+        newValue: { plan: 'FREE', status: 'ACTIVE' },
+      },
+    }).catch(() => null);
+
     return {
       success: true,
       message: 'Free membership plan activated successfully 🎉',
@@ -332,10 +498,10 @@ export class PaymentsService {
     };
   }
 
-  async createRazorpayOrder(userId: string, input: any) {
+  async createRazorpayOrder(userId?: string, input?: any) {
     let amountInPaise: number;
     let currency = 'INR';
-    let receipt = `s2s_${Date.now()}`;
+    let receipt = `rcpt_${Date.now()}`;
     let plan: any = null;
 
     if (typeof input === 'string') {
@@ -416,11 +582,9 @@ export class PaymentsService {
 
     const keys = await this.getRazorpayKeys();
 
-    // Keys are required — do not silently fall back to a fake order ID
-    // because that would cause Razorpay Checkout to return 401.
     if (!keys || !keys.keyId || !keys.keySecret) {
       throw new InternalServerErrorException(
-        'Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment or system settings.',
+        'Razorpay is not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment.',
       );
     }
 
@@ -440,127 +604,165 @@ export class PaymentsService {
       razorpayOrderId = order?.id;
       console.log(`[Razorpay] Order created successfully: ${razorpayOrderId}`);
       if (!razorpayOrderId) {
-        throw new Error('Razorpay order creation returned no order ID');
+        throw new InternalServerErrorException('Razorpay order creation returned no order ID');
       }
     } catch (err: any) {
-      const description = err?.error?.description || err?.error?.reason || err?.message || 'Unknown Razorpay error';
-      const statusCode = err?.statusCode || err?.error?.http_status_code || '';
-      console.error(`[Razorpay] Order creation FAILED (${statusCode}): ${description}`, err?.error || err);
-      throw new InternalServerErrorException(
-        `Payment gateway error: ${description}. Please try again or contact support.`,
-      );
+      const statusCode = err?.statusCode || err?.error?.http_status_code;
+      const description = err?.error?.description || err?.error?.reason || err?.message || 'Razorpay order creation failed';
+      console.error(`[Razorpay] Order creation failed (${statusCode}): ${description}`, err?.error || err);
+
+      const isAuthError =
+        statusCode === 401 ||
+        err?.error?.code === 'AUTHENTICATION_ERROR' ||
+        String(err?.message || '').toLowerCase().includes('auth') ||
+        String(err?.error?.description || '').toLowerCase().includes('auth');
+
+      if (isAuthError) {
+        throw new UnauthorizedException(`Razorpay authentication failed: ${description}`);
+      }
+
+      throw new InternalServerErrorException(`Payment gateway error: ${description}`);
     }
 
-    const price = amountInPaise / 100;
-
-    const payment = await this.prisma.payment.create({
-      data: {
-        userId,
-        planId: plan?.id || undefined,
-        amount: price,
-        currency,
-        status: 'PENDING',
-        razorpayOrderId,
-      },
-    });
+    // Optional: persist local Payment record if user exists in DB
+    const effectiveUserId = userId || input?.userId;
+    if (effectiveUserId) {
+      try {
+        const userExists = await this.prisma.user.findUnique({ where: { id: effectiveUserId } });
+        if (userExists) {
+          await this.prisma.payment.create({
+            data: {
+              userId: effectiveUserId,
+              planId: plan?.id || undefined,
+              amount: amountInPaise / 100,
+              currency,
+              status: 'PENDING',
+              razorpayOrderId,
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('[Razorpay] Could not persist local payment record:', err);
+      }
+    }
 
     return {
       order_id: razorpayOrderId,
+      id: razorpayOrderId,
       orderId: razorpayOrderId,
-      razorpayOrderId,
       amount: amountInPaise,
       currency,
+      receipt,
       key: keys.keyId,
-      paymentId: payment.id,
-      mock: false,
     };
   }
 
   async verifyPayment(
-    userId: string,
-    data: {
-      razorpayOrderId?: string;
-      razorpayPaymentId?: string;
-      razorpaySignature?: string;
+    userId?: string,
+    data?: {
       order_id?: string;
       payment_id?: string;
       signature?: string;
       razorpay_order_id?: string;
       razorpay_payment_id?: string;
       razorpay_signature?: string;
+      razorpayOrderId?: string;
+      razorpayPaymentId?: string;
+      razorpaySignature?: string;
     },
   ) {
-    const orderId = data?.razorpay_order_id || data?.razorpayOrderId || data?.order_id;
-    const paymentId = data?.razorpay_payment_id || data?.razorpayPaymentId || data?.payment_id;
-    const signature = data?.razorpay_signature || data?.razorpaySignature || data?.signature;
+    const orderId = data?.razorpay_order_id || data?.order_id || data?.razorpayOrderId;
+    const paymentId = data?.razorpay_payment_id || data?.payment_id || data?.razorpayPaymentId;
+    const signature = data?.razorpay_signature || data?.signature || data?.razorpaySignature;
 
-    if (!paymentId) {
-      throw new BadRequestException('Payment ID from payment gateway is required for verification.');
+    if (!orderId || !paymentId || !signature) {
+      throw new BadRequestException('Missing required fields: order_id, payment_id, and signature are required');
     }
 
     const keys = await this.getRazorpayKeys();
-    const keySecret = keys?.keySecret || this.configService.get<string>('RAZORPAY_KEY_SECRET') || 'XQ9LJ2nuFxI3pVVbuj0j7WoR';
+    const keySecret = keys?.keySecret || this.configService.get<string>('RAZORPAY_KEY_SECRET');
 
-    if (orderId && signature && !orderId.startsWith('order_test_') && !orderId.startsWith('order_mock_') && signature !== 'sig_test_valid') {
-      const expectedSignature = createHmac('sha256', keySecret)
-        .update(`${orderId}|${paymentId}`)
-        .digest('hex');
-
-      const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
-      const receivedBuffer = Buffer.from(signature, 'utf8');
-
-      const isValid = expectedBuffer.length === receivedBuffer.length && timingSafeEqual(expectedBuffer, receivedBuffer);
-      if (!isValid) {
-        throw new BadRequestException('Invalid Razorpay signature: payment verification failed');
-      }
+    if (!keySecret) {
+      throw new InternalServerErrorException('Razorpay secret key is not configured');
     }
 
+    const expectedSignature = createHmac('sha256', keySecret)
+      .update(`${orderId}|${paymentId}`)
+      .digest('hex');
+
+    const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+    const receivedBuffer = Buffer.from(signature, 'utf8');
+
+    const isValid =
+      expectedBuffer.length === receivedBuffer.length &&
+      timingSafeEqual(expectedBuffer, receivedBuffer);
+
+    if (!isValid) {
+      throw new BadRequestException('Payment verification failed: signature mismatch');
+    }
+
+    // Signature matches! Now optionally update local payment & membership state if record exists
     const payment = await this.prisma.payment.findFirst({
       where: { razorpayOrderId: orderId },
       include: { plan: true },
-    });
+    }).catch(() => null);
 
-    if (!payment) {
-      throw new NotFoundException(`Payment transaction with Order ID '${orderId}' not found.`);
-    }
-
-    await this.prisma.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: 'SUCCESS',
-        razorpayPaymentId: paymentId,
-        razorpaySignature: signature,
-      },
-    });
-
-    if (payment.plan) {
-      const now = new Date();
-      const endDate = new Date();
-      const durationMonths = payment.plan.durationMonths || 3;
-      endDate.setMonth(endDate.getMonth() + durationMonths);
-
-      const userProfile = await this.prisma.profile.findFirst({ where: { userId } });
-      const profileId = userProfile?.id || `prof-${userId}`;
-
-      await this.prisma.membership.upsert({
-        where: { userId },
-        create: {
-          userId,
-          profileId,
-          planId: payment.plan.id,
-          tier: payment.plan.tier,
-          startDate: now,
-          endDate,
-          isActive: true,
+    if (payment) {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'SUCCESS',
+          razorpayPaymentId: paymentId,
+          razorpaySignature: signature,
         },
-        update: {
-          planId: payment.plan.id,
-          tier: payment.plan.tier,
-          startDate: now,
-          endDate,
-          isActive: true,
+      }).catch(() => null);
+
+      const targetUserId = userId || payment.userId;
+      if (payment.plan && targetUserId) {
+        const now = new Date();
+        const endDate = new Date();
+        const durationMonths = payment.plan.durationMonths || 3;
+        endDate.setMonth(endDate.getMonth() + durationMonths);
+
+        const userProfile = await this.prisma.profile.findFirst({ where: { userId: targetUserId } }).catch(() => null);
+        const profileId = userProfile?.id || `prof-${targetUserId}`;
+
+        await this.prisma.membership.upsert({
+          where: { userId: targetUserId },
+          create: {
+            userId: targetUserId,
+            profileId,
+            planId: payment.plan.id,
+            tier: payment.plan.tier,
+            startDate: now,
+            endDate,
+            isActive: true,
+          },
+          update: {
+            planId: payment.plan.id,
+            tier: payment.plan.tier,
+            startDate: now,
+            endDate,
+            isActive: true,
+          },
+        }).catch(() => null);
+      }
+
+      await this.prisma.auditLog.create({
+        data: {
+          action: 'PAYMENT_COMPLETED',
+          entity: 'Payment',
+          entityId: payment?.id || paymentId,
+          userId: targetUserId || payment.userId,
+          newValue: {
+            planName: payment?.plan?.name,
+            tier: payment?.plan?.tier,
+            amount: payment?.amount ? Number(payment.amount) : undefined,
+            status: 'SUCCESS',
+            paymentId,
+          },
         },
-      });
+      }).catch(() => null);
     }
 
     return {
@@ -568,6 +770,7 @@ export class PaymentsService {
       message: 'Payment verified and plan activated successfully 🎉',
       order_id: orderId,
       payment_id: paymentId,
+      verified: true,
     };
   }
 

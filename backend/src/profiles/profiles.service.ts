@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Gender, MaritalStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -6,6 +6,9 @@ import { randomUUID } from 'node:crypto';
 import { devStore, devOtpStore } from '../common/dev-store';
 import { OtpService } from '../auth/otp.service';
 import { MailService } from '../mail/mail.service';
+import { EliteQualificationService } from '../common/elite-qualification.service';
+import { parseAnnualIncome, normalizeComplexion } from './biodata-parser.service';
+import { HoroscopeMatchingService } from './horoscope-matching.service';
 
 @Injectable()
 export class ProfilesService {
@@ -13,6 +16,8 @@ export class ProfilesService {
     private readonly prisma: PrismaService,
     private readonly otpService: OtpService,
     private readonly mailService: MailService,
+    private readonly eliteQualService: EliteQualificationService,
+    @Optional() private readonly horoscopeMatchingService?: HoroscopeMatchingService,
   ) {}
 
   async getProfileByUserId(userId: string) {
@@ -117,8 +122,8 @@ export class ProfilesService {
         '';
 
       const educationDegree = profile.education?.degree || (profile as any).educationDegree || devUser.educationDegree || devUser.education || '';
-      const college = profile.education?.college || (profile as any).college || devUser.college || '';
-      const educationDetail = profile.education?.fieldOfStudy || (profile as any).educationDetail || devUser.educationDetail || '';
+      const college = profile.education?.college || profile.education?.university || (profile as any).college || devUser.college || '';
+      const educationDetail = profile.education?.fieldOfStudy || profile.education?.university || profile.education?.college || (profile as any).educationDetail || devUser.educationDetail || '';
 
       const occupation = profile.occupation?.designation || (profile as any).occupation || devUser.occupation || '';
       const company = profile.occupation?.company || (profile as any).company || devUser.company || '';
@@ -158,6 +163,9 @@ export class ProfilesService {
         fatherOccupation,
         motherName,
         motherOccupation,
+        assetValue: profile.assetValue !== null && profile.assetValue !== undefined ? Number(profile.assetValue) : (devUser.assetValue !== undefined && devUser.assetValue !== null && devUser.assetValue !== '' ? Number(devUser.assetValue) : null),
+        bankBalance: profile.bankBalance !== null && profile.bankBalance !== undefined ? Number(profile.bankBalance) : (devUser.bankBalance !== undefined && devUser.bankBalance !== null && devUser.bankBalance !== '' ? Number(devUser.bankBalance) : null),
+        netWorth: profile.netWorth !== null && profile.netWorth !== undefined ? Number(profile.netWorth) : (devUser.netWorth !== undefined && devUser.netWorth !== null && devUser.netWorth !== '' ? Number(devUser.netWorth) : null),
         rasiChart: (profile as any).rasiChart || (profile.horoscope?.horoscopeData as any)?.rasiChart || devUser.rasiChart || devUser.horoscopeData?.rasiChart || {},
         amsamChart: (profile as any).amsamChart || (profile.horoscope?.horoscopeData as any)?.amsamChart || (profile.horoscope?.horoscopeData as any)?.navamsamChart || devUser.amsamChart || devUser.horoscopeData?.amsamChart || {},
         horoscope: {
@@ -183,7 +191,9 @@ export class ProfilesService {
         education: {
           degree: educationDegree,
           college,
+          university: college,
           fieldOfStudy: educationDetail,
+          qualification: educationDegree,
         },
         occupation: {
           designation: occupation,
@@ -248,6 +258,17 @@ export class ProfilesService {
           }),
         } : null),
         prefMaritalStatus: devUser?.prefMaritalStatus || profile.partnerPreference?.maritalStatus?.[0] || '',
+        ...(() => {
+          const threshold = 50000000;
+          const selfEval = this.eliteQualService.evaluateProfile(profile, threshold);
+          return {
+            membershipCategory: selfEval.membershipCategory,
+            isElite: selfEval.isElite,
+            isEliteQualified: selfEval.isQualified,
+            eliteStatus: selfEval.eliteStatus,
+            eliteThreshold: selfEval.threshold,
+          };
+        })(),
       };
     } catch (err: any) {
       if (err instanceof NotFoundException) throw err;
@@ -277,6 +298,20 @@ export class ProfilesService {
         heightCm: devUser?.heightCm || 168,
         weight: devUser?.weight || 65,
         gothram: devUser?.gothram || '',
+        assetValue: devUser?.assetValue !== undefined && devUser.assetValue !== null && devUser.assetValue !== '' ? Number(devUser.assetValue) : null,
+        bankBalance: devUser?.bankBalance !== undefined && devUser.bankBalance !== null && devUser.bankBalance !== '' ? Number(devUser.bankBalance) : null,
+        netWorth: devUser?.netWorth !== undefined && devUser.netWorth !== null && devUser.netWorth !== '' ? Number(devUser.netWorth) : null,
+        ...(() => {
+          const threshold = 50000000;
+          const devEval = this.eliteQualService.evaluateProfile(devUser, threshold);
+          return {
+            membershipCategory: devEval.membershipCategory,
+            isElite: devEval.isElite,
+            isEliteQualified: devEval.isQualified,
+            eliteStatus: devEval.eliteStatus,
+            eliteThreshold: devEval.threshold,
+          };
+        })(),
         religion: devUser?.religion ? { name: devUser.religion } : undefined,
         community: devUser?.community ? { name: devUser.community } : undefined,
         subCaste: devUser?.subCaste ? { name: devUser.subCaste } : undefined,
@@ -365,6 +400,7 @@ export class ProfilesService {
       where: { id },
       include: {
         user: true,
+        membership: { include: { plan: true } },
         religion: true,
         community: true,
         caste: true,
@@ -391,6 +427,15 @@ export class ProfilesService {
       if (!isAccountActive || !isProfileVerified) {
         throw new NotFoundException('Profile is not available');
       }
+
+      // Backend Category Visibility Enforcement
+      const threshold = await this.eliteQualService.getEliteThreshold();
+      const viewerCategory = await this.eliteQualService.getViewerCategory(requesterUserId, threshold);
+      const targetEval = this.eliteQualService.evaluateProfile(profile, threshold);
+
+      if (targetEval.membershipCategory !== viewerCategory) {
+        throw new NotFoundException('Profile is not available');
+      }
     }
 
     const hData = (profile.horoscope?.horoscopeData as any) || {};
@@ -405,7 +450,7 @@ export class ProfilesService {
     const birthPlace = profile.horoscope?.birthPlace || (hData as any)?.birthPlace || '';
     const place = cityName || workLocation || nativePlace || birthPlace || '';
 
-    return {
+    const result: any = {
       ...profile,
       city: cityName || place || 'Chennai',
       state: stateName || 'Tamil Nadu',
@@ -428,6 +473,26 @@ export class ProfilesService {
           }
         : profile.horoscope,
     };
+
+    if (!isOwner && !isStaff) {
+      result.assetValue = null;
+      result.bankBalance = null;
+      result.netWorth = null;
+    } else {
+      result.assetValue = result.assetValue !== null && result.assetValue !== undefined ? Number(result.assetValue) : null;
+      result.bankBalance = result.bankBalance !== null && result.bankBalance !== undefined ? Number(result.bankBalance) : null;
+      result.netWorth = result.netWorth !== null && result.netWorth !== undefined ? Number(result.netWorth) : null;
+    }
+
+    const threshold = await this.eliteQualService.getEliteThreshold();
+    const targetEval = this.eliteQualService.evaluateProfile(result, threshold);
+    result.membershipCategory = targetEval.membershipCategory;
+    result.isElite = targetEval.isElite;
+    result.isEliteQualified = targetEval.isQualified;
+    result.eliteStatus = targetEval.eliteStatus;
+    result.eliteThreshold = targetEval.threshold;
+
+    return result;
   }
 
   async updateProfile(userId: string, data: any) {
@@ -476,7 +541,7 @@ export class ProfilesService {
       if (data.heightCm && !isNaN(Number(data.heightCm))) updateData.heightCm = Number(data.heightCm);
       if (data.weight && !isNaN(Number(data.weight))) updateData.weight = Number(data.weight);
       if (data.weightKg && !isNaN(Number(data.weightKg))) updateData.weight = Number(data.weightKg);
-      if (data.complexion) updateData.complexion = data.complexion;
+      if (data.complexion) updateData.complexion = normalizeComplexion(data.complexion) || data.complexion;
       if (data.diet) updateData.diet = data.diet;
       if (data.religion !== undefined) {
         const relName = (data.religion || '').trim();
@@ -604,6 +669,18 @@ export class ProfilesService {
       }
       if (data.residentStatus !== undefined) updateData.residentStatus = data.residentStatus;
       if (data.propertyDetails !== undefined) updateData.propertyDetails = data.propertyDetails;
+      if (data.assetValue !== undefined) {
+        updateData.assetValue = data.assetValue === null || data.assetValue === '' ? null : Number(data.assetValue);
+      }
+      if (data.bankBalance !== undefined) {
+        updateData.bankBalance = data.bankBalance === null || data.bankBalance === '' ? null : Number(data.bankBalance);
+      }
+      if (data.netWorth !== undefined) {
+        updateData.netWorth = data.netWorth === null || data.netWorth === '' ? null : Number(data.netWorth);
+      }
+      if (data.membershipCategory !== undefined) {
+        updateData.membershipCategory = String(data.membershipCategory).toUpperCase() === 'ELITE' ? 'ELITE' : 'GENERAL';
+      }
       if (data.branch !== undefined) updateData.branch = data.branch;
       if (data.memberId !== undefined) updateData.memberId = data.memberId;
 
@@ -698,17 +775,21 @@ export class ProfilesService {
           const prevHData = (existingHoroscope?.horoscopeData as any) || {};
           const incomingHData = typeof data.horoscopeData === 'object' && data.horoscopeData !== null ? data.horoscopeData : {};
 
-          const finalRasiChart = data.rasiChart !== undefined
+          const hasIncomingRasi = data.rasiChart && typeof data.rasiChart === 'object' && Object.keys(data.rasiChart).length > 0;
+          const hasIncomingHDataRasi = incomingHData.rasiChart && typeof incomingHData.rasiChart === 'object' && Object.keys(incomingHData.rasiChart).length > 0;
+          const finalRasiChart = hasIncomingRasi
             ? data.rasiChart
-            : incomingHData.rasiChart !== undefined
+            : hasIncomingHDataRasi
               ? incomingHData.rasiChart
-              : prevHData.rasiChart || {};
+              : (prevHData.rasiChart || data.rasiChart || {});
 
-          const finalAmsamChart = data.amsamChart !== undefined
+          const hasIncomingAmsam = data.amsamChart && typeof data.amsamChart === 'object' && Object.keys(data.amsamChart).length > 0;
+          const hasIncomingHDataAmsam = (incomingHData.amsamChart || incomingHData.navamsamChart) && typeof (incomingHData.amsamChart || incomingHData.navamsamChart) === 'object' && Object.keys(incomingHData.amsamChart || incomingHData.navamsamChart).length > 0;
+          const finalAmsamChart = hasIncomingAmsam
             ? data.amsamChart
-            : (incomingHData.amsamChart || incomingHData.navamsamChart) !== undefined
+            : hasIncomingHDataAmsam
               ? (incomingHData.amsamChart || incomingHData.navamsamChart)
-              : (prevHData.amsamChart || prevHData.navamsamChart || {});
+              : (prevHData.amsamChart || prevHData.navamsamChart || data.amsamChart || {});
 
           const horoscopeJson = {
             ...prevHData,
@@ -758,22 +839,32 @@ export class ProfilesService {
               horoscopeData: horoscopeJson,
             },
           }).catch(() => null);
+
+          // Invalidate and recalculate horoscope matches in background if horoscope changed
+          if (data.star || data.rasi || data.lagnam || data.dosham || data.starPadam) {
+            this.horoscopeMatchingService?.onHoroscopeUpdated(profileId);
+          }
         }
 
         // Upsert Education relation
-        if (data.education || data.educationDegree || data.college || data.educationDetail || data.fieldOfStudy) {
+        if (data.education || data.educationDegree || data.college || data.educationDetail || data.fieldOfStudy || data.educationDetails || data.university) {
+          const deg = data.educationDegree || data.education || null;
+          const col = data.college || data.educationDetails || data.university || null;
+          const field = data.educationDetail || data.fieldOfStudy || data.educationDetails || null;
           await this.prisma.education.upsert({
             where: { profileId },
             create: {
               profileId,
-              degree: data.educationDegree || data.education || null,
-              college: data.college || null,
-              fieldOfStudy: data.educationDetail || data.fieldOfStudy || null,
+              degree: deg,
+              college: col,
+              university: col,
+              fieldOfStudy: field,
             },
             update: {
-              degree: (data.educationDegree || data.education) !== undefined ? (data.educationDegree || data.education) : undefined,
-              college: data.college !== undefined ? data.college : undefined,
-              fieldOfStudy: (data.educationDetail || data.fieldOfStudy) !== undefined ? (data.educationDetail || data.fieldOfStudy) : undefined,
+              degree: deg !== null && deg !== undefined ? deg : undefined,
+              college: col !== null && col !== undefined ? col : undefined,
+              university: col !== null && col !== undefined ? col : undefined,
+              fieldOfStudy: field !== null && field !== undefined ? field : undefined,
             },
           }).catch(() => null);
         }
@@ -788,14 +879,14 @@ export class ProfilesService {
               company: data.company || data.companyName || null,
               workingLocation: data.workLocation || null,
               employmentType: data.employedIn || null,
-              salaryMin: data.annualIncome ? Number(data.annualIncome) : null,
+              salaryMin: data.annualIncome ? (parseAnnualIncome(data.annualIncome).salaryMin ?? (Number(data.annualIncome) || null)) : null,
             },
             update: {
               designation: data.occupation !== undefined ? data.occupation : undefined,
               company: (data.company || data.companyName) !== undefined ? (data.company || data.companyName) : undefined,
               workingLocation: data.workLocation !== undefined ? data.workLocation : undefined,
               employmentType: data.employedIn !== undefined ? data.employedIn : undefined,
-              salaryMin: data.annualIncome ? Number(data.annualIncome) : undefined,
+              salaryMin: data.annualIncome ? (parseAnnualIncome(data.annualIncome).salaryMin ?? (Number(data.annualIncome) || undefined)) : undefined,
             },
           }).catch(() => null);
         }
@@ -1508,10 +1599,30 @@ export class ProfilesService {
         photos: { where: { isMain: true } },
         community: true,
         caste: true,
+        membership: { include: { plan: true } },
       },
     });
 
-    return profiles;
+    const threshold = await this.eliteQualService.getEliteThreshold();
+    const viewerStatus = await this.eliteQualService.getViewerStatus(userId, threshold);
+
+    return profiles
+      .filter((p) => {
+        const tEval = this.eliteQualService.evaluateProfile(p, threshold);
+        return this.eliteQualService.isProfileVisibleToViewer(viewerStatus, tEval.eliteStatus);
+      })
+      .map((p) => {
+        const tEval = this.eliteQualService.evaluateProfile(p, threshold);
+        const plain: any = { ...p };
+        delete plain.assetValue;
+        delete plain.bankBalance;
+        delete plain.netWorth;
+        plain.membershipCategory = tEval.membershipCategory;
+        plain.isElite = tEval.isElite;
+        plain.isEliteQualified = tEval.isQualified;
+        plain.eliteStatus = tEval.eliteStatus;
+        return plain;
+      });
   }
 
   // ==========================================
@@ -1739,91 +1850,101 @@ export class ProfilesService {
     const pref = extractedData.partnerPreference || extractedData.partner_preference || {};
     const con = extractedData.contact || {};
 
-    // 1. Extract and sanitize contact phone and email
+    // 1. Extract and sanitize contact phone (Mandatory for AI direct-save)
     let contactPhone: string | null = null;
+    let mobileDigits: string = '';
     const rawMobile = con.mobile || con.phone || p.mobile || p.phone;
     if (rawMobile) {
       const mobileStr = Array.isArray(rawMobile) ? String(rawMobile[0] || '') : String(rawMobile);
       const cleaned = mobileStr.replace(/\D/g, '');
       if (cleaned.length >= 10) {
-        contactPhone = cleaned.startsWith('91') && cleaned.length === 12 ? `+${cleaned}` : `+91${cleaned.slice(-10)}`;
+        mobileDigits = cleaned;
+        contactPhone = cleaned.startsWith('91') && cleaned.length === 12
+          ? `+${cleaned}`
+          : `+91${cleaned.slice(-10)}`;
       }
     }
 
+    if (!contactPhone || !mobileDigits || mobileDigits.length < 10) {
+      throw new BadRequestException('Mobile number is required to create this member account.');
+    }
+
+    const last4Digits = mobileDigits.slice(-4);
+
+    // 2. Extract and format member first name
+    // Email uses lowercase first name; Password uses first name with normal capitalization
+    const nameParts = (p.name || p.displayName || '').trim().split(/\s+/).filter(Boolean);
+    let firstNameToken = (p.firstName || p.first_name || '').trim().split(/\s+/)[0] || '';
+    if (!firstNameToken || (firstNameToken.replace(/[^a-zA-Z]/g, '').length <= 2 && nameParts.length > 1)) {
+      const nonInitial = nameParts.find((part: string) => part.replace(/[^a-zA-Z]/g, '').length > 2);
+      if (nonInitial) firstNameToken = nonInitial;
+    }
+    if (!firstNameToken && nameParts.length > 0) firstNameToken = nameParts[0];
+    if (!firstNameToken) firstNameToken = 'Member';
+
+    const cleanFirstName = firstNameToken.replace(/[^a-zA-Z]/g, '') || 'Member';
+    const capitalizedFirstName = cleanFirstName.charAt(0).toUpperCase() + cleanFirstName.slice(1).toLowerCase();
+    const lowercaseFirstName = cleanFirstName.toLowerCase();
+
+    const firstName = (p.firstName || p.first_name || (p.name ? String(p.name).split(' ')[0] : 'Member') || '').trim();
+    const lastName = (p.lastName || p.last_name || (p.name ? String(p.name).split(' ').slice(1).join(' ') : '') || '').trim();
+    const displayName = (p.displayName || p.name || `${firstName} ${lastName}`.trim() || firstName || 'Member').trim();
+
+    // 3. Extract email and generate login email & password according to rules
     let contactEmail: string | null = null;
     const rawEmail = con.email || p.email;
     if (rawEmail && typeof rawEmail === 'string' && rawEmail.includes('@')) {
       contactEmail = rawEmail.trim().toLowerCase();
     }
 
-    // 2. Validate OTP Verification
-    const isPhoneVerifiedInPayload = Boolean(extractedData.isPhoneVerified);
-    const isEmailVerifiedInPayload = Boolean(extractedData.isEmailVerified);
+    // If email is present in extracted biodata, use it; otherwise generate: firstname + last4Digits + @gmail.com
+    const loginEmail = contactEmail || `${lowercaseFirstName}${last4Digits}@gmail.com`;
 
-    const isPhoneVerifiedInStore = contactPhone
-      ? Boolean(devOtpStore.get(`verified:phone:${contactPhone}`) || devOtpStore.get(`verified:phone:${contactPhone.slice(-10)}`))
-      : false;
-    const isEmailVerifiedInStore = contactEmail
-      ? Boolean(devOtpStore.get(`verified:email:${contactEmail}`))
-      : false;
+    // Initial password: Firstname (normal capitalization) + @ + last4Digits of mobile
+    const rawPassword = `${capitalizedFirstName}@${last4Digits}`;
+    const passwordHash = await bcrypt.hash(rawPassword, 10);
 
-    const phoneVerified = isPhoneVerifiedInPayload || isPhoneVerifiedInStore;
-    const emailVerified = isEmailVerifiedInPayload || isEmailVerifiedInStore;
+    // 4. Duplicate checks before user creation
+    const existingUserWithEmail = await this.prisma.user.findFirst({
+      where: {
+        email: { equals: loginEmail, mode: 'insensitive' },
+      },
+    });
 
-    if (!phoneVerified && !emailVerified) {
+    if (existingUserWithEmail) {
       throw new BadRequestException(
-        'Member mobile number or email must be verified via OTP before saving the profile to the database.'
+        `A user account with email "${loginEmail}" already exists. Please resolve the duplicate email before saving.`
       );
     }
 
-    // 3. User account management & member credentials setup
-    const rawPassword = String(extractedData.initialPassword || extractedData.password || 'Welcome@123').trim();
-    const passwordHash = await bcrypt.hash(rawPassword, 10);
-
-    let user = (contactPhone || contactEmail) ? await this.prisma.user.findFirst({
+    const existingUserWithPhone = await this.prisma.user.findFirst({
       where: {
         OR: [
-          ...(contactPhone ? [
-            { phone: contactPhone },
-            { phone: contactPhone.slice(-10) },
-            { phone: `+91${contactPhone.slice(-10)}` },
-          ] : []),
-          ...(contactEmail ? [{ email: contactEmail }] : []),
+          { phone: contactPhone },
+          { phone: contactPhone.slice(-10) },
+          { phone: `+91${contactPhone.slice(-10)}` },
         ],
       },
-      include: { profile: true },
-    }) : null;
+    });
 
-    const tempId = randomUUID();
-    const userEmail = contactEmail || `member_${tempId.replace(/\D/g, '').slice(0, 6)}@s2smatrimony.com`;
-    const userPhone = contactPhone || `+910000${tempId.replace(/\D/g, '').slice(0, 6).padEnd(6, '1')}`;
-
-    if (user) {
-      user = await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          email: contactEmail || user.email,
-          phone: contactPhone || user.phone,
-          passwordHash,
-          isActive: true,
-          isPhoneVerified: phoneVerified ? true : user.isPhoneVerified,
-          isEmailVerified: emailVerified ? true : user.isEmailVerified,
-        },
-        include: { profile: true },
-      });
-    } else {
-      user = await this.prisma.user.create({
-        data: {
-          email: userEmail,
-          phone: userPhone,
-          passwordHash,
-          isActive: true,
-          isPhoneVerified: Boolean(phoneVerified),
-          isEmailVerified: Boolean(emailVerified),
-        },
-        include: { profile: true },
-      });
+    if (existingUserWithPhone) {
+      throw new BadRequestException(
+        `A user account with mobile number "${contactPhone}" already exists. Please resolve the duplicate mobile number before saving.`
+      );
     }
+
+    // 5. Create new user account with hashed password
+    const user = await this.prisma.user.create({
+      data: {
+        email: loginEmail,
+        phone: contactPhone,
+        passwordHash,
+        isActive: true,
+        isPhoneVerified: true,
+        isEmailVerified: Boolean(contactEmail),
+      },
+      include: { profile: true },
+    });
 
     // Assign MEMBER role so member can log in directly
     const memberRole = await this.prisma.role.findUnique({ where: { name: 'MEMBER' } });
@@ -1838,16 +1959,11 @@ export class ProfilesService {
       }
     }
 
-    // 4. Generate unique member ID using application's standard pattern
+    // 6. Generate unique member ID using application's standard pattern
     let memberId = `S2S-${Math.floor(100000 + Math.random() * 900000)}`;
     while (await this.prisma.profile.findUnique({ where: { memberId } })) {
       memberId = `S2S-${Math.floor(100000 + Math.random() * 900000)}`;
     }
-
-    // 5. Parse and map fields strictly into existing database fields only
-    const firstName = p.firstName || p.first_name || (p.name ? String(p.name).split(' ')[0] : 'Member');
-    const lastName = p.lastName || p.last_name || (p.name ? String(p.name).split(' ').slice(1).join(' ') : '');
-    const displayName = p.displayName || p.name || `${firstName} ${lastName}`.trim();
 
     let gender: Gender = Gender.MALE;
     const rawGender = String(p.gender || p.profile_type || p.profileFor || '').toUpperCase();
@@ -1988,7 +2104,7 @@ export class ProfilesService {
       maritalStatus,
       heightCm,
       weight: weightKg,
-      complexion: p.complexion || null,
+      complexion: normalizeComplexion(p.complexion) || null,
       bodyType: p.bodyType || p.body_type || null,
       diet: p.diet || null,
       motherTongue: p.motherTongue || p.mother_tongue || 'Tamil',
@@ -2003,6 +2119,10 @@ export class ProfilesService {
       birthOrder: p.birthOrder ? Number(p.birthOrder) : null,
       residentStatus: p.residentStatus || p.resident_status || null,
       propertyDetails: p.propertyDetails || p.property_details || null,
+      assetValue: p.assetValue !== undefined && p.assetValue !== null && p.assetValue !== '' ? Number(p.assetValue) : null,
+      bankBalance: p.bankBalance !== undefined && p.bankBalance !== null && p.bankBalance !== '' ? Number(p.bankBalance) : null,
+      netWorth: p.netWorth !== undefined && p.netWorth !== null && p.netWorth !== '' ? Number(p.netWorth) : null,
+      membershipCategory: (p.membershipCategory || p.category || 'GENERAL').toString().toUpperCase() === 'ELITE' ? 'ELITE' : 'GENERAL',
       about: p.about || `Profile for ${displayName}`,
       status: 'ACTIVE',
       isVerified: true,
@@ -2061,22 +2181,10 @@ export class ProfilesService {
       });
     }
 
-    // Save Occupation
-    let salaryMin: number | null = null;
+    // Save Occupation (Normalize salary into application bracket)
     const rawSalary = car.salaryMin || car.salary || car.annual_income || car.annualIncome;
-    if (rawSalary) {
-      if (typeof rawSalary === 'number') {
-        salaryMin = rawSalary;
-      } else {
-        const lkMatch = String(rawSalary).match(/(\d+(?:\.\d+)?)\s*(?:l|lk|lakh|lakhs)/i);
-        if (lkMatch) {
-          salaryMin = Math.round(parseFloat(lkMatch[1]) * 100000);
-        } else {
-          const numMatch = String(rawSalary).match(/(\d[\d,]+)/);
-          if (numMatch) salaryMin = parseInt(numMatch[1].replace(/,/g, ''));
-        }
-      }
-    }
+    const parsedSalary = parseAnnualIncome(rawSalary);
+    const salaryMin: number | null = parsedSalary.salaryMin;
 
     const designation = car.designation || car.occupation || null;
     if (designation || car.company || salaryMin || car.workingLocation || car.work_location) {
@@ -2104,13 +2212,20 @@ export class ProfilesService {
     const fatherName = fam.fatherName || fam.father_name || null;
     const motherName = fam.motherName || fam.mother_name || null;
     if (fatherName || motherName || fam.brothers !== undefined || fam.sisters !== undefined || fam.nativePlace || fam.native_place) {
+      const fatherAlive = fam.fatherAlive !== undefined && fam.fatherAlive !== null
+        ? Boolean(fam.fatherAlive)
+        : (fam.father_status ? !String(fam.father_status).toLowerCase().includes('late') : (fatherName && /\b(?:late|மறைந்த|காலஞ்சென்ற)\b/i.test(fatherName) ? false : true));
+      const motherAlive = fam.motherAlive !== undefined && fam.motherAlive !== null
+        ? Boolean(fam.motherAlive)
+        : (fam.mother_status ? !String(fam.mother_status).toLowerCase().includes('late') : (motherName && /\b(?:late|மறைந்த|காலஞ்சென்ற)\b/i.test(motherName) ? false : true));
+
       const famData = {
-        fatherName,
+        fatherName: fatherName ? fatherName.replace(/\(?(?:late|மறைந்த|காலஞ்சென்ற)\.?\)?/gi, '').trim() : null,
         fatherOccupation: fam.fatherOccupation || fam.father_occupation || null,
-        fatherAlive: fam.fatherAlive !== undefined ? Boolean(fam.fatherAlive) : (fam.father_status ? !String(fam.father_status).toLowerCase().includes('late') : true),
-        motherName,
+        fatherAlive,
+        motherName: motherName ? motherName.replace(/\(?(?:late|மறைந்த|காலஞ்சென்ற)\.?\)?/gi, '').trim() : null,
         motherOccupation: fam.motherOccupation || fam.mother_occupation || null,
-        motherAlive: fam.motherAlive !== undefined ? Boolean(fam.motherAlive) : (fam.mother_status ? !String(fam.mother_status).toLowerCase().includes('late') : true),
+        motherAlive,
         brothers: Number(fam.brothers || 0),
         brothersMarried: Number(fam.brothersMarried || fam.brothers_married || 0),
         elderBrothers: Number(fam.elderBrothers || fam.elder_brothers || 0),
@@ -2138,10 +2253,14 @@ export class ProfilesService {
     const star = horo.star || p.star || p.nakshatra || null;
     const rasiChart = horo.rasiChart || horo.rasi_chart || extractedData.rasiChart;
     const amsamChart = horo.amsamChart || horo.amsam_chart || extractedData.amsamChart || extractedData.navamsamChart;
-    if (rasi || star || horo.lagnam || horo.dosham || horo.birthPlace || horo.birth_place || horo.birthTime || horo.birth_time || rasiChart || amsamChart) {
+
+    const hasRasiPlanets = rasiChart && typeof rasiChart === 'object' && Object.values(rasiChart).some(v => Boolean(v && typeof v === 'string' && v.trim()));
+    const hasAmsamPlanets = amsamChart && typeof amsamChart === 'object' && Object.values(amsamChart).some(v => Boolean(v && typeof v === 'string' && v.trim()));
+
+    if (rasi || star || horo.lagnam || horo.dosham || horo.birthPlace || horo.birth_place || horo.birthTime || horo.birth_time || hasRasiPlanets || hasAmsamPlanets) {
       const hData: any = {};
-      if (rasiChart) hData.rasiChart = rasiChart;
-      if (amsamChart) hData.amsamChart = amsamChart;
+      if (hasRasiPlanets) hData.rasiChart = rasiChart;
+      if (hasAmsamPlanets) hData.amsamChart = amsamChart;
 
       await this.prisma.horoscope.upsert({
         where: { profileId: profile.id },
@@ -2171,6 +2290,9 @@ export class ProfilesService {
           horoscopeData: Object.keys(hData).length > 0 ? hData : undefined,
         },
       });
+
+      // Trigger background calculation for new/updated profile horoscope
+      this.horoscopeMatchingService?.onHoroscopeUpdated(profile.id);
     }
 
     // Save Profile Photo if present
@@ -2213,10 +2335,12 @@ export class ProfilesService {
       verificationStatus: saved.verificationStatus,
       status: saved.status,
       credentials: {
-        identifier: contactPhone || contactEmail || saved.memberId,
+        identifier: user.email,
         phone: contactPhone,
-        email: contactEmail,
+        email: user.email,
+        loginEmail: user.email,
         password: rawPassword,
+        initialPassword: rawPassword,
         memberId: saved.memberId,
       },
       savedData: {

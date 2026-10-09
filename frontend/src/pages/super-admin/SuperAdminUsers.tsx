@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import {
   Users, Search, Eye, Ban, CheckCircle2, X, Loader2, RefreshCw,
   Trash2, Crown, Shield, UserCheck, User, Phone, Mail, Calendar,
-  TrendingUp, Activity, UserX, Download,
+  TrendingUp, Activity, UserX, Download, Sparkles,
 } from 'lucide-react';
 import { adminApi } from '../../services/admin.service';
 import { exportToCSV, getExportTimestamp } from '../../utils/export.utils';
@@ -16,6 +16,11 @@ type UserRecord = {
   phone: string;
   isActive: boolean;
   createdAt: string;
+  membershipCategory?: 'GENERAL' | 'ELITE';
+  membershipTier?: string;
+  planTier?: string;
+  planName?: string;
+  isElite?: boolean;
   profile?: {
     firstName?: string;
     lastName?: string;
@@ -26,6 +31,11 @@ type UserRecord = {
     profileCompletionPercent?: number;
     gender?: string;
     age?: number;
+    membershipCategory?: 'GENERAL' | 'ELITE';
+    membershipTier?: string;
+    planTier?: string;
+    planName?: string;
+    isElite?: boolean;
   };
   userRoles?: { role: { name: string } }[];
 };
@@ -82,6 +92,22 @@ const SuperAdminUsers = () => {
     if (u.email.includes('superadmin')) return 'SUPER_ADMIN';
     if (u.email.includes('admin')) return 'ADMIN';
     return 'MEMBER';
+  };
+
+  const getCategoryLabel = (u: UserRecord): 'Elite' | 'General' => {
+    const cat = (u.membershipCategory || u.profile?.membershipCategory || (u.isElite || u.profile?.isElite ? 'ELITE' : 'GENERAL')).toUpperCase();
+    return cat === 'ELITE' ? 'Elite' : 'General';
+  };
+
+  const getPlanTierLabel = (u: UserRecord): string => {
+    const t = (u.planTier || u.membershipTier || u.profile?.planTier || u.profile?.membershipTier || 'FREE').toUpperCase();
+    switch (t) {
+      case 'PLATINUM': return 'Platinum';
+      case 'GOLD': return 'Gold';
+      case 'SILVER': return 'Silver';
+      case 'DIAMOND': return 'Diamond';
+      default: return 'Free';
+    }
   };
 
   const filtered = useMemo(() => {
@@ -144,6 +170,9 @@ const SuperAdminUsers = () => {
         email: u.email,
         phone: u.phone,
         role: getUserRole(u),
+        membershipCategory: getCategoryLabel(u),
+        planTier: getPlanTierLabel(u),
+        planName: u.planName || u.profile?.planName || 'Free Plan',
         gender: u.profile?.gender || 'N/A',
         community: (u.profile?.community as any)?.name || 'N/A',
         status: u.isActive ? 'ACTIVE' : 'SUSPENDED',
@@ -265,7 +294,7 @@ const SuperAdminUsers = () => {
             <table className="w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {['User', 'Contact', 'Role', 'Community', 'Joined', 'Status', 'Actions'].map((h) => (
+                  {['User', 'Contact', 'Role', 'Membership', 'Community', 'Joined', 'Status', 'Actions'].map((h) => (
                     <th key={h} className="px-5 py-4 text-slate-500 text-xs font-bold uppercase tracking-wider whitespace-nowrap">
                       {h}
                     </th>
@@ -275,7 +304,7 @@ const SuperAdminUsers = () => {
               <tbody className="divide-y divide-slate-100">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-14 text-slate-400">
+                    <td colSpan={8} className="text-center py-14 text-slate-400">
                       <Users className="w-10 h-10 mx-auto mb-3 text-slate-300" />
                       <p className="font-medium">No users found</p>
                     </td>
@@ -326,6 +355,31 @@ const SuperAdminUsers = () => {
                           <RoleIcon className="w-3 h-3" />
                           {roleConf.label}
                         </span>
+                      </td>
+
+                      {/* Membership Category & Plan Tier */}
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                            getCategoryLabel(u) === 'Elite'
+                              ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-xs'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
+                            {getCategoryLabel(u) === 'Elite' && (
+                              <Sparkles className="w-2.5 h-2.5 text-amber-500 fill-amber-400" />
+                            )}
+                            {getCategoryLabel(u)}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                            <Crown className="w-3 h-3 text-slate-400" />
+                            {getPlanTierLabel(u)}
+                            {(u.planName || u.profile?.planName) && (
+                              <span className="text-[10px] text-slate-400 font-normal">
+                                ({u.planName || u.profile?.planName})
+                              </span>
+                            )}
+                          </span>
+                        </div>
                       </td>
 
                       {/* Community */}
@@ -470,6 +524,38 @@ const SuperAdminUsers = () => {
                 { label: 'Email',        value: viewUser.email,                     icon: Mail },
                 { label: 'Phone',        value: viewUser.phone || '—',              icon: Phone },
                 { label: 'Role',         value: ROLE_CONFIG[getUserRole(viewUser)]?.label || getUserRole(viewUser), icon: Shield },
+                {
+                  label: 'Membership Category',
+                  value: (
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+                      getCategoryLabel(viewUser) === 'Elite'
+                        ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-xs'
+                        : 'bg-slate-100 text-slate-700 border-slate-200'
+                    }`}>
+                      {getCategoryLabel(viewUser) === 'Elite' && (
+                        <Sparkles className="w-3 h-3 text-amber-500 fill-amber-400" />
+                      )}
+                      {getCategoryLabel(viewUser)}
+                    </span>
+                  ),
+                  icon: Sparkles,
+                },
+                {
+                  label: 'Plan Tier',
+                  value: (
+                    <span className="font-bold text-slate-900 text-sm flex items-center gap-1.5 justify-end">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                        {getPlanTierLabel(viewUser)}
+                      </span>
+                      {(viewUser.planName || viewUser.profile?.planName) && (
+                        <span className="text-xs font-normal text-slate-500">
+                          ({viewUser.planName || viewUser.profile?.planName})
+                        </span>
+                      )}
+                    </span>
+                  ),
+                  icon: Crown,
+                },
                 { label: 'Community',    value: viewUser.profile?.community?.name || '—', icon: Users },
                 { label: 'Status',       value: viewUser.isActive ? 'Active' : 'Suspended', icon: Activity },
                 { label: 'Joined',       value: new Date(viewUser.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), icon: Calendar },
@@ -481,7 +567,7 @@ const SuperAdminUsers = () => {
                   <span className="text-slate-500 text-sm font-medium flex items-center gap-2">
                     <Icon className="w-4 h-4 text-slate-400" /> {label}
                   </span>
-                  <span className="text-slate-900 font-semibold text-sm text-right max-w-[55%]">{value}</span>
+                  <div className="text-slate-900 font-semibold text-sm text-right max-w-[60%]">{value}</div>
                 </div>
               ))}
             </div>

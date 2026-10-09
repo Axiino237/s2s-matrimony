@@ -448,6 +448,7 @@ export interface SystemSettingsState {
   secondaryColor: string;
   supportEmail: string;
   supportPhone: string;
+  maintenanceMode: boolean;
   enableBiodataForm: boolean;
   facebookUrl: string;
   instagramUrl: string;
@@ -480,6 +481,7 @@ export const useSettingsStore = create<SystemSettingsState>()(
       secondaryColor: '#0D9488',
       supportEmail: 'support@s2smatrimony.com',
       supportPhone: '+91 98765 43210',
+      maintenanceMode: false,
       enableBiodataForm: true,
       facebookUrl: 'https://www.facebook.com/s2smatrimony',
       instagramUrl: 'https://www.instagram.com/s2smatrimony',
@@ -535,6 +537,10 @@ export const useSettingsStore = create<SystemSettingsState>()(
               secondaryColor: data.secondaryColor || state.secondaryColor,
               supportEmail: data.supportEmail || state.supportEmail,
               supportPhone: data.supportPhone || state.supportPhone,
+              maintenanceMode:
+                data.maintenanceMode !== undefined
+                  ? Boolean(data.maintenanceMode === true || data.maintenanceMode === 'true')
+                  : state.maintenanceMode,
               enableBiodataForm:
                 data.enableBiodataForm !== undefined
                   ? data.enableBiodataForm === true || data.enableBiodataForm === 'true'

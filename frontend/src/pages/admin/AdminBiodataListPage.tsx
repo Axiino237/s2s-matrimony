@@ -90,6 +90,9 @@ type BiodataRecord = {
   diet?: string;
   residentStatus?: string;
   propertyDetails?: string;
+  assetValue?: number | string;
+  bankBalance?: number | string;
+  netWorth?: number | string;
   city?: string;
   educationDegree?: string;
   education?: any;
@@ -221,7 +224,20 @@ export default function AdminBiodataListPage() {
         const cityStr = toText(p.city);
         const workLocRaw = p.occupation?.workingLocation || p.workLocation || cityStr || '';
         const locationStr = toText(workLocRaw);
-        const salaryStr = p.occupation?.salaryMin ? `${p.occupation.salaryMin} / month` : toText(p.annualIncome || p.salary || '');
+        const salaryMinKey = p.occupation?.salaryMin ? String(p.occupation.salaryMin) : '';
+        const INCOME_RANGES_MAP: Record<string, string> = {
+          '300000': '₹2 Lakhs – ₹3 Lakhs',
+          '500000': '₹3 Lakhs – ₹5 Lakhs',
+          '800000': '₹5 Lakhs – ₹8 Lakhs',
+          '1200000': '₹8 Lakhs – ₹12 Lakhs',
+          '1800000': '₹12 Lakhs – ₹18 Lakhs',
+          '2500000': '₹18 Lakhs – ₹25 Lakhs',
+          '3500000': '₹25 Lakhs – ₹35 Lakhs',
+          '5000000': 'Above ₹35 Lakhs',
+        };
+        const salaryStr = salaryMinKey
+          ? (INCOME_RANGES_MAP[salaryMinKey] || `₹${p.occupation.salaryMin.toLocaleString()}`)
+          : toText(p.annualIncome || p.salary || '');
         const horo = p.horoscope || {};
         const fam = p.family || {};
 
@@ -249,6 +265,9 @@ export default function AdminBiodataListPage() {
           birthOrder: toText(p.birthOrder || fam.birthOrder),
           residentStatus: toText(p.residentStatus || p.resident),
           propertyDetails: toText(p.propertyDetails || p.property),
+          assetValue: p.assetValue ?? null,
+          bankBalance: p.bankBalance ?? null,
+          netWorth: p.netWorth ?? null,
           educationDegree: toText(eduStr),
           education: toText(p.educationDetails || eduStr),
           designation: toText(jobStr),
@@ -1082,6 +1101,9 @@ function BiodataFormCard({ r, isSuperAdmin, showContactInfo = true }: { r: Bioda
               <div><strong>Property - </strong> {maskSensitiveText(r.propertyDetails, isSuperAdmin)}</div>
               <div><strong>Residence Place - </strong> {maskSensitiveText(r.city, isSuperAdmin)}</div>
               <div><strong>Native Place - </strong> {maskSensitiveText(r.nativePlace, isSuperAdmin)}</div>
+              <div><strong>Asset Value - </strong> {r.assetValue ? (isSuperAdmin ? `₹ ${Number(r.assetValue).toLocaleString('en-IN')}` : '***** (Super Admin Only)') : '—'}</div>
+              <div><strong>Bank Balance - </strong> {r.bankBalance ? (isSuperAdmin ? `₹ ${Number(r.bankBalance).toLocaleString('en-IN')}` : '***** (Super Admin Only)') : '—'}</div>
+              <div className="col-span-2"><strong>Net Worth - </strong> {r.netWorth ? (isSuperAdmin ? `₹ ${Number(r.netWorth).toLocaleString('en-IN')}` : '***** (Super Admin Only)') : '—'}</div>
             </div>
           </div>
         </div>

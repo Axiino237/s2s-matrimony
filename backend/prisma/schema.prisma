@@ -74,6 +74,8 @@ enum NotificationType {
 enum AdminRole {
   SUPER_ADMIN
   ADMIN
+  MODERATOR
+  SUPPORT_AGENT
 }
 
 enum VerificationStatus {
@@ -332,6 +334,10 @@ model Profile {
   branch                  String?
   residentStatus          String?
   propertyDetails         String?
+  assetValue              Decimal?      @db.Decimal(15, 2)
+  bankBalance             Decimal?      @db.Decimal(15, 2)
+  netWorth                Decimal?      @db.Decimal(15, 2)
+  membershipCategory      String        @default("GENERAL")
   status                  ProfileStatus @default(PENDING)
   isVerified              Boolean       @default(false)
   verificationStatus      VerificationStatus @default(UNVERIFIED)
@@ -368,6 +374,8 @@ model Profile {
   membership       Membership?
   matchScores      MatchScore[]      @relation("ProfileA")
   matchedWith      MatchScore[]      @relation("ProfileB")
+  horoscopeMatches     HoroscopeMatch[]  @relation("HoroscopeMatches")
+  horoscopeMatchedWith HoroscopeMatch[]  @relation("HoroscopeMatchedWith")
   reportedProfiles Report[]          @relation("ReportedProfile")
   contactUnlocks   ContactUnlock[]   @relation("UnlockedProfile")
 
@@ -744,6 +752,27 @@ model MatchScore {
   @@map("match_scores")
 }
 
+model HoroscopeMatch {
+  id               String   @id @default(uuid())
+  profileId        String
+  matchedProfileId String
+  matchPercentage  Int
+  status           String   @default("COMPLETED") // COMPLETED, INSUFFICIENT_DATA, FAILED
+  factors          Json?    // Detailed breakdown (poruthams, dosham, etc.)
+  aiModel          String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  profile        Profile @relation("HoroscopeMatches", fields: [profileId], references: [id], onDelete: Cascade)
+  matchedProfile Profile @relation("HoroscopeMatchedWith", fields: [matchedProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, matchedProfileId])
+  @@index([profileId])
+  @@index([matchedProfileId])
+  @@index([matchPercentage])
+  @@map("horoscope_matches")
+}
+
 model ProfileView {
   id         String   @id @default(uuid())
   viewerId   String
@@ -829,8 +858,9 @@ model Notification {
 
 model MembershipPlan {
   id              String         @id @default(uuid())
-  name            String         @unique
+  name            String
   tier            MembershipTier
+  category        String         @default("GENERAL")
   price           Decimal        @db.Decimal(10, 2)
   originalPrice   Decimal?       @db.Decimal(10, 2)
   durationMonths  Int
@@ -849,6 +879,7 @@ model MembershipPlan {
   memberships Membership[]
   payments    Payment[]
 
+  @@unique([category, name])
   @@map("membership_plans")
 }
 

@@ -34,6 +34,7 @@ export const MEMBER_ROUTE_PERMISSIONS: Record<string, string> = {
   '/profile/edit': 'member:profile',
   '/search': 'member:search',
   '/matches': 'member:search',
+  '/horoscope-matching': 'member:search',
   '/interests': 'member:interests',
   '/messages': 'member:messages',
   '/premium': 'member:upgrade',
@@ -94,6 +95,37 @@ const MemberSidebar = ({
     return () => window.removeEventListener('s2s_permissions_updated', handlePermUpdate);
   }, []);
 
+  const memberCategory = (
+    user?.membershipCategory ||
+    user?.entitlements?.category ||
+    myProfile?.membershipCategory ||
+    'GENERAL'
+  ).toUpperCase() as 'GENERAL' | 'ELITE';
+
+  // Requirement: Horoscope matching is EXCLUSIVELY for Elite category members.
+  // General members (net worth < elite threshold / general category) cannot see or access horoscope matching.
+  const isEliteMember = Boolean(
+    isSuperAdmin() ||
+    memberCategory === 'ELITE' ||
+    user?.isElite === true ||
+    user?.entitlements?.isElite === true ||
+    user?.entitlements?.category === 'ELITE'
+  );
+
+  const planHasHoroscopeMatching = Boolean(
+    user?.entitlements?.canAccessHoroscopeMatching === true ||
+    user?.entitlements?.hasHoroscopeReport === true ||
+    user?.entitlements?.features?.some((f: string) =>
+      typeof f === 'string' &&
+      (f.toLowerCase().includes('horoscope matching') || f.toLowerCase().includes('horoscope report'))
+    )
+  );
+
+  const canAccessHoroscopeMatching = Boolean(
+    isSuperAdmin() ||
+    (isEliteMember && planHasHoroscopeMatching)
+  );
+
   const navGroups: NavGroup[] = [
     {
       title: 'Main',
@@ -107,6 +139,17 @@ const MemberSidebar = ({
       items: [
         { icon: Search, label: 'Search Profiles', href: '/search', locked: !isProfileComplete, requiredPermission: 'member:search' },
         { icon: Star, label: 'Recommended Matches', href: '/matches', locked: !isProfileComplete, requiredPermission: 'member:search' },
+        ...(canAccessHoroscopeMatching
+          ? [
+              {
+                icon: Sparkles,
+                label: 'Horoscope Matching',
+                href: '/horoscope-matching',
+                locked: !isProfileComplete,
+                requiredPermission: 'member:search',
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -200,7 +243,7 @@ const MemberSidebar = ({
                 {displayName}
               </p>
               <div className="mt-0.5">
-                <MembershipBadge tier={memberTier} size="xs" />
+                <MembershipBadge tier={memberTier} category={memberCategory} size="xs" />
               </div>
             </div>
           </div>
