@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Smartphone, ArrowLeft, Loader2, RefreshCw, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Smartphone, ArrowLeft, Loader2, RefreshCw, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/auth.store';
 import api from '../../services/api';
@@ -19,6 +19,7 @@ const OtpVerifyPage = () => {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(30);
+  const [errors, setErrors] = useState<{ phone?: string; otp?: string }>({});
 
   useEffect(() => {
     if (countdown > 0) {
@@ -32,15 +33,24 @@ const OtpVerifyPage = () => {
     const cleanPhone = phone.trim();
     const cleanOtp = otp.trim();
 
+    const newErrors: { phone?: string; otp?: string } = {};
     if (!cleanPhone) {
+      newErrors.phone = 'Phone number is required';
       toast.error('Phone number is missing. Please try logging in or registering again.');
-      return;
+    }
+    if (!cleanOtp) {
+      newErrors.otp = 'OTP code is required';
+      toast.error('Please enter a valid 6-digit OTP code.');
+    } else if (cleanOtp.length !== 6) {
+      newErrors.otp = 'Please enter a valid 6-digit OTP code';
+      toast.error('Please enter a valid 6-digit OTP code.');
     }
 
-    if (!cleanOtp || cleanOtp.length !== 6) {
-      toast.error('Please enter a valid 6-digit OTP code.');
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+    setErrors({});
 
     setLoading(true);
     try {
@@ -136,33 +146,59 @@ const OtpVerifyPage = () => {
             {/* Phone input field (editable if empty or coming from state) */}
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider text-left mb-1.5">
-                Phone Number
+                Phone Number <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <input
                   type="text"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => {
+                    setPhone(e.target.value);
+                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
+                  }}
                   placeholder="+91 9876543210"
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                  className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-slate-800 text-sm focus:outline-none focus:ring-2 transition ${
+                    errors.phone
+                      ? 'border-rose-400 focus:ring-rose-200 focus:border-rose-500 bg-rose-50/20'
+                      : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
+                  }`}
                 />
               </div>
+              {errors.phone && (
+                <p className="text-xs text-rose-500 mt-1.5 text-left flex items-center gap-1 animate-slide-up">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>{errors.phone}</span>
+                </p>
+              )}
             </div>
 
             {/* OTP 6-Digit input */}
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider text-left mb-1.5">
-                6-Digit OTP Code
+                6-Digit OTP Code <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 maxLength={6}
                 value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => {
+                  setOtp(e.target.value.replace(/\D/g, ''));
+                  if (errors.otp) setErrors((prev) => ({ ...prev, otp: '' }));
+                }}
                 placeholder="• • • • • •"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 text-2xl font-bold text-center tracking-[0.75rem] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                className={`w-full px-4 py-3 bg-slate-50 border rounded-xl text-slate-800 text-2xl font-bold text-center tracking-[0.75rem] focus:outline-none focus:ring-2 transition ${
+                  errors.otp
+                    ? 'border-rose-400 focus:ring-rose-200 focus:border-rose-500 bg-rose-50/20'
+                    : 'border-slate-200 focus:ring-primary/30 focus:border-primary'
+                }`}
                 autoFocus
               />
+              {errors.otp && (
+                <p className="text-xs text-rose-500 mt-1.5 text-left flex items-center gap-1 animate-slide-up">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>{errors.otp}</span>
+                </p>
+              )}
             </div>
 
             {/* Verify Button */}

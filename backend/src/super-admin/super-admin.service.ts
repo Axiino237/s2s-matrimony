@@ -306,8 +306,27 @@ export class SuperAdminService {
       }
     } catch {}
     const devSettings = (devStore as any).systemSettings || {};
+
+    let defaultFreeLimit = 5;
+    try {
+      const freePlan = await this.prisma.membershipPlan.findFirst({
+        where: { isActive: true, OR: [{ tier: 'FREE' }, { price: 0 }] },
+      });
+      if (freePlan?.features) {
+        const feats = Array.isArray(freePlan.features) ? freePlan.features : [];
+        for (const f of feats) {
+          const match = typeof f === 'string' && f.match(/(\d+)\s*profile\s*views?(?:\s*(?:\/|per)\s*day)?/i);
+          if (match && match[1]) {
+            defaultFreeLimit = parseInt(match[1], 10);
+            break;
+          }
+        }
+      }
+    } catch {}
+
     return {
       eliteQualificationThreshold: 50000000,
+      freeDailyProfileViewLimit: defaultFreeLimit,
       ...devSettings,
       ...settings,
     };
@@ -319,6 +338,12 @@ export class SuperAdminService {
       const merged = { ...existing, ...(data || {}) };
       if (data?.eliteQualificationThreshold !== undefined) {
         merged.eliteQualificationThreshold = Number(data.eliteQualificationThreshold) || 50000000;
+      }
+      if (data?.freeDailyProfileViewLimit !== undefined) {
+        merged.freeDailyProfileViewLimit = Number(data.freeDailyProfileViewLimit);
+      }
+      if (data?.dailyProfileViewLimit !== undefined) {
+        merged.freeDailyProfileViewLimit = Number(data.dailyProfileViewLimit);
       }
       if (data?.maintenanceMode !== undefined) {
         const isMaint = Boolean(data.maintenanceMode === true || data.maintenanceMode === 'true');
@@ -332,6 +357,39 @@ export class SuperAdminService {
         create: { key: 'system_settings', value: jsonStr, group: 'GLOBAL', isPublic: true },
       });
       (devStore as any).systemSettings = merged;
+
+      // Synchronize Free plan features if freeDailyProfileViewLimit was provided
+      if (merged.freeDailyProfileViewLimit !== undefined && !isNaN(Number(merged.freeDailyProfileViewLimit))) {
+        try {
+          const newLimit = Number(merged.freeDailyProfileViewLimit);
+          const freePlan = await this.prisma.membershipPlan.findFirst({
+            where: { isActive: true, OR: [{ tier: 'FREE' }, { price: 0 }] },
+          });
+          if (freePlan) {
+            const rawFeats = Array.isArray(freePlan.features)
+              ? freePlan.features
+              : typeof freePlan.features === 'string'
+              ? JSON.parse(freePlan.features)
+              : [];
+            let replaced = false;
+            const updatedFeats = rawFeats.map((f: any) => {
+              if (typeof f === 'string' && f.match(/(\d+)\s*profile\s*views?(?:\s*(?:\/|per)\s*day)?/i)) {
+                replaced = true;
+                return `${newLimit} Profile Views / day`;
+              }
+              return f;
+            });
+            if (!replaced && newLimit > 0) {
+              updatedFeats.push(`${newLimit} Profile Views / day`);
+            }
+            await this.prisma.membershipPlan.update({
+              where: { id: freePlan.id },
+              data: { features: updatedFeats },
+            });
+          }
+        } catch {}
+      }
+
       return { success: true, settings: merged };
     } catch {
       (devStore as any).systemSettings = data;

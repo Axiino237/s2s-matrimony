@@ -252,7 +252,9 @@ const RegisterPage = () => {
                   {/* Step 0: Profile For */}
                   {step === 0 && (
                     <div className="space-y-4">
-                      <h2 className="text-text-primary font-semibold text-lg mb-4">This profile is for?</h2>
+                      <h2 className="text-text-primary font-semibold text-lg mb-4">
+                        This profile is for? <span className="text-rose-500">*</span>
+                      </h2>
                       
                       <input
                         type="hidden"
@@ -292,7 +294,9 @@ const RegisterPage = () => {
                       )}
 
                       <div className="pt-2">
-                        <label className="input-label text-text-secondary text-xs font-bold uppercase tracking-wider block mb-2">Gender of Profile</label>
+                        <label className="input-label text-text-secondary text-xs font-bold uppercase tracking-wider block mb-2">
+                          Gender of Profile <span className="text-rose-500">*</span>
+                        </label>
                         <div className="flex gap-3">
                           {[
                             { value: 'MALE', label: 'Male (Groom)', icon: User, color: 'text-blue-600' },
@@ -349,7 +353,9 @@ const RegisterPage = () => {
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="input-label">First Name</label>
+                          <label className="input-label">
+                            First Name <span className="text-rose-500">*</span>
+                          </label>
                           <input
                             {...register('firstName', {
                               required: 'First name is required',
@@ -375,7 +381,9 @@ const RegisterPage = () => {
                         </div>
 
                         <div>
-                          <label className="input-label">Last Name</label>
+                          <label className="input-label">
+                            Last Name <span className="text-rose-500">*</span>
+                          </label>
                           <input
                             {...register('lastName', {
                               required: 'Last name is required',
@@ -402,7 +410,9 @@ const RegisterPage = () => {
                       </div>
 
                       <div>
-                        <label className="input-label">Date of Birth</label>
+                        <label className="input-label">
+                          Date of Birth <span className="text-rose-500">*</span>
+                        </label>
                         <input
                           type="date"
                           max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
@@ -467,7 +477,7 @@ const RegisterPage = () => {
 
                       <div>
                         <label className="input-label flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5 text-primary" /> Phone Number
+                          <Phone className="w-3.5 h-3.5 text-primary" /> Phone Number <span className="text-rose-500">*</span>
                         </label>
                         <div className="flex gap-2">
                           <span className="px-3 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-text-secondary text-sm font-semibold flex items-center">
@@ -503,7 +513,7 @@ const RegisterPage = () => {
 
                       <div>
                         <label className="input-label flex items-center gap-1.5">
-                          <Mail className="w-3.5 h-3.5 text-primary" /> Email Address
+                          <Mail className="w-3.5 h-3.5 text-primary" /> Email Address <span className="text-rose-500">*</span>
                         </label>
                         <input
                           type="email"
@@ -532,7 +542,7 @@ const RegisterPage = () => {
 
                       <div>
                         <label className="input-label flex items-center gap-1.5">
-                          <Lock className="w-3.5 h-3.5 text-primary" /> Password
+                          <Lock className="w-3.5 h-3.5 text-primary" /> Password <span className="text-rose-500">*</span>
                         </label>
                         <div className="relative flex items-center">
                           <input
@@ -579,7 +589,7 @@ const RegisterPage = () => {
 
                       <div>
                         <label className="input-label flex items-center gap-1.5">
-                          <Lock className="w-3.5 h-3.5 text-primary" /> Confirm Password
+                          <Lock className="w-3.5 h-3.5 text-primary" /> Confirm Password <span className="text-rose-500">*</span>
                         </label>
                         <div className="relative flex items-center">
                           <input
@@ -659,7 +669,7 @@ const RegisterPage = () => {
                               title="Click to view Privacy Policy"
                             >
                               Privacy Policy
-                            </a>.
+                            </a> <span className="text-rose-500">*</span>.
                           </span>
                         </label>
                         {errors.agreeTerms && (

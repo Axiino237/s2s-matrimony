@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Gender, MaritalStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
@@ -7,6 +7,7 @@ import { devStore, devOtpStore } from '../common/dev-store';
 import { OtpService } from '../auth/otp.service';
 import { MailService } from '../mail/mail.service';
 import { EliteQualificationService } from '../common/elite-qualification.service';
+import { EntitlementsService } from '../common/entitlements.service';
 import { parseAnnualIncome, normalizeComplexion } from './biodata-parser.service';
 import { HoroscopeMatchingService } from './horoscope-matching.service';
 
@@ -17,6 +18,7 @@ export class ProfilesService {
     private readonly otpService: OtpService,
     private readonly mailService: MailService,
     private readonly eliteQualService: EliteQualificationService,
+    private readonly entitlementsService: EntitlementsService,
     @Optional() private readonly horoscopeMatchingService?: HoroscopeMatchingService,
   ) {}
 
@@ -454,26 +456,35 @@ export class ProfilesService {
   }
 
   async getProfileById(id: string, requesterUserId?: string, isStaff = false) {
-    const profile = await this.prisma.profile.findUnique({
+    const includeQuery: any = {
+      user: true,
+      membership: { include: { plan: true } },
+      religion: true,
+      community: true,
+      caste: true,
+      subCaste: true,
+      photos: { where: { status: 'APPROVED' } },
+      education: true,
+      occupation: true,
+      family: true,
+      horoscope: true,
+      country: true,
+      state: true,
+      city: true,
+      partnerPreference: true,
+    };
+
+    let profile: any = await this.prisma.profile.findUnique({
       where: { id },
-      include: {
-        user: true,
-        membership: { include: { plan: true } },
-        religion: true,
-        community: true,
-        caste: true,
-        subCaste: true,
-        photos: { where: { status: 'APPROVED' } },
-        education: true,
-        occupation: true,
-        family: true,
-        horoscope: true,
-        country: true,
-        state: true,
-        city: true,
-        partnerPreference: true,
-      },
+      include: includeQuery,
     }).catch(() => null);
+
+    if (!profile) {
+      profile = await this.prisma.profile.findFirst({
+        where: { userId: id },
+        include: includeQuery,
+      }).catch(() => null);
+    }
 
     if (!profile) throw new NotFoundException('Profile not found');
 
@@ -493,6 +504,24 @@ export class ProfilesService {
 
       if (!this.eliteQualService.isProfileVisibleToViewer(viewerStatus, targetEval.eliteStatus)) {
         throw new NotFoundException('Profile is not available');
+      }
+
+      // Free Plan Daily Profile View Limit Enforcement
+      if (requesterUserId) {
+        const canView = await this.entitlementsService.checkCanViewProfile(
+          requesterUserId,
+          profile.userId,
+          isStaff,
+        );
+        if (!canView.allowed) {
+          throw new ForbiddenException(
+            canView.reason ||
+              'You have reached your daily profile view limit. Upgrade your membership to view more profiles.',
+          );
+        }
+        if (!canView.isAlreadyViewedToday) {
+          await this.entitlementsService.recordProfileView(requesterUserId, profile.userId);
+        }
       }
     }
 
@@ -574,12 +603,14 @@ export class ProfilesService {
     if (!isOwner && !isStaff) {
       result.assetValue = null;
       result.bankBalance = null;
-      result.netWorth = null;
     } else {
-      result.assetValue = result.assetValue !== null && result.assetValue !== undefined ? Number(result.assetValue) : null;
-      result.bankBalance = result.bankBalance !== null && result.bankBalance !== undefined ? Number(result.bankBalance) : null;
-      result.netWorth = result.netWorth !== null && result.netWorth !== undefined ? Number(result.netWorth) : null;
+      result.assetValue = result.assetValue !== null && result.assetValue !== undefined && result.assetValue !== '' ? Number(result.assetValue) : null;
+      result.bankBalance = result.bankBalance !== null && result.bankBalance !== undefined && result.bankBalance !== '' ? Number(result.bankBalance) : null;
     }
+    result.netWorth =
+      result.netWorth !== null && result.netWorth !== undefined && result.netWorth !== '' && !isNaN(Number(result.netWorth)) && Number(result.netWorth) > 0
+        ? Number(result.netWorth)
+        : null;
 
     const threshold = await this.eliteQualService.getEliteThreshold();
     const targetEval = this.eliteQualService.evaluateProfile(result, threshold);
@@ -1519,13 +1550,34 @@ export class ProfilesService {
   // PROFILE VIEWS
   // ==========================================
   async recordProfileView(viewerId: string, ownerId: string) {
-    if (viewerId === ownerId) return { recorded: false }; // Don't count own views
+    if (!viewerId || !ownerId || viewerId === ownerId) return { recorded: false };
     try {
-      await this.prisma.profileView.create({
-        data: { viewerId, ownerId },
+      let targetUserId = ownerId;
+      const targetProf = await this.prisma.profile.findFirst({
+        where: { OR: [{ userId: ownerId }, { id: ownerId }] },
+        select: { userId: true },
       });
+      if (targetProf?.userId) {
+        targetUserId = targetProf.userId;
+      }
+      if (viewerId === targetUserId) return { recorded: false };
+
+      const canView = await this.entitlementsService.checkCanViewProfile(
+        viewerId,
+        targetUserId,
+        false,
+      );
+      if (!canView.allowed) {
+        throw new ForbiddenException(
+          canView.reason ||
+            'You have reached your daily profile view limit. Upgrade your membership to view more profiles.',
+        );
+      }
+
+      await this.entitlementsService.recordProfileView(viewerId, targetUserId);
       return { recorded: true };
-    } catch {
+    } catch (err) {
+      if (err instanceof ForbiddenException) throw err;
       return { recorded: false };
     }
   }

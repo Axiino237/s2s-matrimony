@@ -544,7 +544,6 @@ const PricingPlansSection = () => {
         { text: 'Unlimited Interests', active: true },
         { text: '100 Contact Unlocks', active: true },
         { text: 'Direct Chat', active: true },
-        { text: 'Priority Profile Ranking', active: true },
         { text: 'AI Match Score', active: true },
       ],
       ctaText: 'Choose Gold Plan',
@@ -591,7 +590,6 @@ const PricingPlansSection = () => {
         { text: '100 Daily Interests', active: true },
         { text: '100 Contact Views', active: true },
         { text: 'Direct Live Chat', active: true },
-        { text: 'Priority Profile Ranking', active: true },
         { text: 'Verified Elite Badge', active: true },
       ],
       ctaText: 'Choose Silver Plan',
@@ -614,7 +612,6 @@ const PricingPlansSection = () => {
         { text: 'Unlimited Interests', active: true },
         { text: 'Unlimited Contact Unlocks', active: true },
         { text: 'Direct Chat', active: true },
-        { text: 'Priority Profile Ranking', active: true },
         { text: 'AI Match Score', active: true },
       ],
       ctaText: 'Choose Gold Plan',
@@ -719,7 +716,7 @@ const PricingPlansSection = () => {
             Choose Your <span className="text-gradient">Membership Plan</span>
           </h2>
           <p className="section-subtitle max-w-2xl mx-auto">
-            Select the plan that fits your search goals. Upgrade anytime to unlock phone numbers, direct messages, and priority search rankings.
+            Select the plan that fits your search goals. Upgrade anytime to unlock phone numbers, direct messages, and personalized AI recommendations.
           </p>
         </div>
 

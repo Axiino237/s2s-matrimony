@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { devStore } from './dev-store';
 
 export interface UserEntitlements {
   userId: string;
@@ -24,6 +25,15 @@ export interface UserEntitlements {
     max: number; // -1 = unlimited, 0 = disabled, >0 = limit
     used: number;
     remaining: number; // 999999 if unlimited
+  };
+
+  profileViews: {
+    enabled: boolean;
+    max: number; // -1 = unlimited, >0 = limit
+    usedToday: number;
+    remainingToday: number; // 999999 if unlimited
+    isRestricted: boolean; // true if reached limit
+    viewedOwnerIdsToday: string[];
   };
 
   hasChat: boolean;
@@ -94,6 +104,14 @@ export class EntitlementsService {
           max: -1,
           used: 0,
           remaining: 999999,
+        },
+        profileViews: {
+          enabled: true,
+          max: -1,
+          usedToday: 0,
+          remainingToday: 999999,
+          isRestricted: false,
+          viewedOwnerIdsToday: [],
         },
         hasChat: true,
         hasAiMatch: true,
@@ -264,6 +282,16 @@ export class EntitlementsService {
             !f.toLowerCase().includes('horoscope'),
         );
 
+    const profileViewUsage = await this.getDailyProfileViewUsage(userId);
+    const profileViews = {
+      enabled: true,
+      max: profileViewUsage.max,
+      usedToday: profileViewUsage.usedToday,
+      remainingToday: profileViewUsage.remainingToday,
+      isRestricted: profileViewUsage.isRestricted,
+      viewedOwnerIdsToday: profileViewUsage.viewedOwnerIdsToday,
+    };
+
     return {
       userId,
       planId: resolvedPlan.id,
@@ -286,6 +314,7 @@ export class EntitlementsService {
         used: usedInterests,
         remaining: remainingInterests,
       },
+      profileViews,
       hasChat,
       hasAiMatch,
       hasVideoProfile,
@@ -323,5 +352,289 @@ export class EntitlementsService {
     }
 
     return Array.from(idSet);
+  }
+
+  /**
+   * Calculates the exact start of calendar day (00:00:00) in the specified timezone as a UTC Date.
+   * Default timezone: 'Asia/Kolkata' (IST, UTC+05:30).
+   */
+  getStartOfDayUtc(timeZone = 'Asia/Kolkata', refDate = new Date()): Date {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(refDate);
+    const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
+
+    const hour = parseInt(getPart('hour') || '0', 10);
+    const minute = parseInt(getPart('minute') || '0', 10);
+    const second = parseInt(getPart('second') || '0', 10);
+
+    const msSinceMidnight =
+      ((hour * 60 + minute) * 60 + second) * 1000 + (refDate.getTime() % 1000);
+    return new Date(refDate.getTime() - msSinceMidnight);
+  }
+
+  /**
+   * Dynamically resolves the Free plan daily profile view limit from:
+   * 1. system_settings in the database Setting table (or devStore in memory)
+   * 2. The active Free Plan's features list (e.g. "5 Profile Views / day")
+   * Default fallback is 5 if not configured anywhere.
+   */
+  async getFreeDailyProfileViewLimit(): Promise<number> {
+    // 1. Check system_settings in Setting table
+    try {
+      const setting = await this.prisma.setting.findUnique({
+        where: { key: 'system_settings' },
+      });
+      if (setting?.value) {
+        const parsed = JSON.parse(setting.value);
+        const limitVal = parsed.freeDailyProfileViewLimit ?? parsed.dailyProfileViewLimit;
+        if (limitVal !== undefined && limitVal !== null && !isNaN(Number(limitVal)) && Number(limitVal) >= 0) {
+          return Number(limitVal);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // Check devStore systemSettings in-memory fallback
+    try {
+      const devStoreSettings = (devStore as any)?.systemSettings;
+      if (devStoreSettings) {
+        const limitVal = devStoreSettings.freeDailyProfileViewLimit ?? devStoreSettings.dailyProfileViewLimit;
+        if (limitVal !== undefined && limitVal !== null && !isNaN(Number(limitVal)) && Number(limitVal) >= 0) {
+          return Number(limitVal);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // 2. Check Free plan features array in MembershipPlan table
+    try {
+      const freePlan = await this.prisma.membershipPlan.findFirst({
+        where: {
+          isActive: true,
+          OR: [{ tier: 'FREE' }, { price: 0 }],
+        },
+        orderBy: { displayOrder: 'asc' },
+      });
+      if (freePlan?.features) {
+        const feats: string[] = Array.isArray(freePlan.features)
+          ? (freePlan.features as any)
+          : typeof freePlan.features === 'string'
+          ? JSON.parse(freePlan.features)
+          : [];
+        for (const f of feats) {
+          const match =
+            typeof f === 'string' &&
+            f.match(/(\d+)\s*profile\s*views?(?:\s*(?:\/|per)\s*day)?/i);
+          if (match && match[1]) {
+            return parseInt(match[1], 10);
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return 5;
+  }
+
+  /**
+   * Retrieves current daily profile view usage for a user.
+   */
+  async getDailyProfileViewUsage(userId: string): Promise<{
+    isStaff: boolean;
+    isFreeTier: boolean;
+    max: number;
+    usedToday: number;
+    remainingToday: number;
+    isRestricted: boolean;
+    viewedOwnerIdsToday: string[];
+  }> {
+    if (!userId) {
+      return {
+        isStaff: false,
+        isFreeTier: true,
+        max: 5,
+        usedToday: 0,
+        remainingToday: 5,
+        isRestricted: false,
+        viewedOwnerIdsToday: [],
+      };
+    }
+
+    // 1. Check if staff
+    let isStaff = false;
+    try {
+      const userRoles = await this.prisma.userRole.findMany({
+        where: { userId },
+        include: { role: true },
+      });
+      isStaff = userRoles.some((ur: any) =>
+        ['SUPER_ADMIN', 'ADMIN'].includes(ur.role?.name),
+      );
+    } catch {
+      // ignore
+    }
+
+    if (isStaff) {
+      return {
+        isStaff: true,
+        isFreeTier: false,
+        max: -1,
+        usedToday: 0,
+        remainingToday: 999999,
+        isRestricted: false,
+        viewedOwnerIdsToday: [],
+      };
+    }
+
+    // 2. Check if user has an active non-expired paid membership
+    let isPaid = false;
+    try {
+      const dbMembership = await this.prisma.membership.findFirst({
+        where: {
+          userId,
+          isActive: true,
+          endDate: { gte: new Date() },
+        },
+        include: { plan: true },
+      });
+      if (
+        dbMembership?.plan &&
+        dbMembership.plan.tier !== 'FREE' &&
+        Number(dbMembership.plan.price ?? 0) > 0
+      ) {
+        isPaid = true;
+      }
+    } catch {
+      // ignore
+    }
+
+    const startOfDayUtc = this.getStartOfDayUtc('Asia/Kolkata');
+    let viewedOwnerIdsToday: string[] = [];
+    try {
+      const views = await this.prisma.profileView.findMany({
+        where: {
+          viewerId: userId,
+          createdAt: { gte: startOfDayUtc },
+        },
+        select: { ownerId: true },
+      });
+      viewedOwnerIdsToday = Array.from(new Set(views.map((v) => v.ownerId)));
+    } catch {
+      // ignore
+    }
+
+    if (isPaid) {
+      return {
+        isStaff: false,
+        isFreeTier: false,
+        max: -1,
+        usedToday: viewedOwnerIdsToday.length,
+        remainingToday: 999999,
+        isRestricted: false,
+        viewedOwnerIdsToday,
+      };
+    }
+
+    // 3. Free tier user
+    const max = await this.getFreeDailyProfileViewLimit();
+    const usedToday = viewedOwnerIdsToday.length;
+    const remainingToday = max === -1 ? 999999 : Math.max(0, max - usedToday);
+    const isRestricted = max !== -1 && usedToday >= max;
+
+    return {
+      isStaff: false,
+      isFreeTier: true,
+      max,
+      usedToday,
+      remainingToday,
+      isRestricted,
+      viewedOwnerIdsToday,
+    };
+  }
+
+  /**
+   * Evaluates if a viewer user is allowed to view the target owner profile today.
+   * If the target owner was already viewed today, access is allowed without consuming extra limit.
+   */
+  async checkCanViewProfile(
+    viewerUserId: string,
+    targetOwnerUserId: string,
+    isStaff = false,
+  ): Promise<{
+    allowed: boolean;
+    reason?: string;
+    isAlreadyViewedToday: boolean;
+  }> {
+    if (isStaff || viewerUserId === targetOwnerUserId) {
+      return { allowed: true, isAlreadyViewedToday: true };
+    }
+
+    const usage = await this.getDailyProfileViewUsage(viewerUserId);
+    if (!usage.isFreeTier) {
+      return {
+        allowed: true,
+        isAlreadyViewedToday: usage.viewedOwnerIdsToday.includes(targetOwnerUserId),
+      };
+    }
+
+    const isAlreadyViewedToday = usage.viewedOwnerIdsToday.includes(targetOwnerUserId);
+    if (isAlreadyViewedToday) {
+      return { allowed: true, isAlreadyViewedToday: true };
+    }
+
+    if (usage.isRestricted) {
+      return {
+        allowed: false,
+        reason:
+          'You have reached your daily profile view limit. Upgrade your membership to view more profiles.',
+        isAlreadyViewedToday: false,
+      };
+    }
+
+    return { allowed: true, isAlreadyViewedToday: false };
+  }
+
+  /**
+   * Idempotently records a profile view for today in the profile_views table.
+   * Avoids duplicate records for the same viewer and owner on the same day.
+   */
+  async recordProfileView(viewerUserId: string, targetOwnerUserId: string): Promise<boolean> {
+    if (!viewerUserId || !targetOwnerUserId || viewerUserId === targetOwnerUserId) {
+      return false;
+    }
+    const startOfDayUtc = this.getStartOfDayUtc('Asia/Kolkata');
+    try {
+      const existing = await this.prisma.profileView.findFirst({
+        where: {
+          viewerId: viewerUserId,
+          ownerId: targetOwnerUserId,
+          createdAt: { gte: startOfDayUtc },
+        },
+      });
+      if (!existing) {
+        await this.prisma.profileView.create({
+          data: {
+            viewerId: viewerUserId,
+            ownerId: targetOwnerUserId,
+          },
+        });
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   }
 }

@@ -492,7 +492,11 @@ const ProfileCompletePage = () => {
     if (step === 0) {
       if (!form.firstName.trim()) errs.firstName = 'First name is required';
       if (!form.lastName.trim()) errs.lastName = 'Last name is required';
+      if (!form.gender) errs.gender = 'Gender is required';
       if (!form.dateOfBirth) errs.dateOfBirth = 'Date of birth is required';
+      if (!form.maritalStatus) errs.maritalStatus = 'Marital status is required';
+      if (!form.motherTongue) errs.motherTongue = 'Mother tongue is required';
+      if (!form.aboutMe || !form.aboutMe.trim()) errs.aboutMe = 'About Me is required';
     }
     if (step === 1) {
       if (!form.religion) errs.religion = 'Religion is required';
@@ -502,12 +506,31 @@ const ProfileCompletePage = () => {
       if (!form.occupation) errs.occupation = 'Occupation is required';
     }
     if (step === 3) {
+      if (!form.country || !form.country.trim()) errs.country = 'Country is required';
+      if (!form.state || !form.state.trim()) errs.state = 'State is required';
       if (!form.city.trim()) errs.city = 'City is required';
     }
     if (step === 4) {
       if (hasSiblingErrors) {
         const firstError = Object.values(siblingErrors).find(Boolean);
         errs.siblings = firstError || 'Please correct sibling count errors.';
+      }
+    }
+    if (step === 6) {
+      const minAge = Number(form.prefAgeMin);
+      const maxAge = Number(form.prefAgeMax);
+      if (!form.prefAgeMin || isNaN(minAge)) {
+        errs.prefAgeMin = 'Min age is required';
+      } else if (minAge < 18) {
+        errs.prefAgeMin = 'Min age must be at least 18';
+      }
+      if (!form.prefAgeMax || isNaN(maxAge)) {
+        errs.prefAgeMax = 'Max age is required';
+      } else if (maxAge > 70) {
+        errs.prefAgeMax = 'Max age must not exceed 70';
+      }
+      if (minAge && maxAge && minAge > maxAge) {
+        errs.prefAgeMin = 'Min age cannot be greater than max age';
       }
     }
     setErrors(errs);
@@ -644,6 +667,13 @@ const ProfileCompletePage = () => {
       toast.error(firstError || 'Please correct sibling count errors before submitting.');
       return;
     }
+    for (let s = 0; s < STEPS.length; s++) {
+      if (!validateStep(s)) {
+        setCurrentStep(s);
+        toast.error('Please complete all required fields before submitting.');
+        return;
+      }
+    }
     setSaving(true);
     try {
       await saveCurrentStepData({ profileCompletionPercent: 100 });
@@ -717,7 +747,7 @@ const ProfileCompletePage = () => {
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
       <Input label="First Name" required value={form.firstName} onChange={(e: any) => set('firstName', e.target.value)} error={errors.firstName} placeholder="e.g. Aravindhan" />
       <Input label="Last Name" required value={form.lastName} onChange={(e: any) => set('lastName', e.target.value)} error={errors.lastName} placeholder="e.g. Ravi" />
-      <Select label="Gender" required value={form.gender} onChange={(e: any) => set('gender', e.target.value)}>
+      <Select label="Gender" required value={form.gender} onChange={(e: any) => set('gender', e.target.value)} error={errors.gender}>
         <option value="MALE">Male</option>
         <option value="FEMALE">Female</option>
       </Select>
@@ -730,13 +760,13 @@ const ProfileCompletePage = () => {
         <option value="4">4th Child</option>
         <option value="5">5th Child or Later</option>
       </Select>
-      <Select label="Marital Status" required value={form.maritalStatus} onChange={(e: any) => set('maritalStatus', e.target.value)}>
+      <Select label="Marital Status" required value={form.maritalStatus} onChange={(e: any) => set('maritalStatus', e.target.value)} error={errors.maritalStatus}>
         <option value="NEVER_MARRIED">Never Married</option>
         <option value="DIVORCED">Divorced</option>
         <option value="WIDOWED">Widowed</option>
         <option value="AWAITING_DIVORCE">Awaiting Divorce</option>
       </Select>
-      <Select label="Mother Tongue" required value={form.motherTongue} onChange={(e: any) => set('motherTongue', e.target.value)}>
+      <Select label="Mother Tongue" required value={form.motherTongue} onChange={(e: any) => set('motherTongue', e.target.value)} error={errors.motherTongue}>
         {['Tamil', 'Telugu', 'Malayalam', 'Kannada', 'Hindi', 'Bengali', 'Marathi', 'Gujarati', 'Punjabi', 'English', 'Other'].map(t => (
           <option key={t} value={t}>{t}</option>
         ))}
@@ -767,7 +797,7 @@ const ProfileCompletePage = () => {
         <option value="HEAVY">Heavy</option>
       </Select>
       <div className="sm:col-span-2">
-        <Textarea label="About Me" required value={form.aboutMe} onChange={(e: any) => set('aboutMe', e.target.value)} placeholder="Write a few lines about your personality, hobbies, family background, and expectations..." />
+        <Textarea label="About Me" required value={form.aboutMe} onChange={(e: any) => set('aboutMe', e.target.value)} error={errors.aboutMe} placeholder="Write a few lines about your personality, hobbies, family background, and expectations..." />
       </div>
     </div>
   );
@@ -969,8 +999,8 @@ const ProfileCompletePage = () => {
 
   const renderStep3 = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      <Input label="Country" required value={form.country} onChange={(e: any) => set('country', e.target.value)} />
-      <Input label="State" required value={form.state} onChange={(e: any) => set('state', e.target.value)} placeholder="e.g. Tamil Nadu" />
+      <Input label="Country" required value={form.country} onChange={(e: any) => set('country', e.target.value)} error={errors.country} />
+      <Input label="State" required value={form.state} onChange={(e: any) => set('state', e.target.value)} error={errors.state} placeholder="e.g. Tamil Nadu" />
       <Input label="City" required value={form.city} onChange={(e: any) => set('city', e.target.value)} error={errors.city} placeholder="e.g. Chennai, Coimbatore" />
       <Input label="Citizenship" value={form.citizenship} onChange={(e: any) => set('citizenship', e.target.value)} />
       <Select label="Residence Status" value={form.residenceStatus} onChange={(e: any) => set('residenceStatus', e.target.value)}>
@@ -1209,8 +1239,8 @@ const ProfileCompletePage = () => {
       <div>
         <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Age Range <span className="text-rose-500">*</span></label>
         <div className="grid grid-cols-2 gap-3 mt-2">
-          <Input label="Min Age" type="number" value={form.prefAgeMin} onChange={(e: any) => set('prefAgeMin', e.target.value)} min="18" max="70" />
-          <Input label="Max Age" type="number" value={form.prefAgeMax} onChange={(e: any) => set('prefAgeMax', e.target.value)} min="18" max="70" />
+          <Input label="Min Age" required type="number" value={form.prefAgeMin} onChange={(e: any) => set('prefAgeMin', e.target.value)} min="18" max="70" error={errors.prefAgeMin} />
+          <Input label="Max Age" required type="number" value={form.prefAgeMax} onChange={(e: any) => set('prefAgeMax', e.target.value)} min="18" max="70" error={errors.prefAgeMax} />
         </div>
       </div>
       <div>

@@ -103,8 +103,13 @@ export interface MatrimonyBiodataSchema {
 @Injectable()
 export class BiodataParserService {
   private readonly logger = new Logger(BiodataParserService.name);
+  private lastGeminiError: { status: number; message: string } | null = null;
 
   constructor(private readonly configService: ConfigService) { }
+
+  private getQuotaOrAuthErrorMessage(): string | null {
+    return this.lastGeminiError ? this.lastGeminiError.message : null;
+  }
 
   /**
    * Main entrypoint for biodata parsing: accepts image (JPEG/PNG base64), PDF (base64), DOCX (base64), or text.
@@ -117,6 +122,7 @@ export class BiodataParserService {
     documentBase64?: string;
     fileName?: string;
   }): Promise<MatrimonyBiodataSchema> {
+    this.lastGeminiError = null;
     const rawPayload = input?.imageBase64?.trim() || input?.fileBase64?.trim() || input?.documentBase64?.trim();
     const text = input?.text?.trim();
     const fileName = (input?.fileName || '').toLowerCase();
@@ -311,11 +317,14 @@ export class BiodataParserService {
             this.logger.log('✨ Gemini Vision extracted biodata fields successfully');
             return this.normalizeSchema(aiResult, text);
           }
-          throw new Error('AI Vision model could not extract structured biodata from the image');
+          const quotaOrAuthMsg = this.getQuotaOrAuthErrorMessage();
+          throw new Error(quotaOrAuthMsg || 'AI Vision model could not extract structured biodata from the image');
         } catch (err: any) {
           this.logger.error('Image Vision extraction failed:', err?.message || err);
           throw new BadRequestException(
-            err?.message || 'Failed to extract biodata from the uploaded image. Please ensure the photo is clear and readable.'
+            this.getQuotaOrAuthErrorMessage() ||
+              err?.message ||
+              'Failed to extract biodata from the uploaded image. Please ensure the photo is clear and readable.'
           );
         }
       }
@@ -499,7 +508,7 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
     if (!apiKey) return null;
 
     // Active verified Gemini models
-    const models = ['gemini-flash-latest', 'gemini-pro-latest'];
+    const models = ['gemini-1.5-flash', 'gemini-flash-latest', 'gemini-1.5-pro', 'gemini-pro-latest'];
     for (const model of models) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -516,7 +525,21 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
 
         if (!response.ok) {
           const errText = await response.text();
-          this.logger.warn(`Gemini (${model}) API error: ${response.status} - ${errText.substring(0, 200)}`);
+          if (response.status === 429) {
+            this.lastGeminiError = {
+              status: 429,
+              message: 'AI service rate limit or quota exceeded. Please try again in a few moments or enter biodata manually.',
+            };
+            this.logger.error(`🚨 Gemini API quota exceeded (HTTP 429) on model ${model}: ${errText.substring(0, 200)}`);
+          } else if (response.status === 403) {
+            this.lastGeminiError = {
+              status: 403,
+              message: 'AI service authorization error. Please check the API configuration or contact support.',
+            };
+            this.logger.error(`🚨 Gemini API forbidden / auth error (HTTP 403) on model ${model}: ${errText.substring(0, 200)}`);
+          } else {
+            this.logger.warn(`Gemini (${model}) API error: ${response.status} - ${errText.substring(0, 200)}`);
+          }
           continue;
         }
 
@@ -684,11 +707,14 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
         this.logger.log('✨ Gemini Vision successfully extracted biodata & horoscope from PDF pages');
         return this.normalizeSchema(aiResult, fallbackText);
       }
-      throw new Error('AI Vision model could not extract structured biodata from the PDF pages');
+      const quotaOrAuthMsg = this.getQuotaOrAuthErrorMessage();
+      throw new Error(quotaOrAuthMsg || 'AI Vision model could not extract structured biodata from the PDF pages');
     } catch (err: any) {
       this.logger.error('PDF Vision extraction failed:', err?.message || err);
       throw new BadRequestException(
-        err?.message || 'Failed to extract biodata from the uploaded PDF. Please ensure the document is clear and readable.'
+        this.getQuotaOrAuthErrorMessage() ||
+          err?.message ||
+          'Failed to extract biodata from the uploaded PDF. Please ensure the document is clear and readable.'
       );
     }
   }

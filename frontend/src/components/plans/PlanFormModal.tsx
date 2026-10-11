@@ -38,10 +38,9 @@ export const TIER_COLORS: Record<string, string> = {
 // 3. video profile
 // 4. advanced search
 // 5. chat messaging / chat message (unnecessary, covered by Direct Live Chat)
+// 6. priority listing / profile highlighting (not a platform feature)
 export const PREDEFINED_FEATURES = [
   'View contact details',
-  'Profile highlighting',
-  'Priority listing',
   'Profile verification badge',
   'Priority support',
   'Horoscope matching',
@@ -61,6 +60,16 @@ export const isFeatureAllowed = (feat: string): boolean => {
     'advanced search',
     'chat messaging',
     'chat message',
+    'priority listing',
+    'priority highlighting',
+    'profile highlighting',
+    'profile highlight',
+    'priority highlight',
+    'priority profile ranking',
+    'top priority search listing',
+    'priority search',
+    'priority ranking',
+    'priority profile',
   ];
   return !forbidden.some((k) => lower.includes(k) || k.includes(lower));
 };
@@ -222,7 +231,6 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({ plan, onClose, onS
   }, [plan]);
 
   const [form, setForm] = useState(initialForm);
-  const [featureInput, setFeatureInput] = useState('');
   const [saving, setSaving] = useState(false);
 
   const set = (field: string, val: any) => setForm((prev) => ({ ...prev, [field]: val }));
@@ -262,19 +270,6 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({ plan, onClose, onS
     } else {
       set('features', [...current, feat]);
     }
-  };
-
-  const addCustomFeature = () => {
-    if (!featureInput.trim()) return;
-    const feat = featureInput.trim();
-    if (!isFeatureAllowed(feat)) {
-      toast.error('This feature is not permitted in membership plans');
-      return;
-    }
-    if (!form.features?.includes(feat)) {
-      set('features', [...(form.features || []), feat]);
-    }
-    setFeatureInput('');
   };
 
   const allFeatureOptions = useMemo(() => {
@@ -599,7 +594,7 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({ plan, onClose, onS
               </label>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3 max-h-48 overflow-y-auto p-2 border border-slate-200 rounded-2xl bg-slate-50/50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-slate-200 rounded-2xl bg-slate-50/50">
               {allFeatureOptions.map((feat) => {
                 const isSelected = form.features?.includes(feat);
                 return (
@@ -625,25 +620,6 @@ export const PlanFormModal: React.FC<PlanFormModalProps> = ({ plan, onClose, onS
                   </label>
                 );
               })}
-            </div>
-
-            {/* Add Custom Feature */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={featureInput}
-                onChange={(e) => setFeatureInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomFeature())}
-                placeholder="Add custom perk..."
-                className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-              <button
-                type="button"
-                onClick={addCustomFeature}
-                className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-medium hover:bg-slate-900 transition-colors"
-              >
-                + Add Perk
-              </button>
             </div>
           </div>
 

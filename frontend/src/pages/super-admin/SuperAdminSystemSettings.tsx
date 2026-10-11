@@ -211,6 +211,7 @@ const SuperAdminSystemSettings = () => {
     enableTwoFactor: 'false',
     maintenanceMode: 'false',
     enableBiodataForm: 'true',
+    freeDailyProfileViewLimit: '5',
   });
 
   useEffect(() => {
@@ -529,6 +530,7 @@ const SuperAdminSystemSettings = () => {
         <TextInput label="JWT Expiry" value={settings.jwtExpiry} onChange={(e: any) => set('jwtExpiry', e.target.value)} placeholder="7d / 24h / 30d" hint="Access token expiry duration" />
         <TextInput label="Max Login Attempts" value={settings.maxLoginAttempts} onChange={(e: any) => set('maxLoginAttempts', e.target.value)} placeholder="5" hint="Before temporary account lock" />
         <TextInput label="Session Timeout (minutes)" value={settings.sessionTimeout} onChange={(e: any) => set('sessionTimeout', e.target.value)} placeholder="30" hint="Auto-logout after inactivity" />
+        <TextInput label="Free Plan Daily Profile View Limit" value={settings.freeDailyProfileViewLimit ?? '5'} onChange={(e: any) => set('freeDailyProfileViewLimit', e.target.value)} placeholder="5" hint="Max distinct profiles a Free member can view per calendar day" />
       </div>
       <div className="space-y-3">
         <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">

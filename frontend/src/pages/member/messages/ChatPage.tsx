@@ -258,34 +258,23 @@ const ChatPage = () => {
         )}
       </div>
 
-      {/* Input Form or Plan Disabled Notice */}
-      {user?.entitlements && !user.entitlements.hasChat && !user.entitlements.isStaff ? (
-        <div className="card p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-xs">
-          <span className="text-amber-800 font-semibold">
-            💬 Direct Live Chat is disabled for your active membership plan ({user.entitlements.planName}).
-          </span>
-          <Link to="/premium" className="btn btn-gold btn-sm text-xs font-bold whitespace-nowrap">
-            Upgrade Plan to Chat
-          </Link>
-        </div>
-      ) : (
-        <div className="flex gap-2">
-          <input
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            className="input flex-1 border-slate-200 font-medium"
-            placeholder="Type your message here..."
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-          />
-          <button
-            onClick={handleSend}
-            disabled={sending || !inputText.trim()}
-            className="btn btn-primary px-5 py-3 flex items-center justify-center disabled:opacity-50 shadow-md"
-          >
-            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </button>
-        </div>
-      )}
+      {/* Input Form */}
+      <div className="flex gap-2">
+        <input
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          className="input flex-1 border-slate-200 font-medium"
+          placeholder="Type your message here..."
+          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+        />
+        <button
+          onClick={handleSend}
+          disabled={sending || !inputText.trim()}
+          className="btn btn-primary px-5 py-3 flex items-center justify-center disabled:opacity-50 shadow-md"
+        >
+          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+        </button>
+      </div>
     </div>
   );
 };

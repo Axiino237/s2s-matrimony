@@ -1,9 +1,14 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 const { default: EmbeddedPostgres } = require('embedded-postgres');
 const fs = require('fs');
 const path = require('path');
 
 async function main() {
-  console.log('Starting Embedded PostgreSQL server on port 5432...');
+  const dbUrl = process.env.DATABASE_URL || '';
+  const portMatch = dbUrl.match(/:(\d+)\//);
+  const port = portMatch ? parseInt(portMatch[1], 10) : 5433;
+
+  console.log(`Starting Embedded PostgreSQL server on port ${port}...`);
   
   const dataDir = path.join(__dirname, 'data', 'postgres');
   if (!fs.existsSync(dataDir)) {
@@ -11,7 +16,7 @@ async function main() {
   }
 
   const pg = new EmbeddedPostgres({
-    port: 5432,
+    port,
     databaseDir: dataDir,
     user: 'postgres',
     password: 'password',
@@ -28,7 +33,7 @@ async function main() {
 
   try {
     await pg.start();
-    console.log('PostgreSQL started on port 5432!');
+    console.log(`PostgreSQL started on port ${port}!`);
   } catch (err) {
     console.error('Error starting PostgreSQL:', err);
     process.exit(1);
@@ -47,12 +52,10 @@ async function main() {
 
   const dumpPath = path.join(__dirname, '..', 's2s_matrimony_dump.sql');
   if (fs.existsSync(dumpPath)) {
-    // Check if tables already exist
     const res = await client.query("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';");
     if (parseInt(res.rows[0].count, 10) === 0) {
       console.log('Importing database dump s2s_matrimony_dump.sql...');
       let sql = fs.readFileSync(dumpPath, 'utf8');
-      // Clean up pg_dump specific lines that cause errors in raw query runner
       sql = sql.replace(/^\\restrict.*$/gm, '');
       try {
         await client.query(sql);
@@ -66,7 +69,10 @@ async function main() {
   }
 
   await client.end();
-  console.log('PostgreSQL is ready and running.');
+  console.log(`✅ PostgreSQL is ready and running on port ${port}.`);
+
+  // Keep process alive so embedded PostgreSQL stays running
+  setInterval(() => {}, 60000);
 }
 
 main().catch(err => {

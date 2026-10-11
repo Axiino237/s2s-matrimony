@@ -5,6 +5,7 @@ const Razorpay = require('razorpay');
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { EntitlementsService } from '../common/entitlements.service';
+import { devStore } from '../common/dev-store';
 
 export function sanitizePlanFeatures(
   rawFeatures: any,
@@ -29,6 +30,16 @@ export function sanitizePlanFeatures(
     'advanced search',
     'chat messaging',
     'chat message',
+    'priority listing',
+    'priority highlighting',
+    'profile highlighting',
+    'profile highlight',
+    'priority highlight',
+    'priority profile ranking',
+    'top priority search listing',
+    'priority search',
+    'priority ranking',
+    'priority profile',
   ];
 
   const result: string[] = [];
@@ -327,6 +338,32 @@ export class PaymentsService {
         newValue: { name: updated.name, price: Number(updated.price), tier: updated.tier },
       },
     }).catch(() => null);
+
+    if ((updated.tier === 'FREE' || Number(updated.price) === 0) && sanitizedFeatures) {
+      for (const f of sanitizedFeatures) {
+        const match = typeof f === 'string' && f.match(/(\d+)\s*profile\s*views?(?:\s*(?:\/|per)\s*day)?/i);
+        if (match && match[1]) {
+          const limitVal = parseInt(match[1], 10);
+          try {
+            const sysSetting = await this.prisma.setting.findUnique({ where: { key: 'system_settings' } });
+            let current: any = {};
+            if (sysSetting?.value) {
+              try { current = JSON.parse(sysSetting.value); } catch {}
+            }
+            const updatedSettings = { ...current, freeDailyProfileViewLimit: limitVal };
+            await this.prisma.setting.upsert({
+              where: { key: 'system_settings' },
+              update: { value: JSON.stringify(updatedSettings) },
+              create: { key: 'system_settings', value: JSON.stringify(updatedSettings), group: 'GLOBAL', isPublic: true },
+            });
+            if ((devStore as any).systemSettings) {
+              (devStore as any).systemSettings.freeDailyProfileViewLimit = limitVal;
+            }
+          } catch {}
+          break;
+        }
+      }
+    }
 
     return {
       ...updated,

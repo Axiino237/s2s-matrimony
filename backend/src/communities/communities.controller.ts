@@ -45,7 +45,7 @@ export class CommunitiesController {
   @ApiOperation({ summary: 'Update a community (Admin only)' })
   async update(
     @Param('id') id: string,
-    @Body() body: { name?: string; description?: string; isActive?: boolean }
+    @Body() body: { name?: string; description?: string; isActive?: boolean; parentId?: string | null }
   ) {
     return this.communitiesService.update(id, body);
   }

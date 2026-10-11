@@ -44,7 +44,7 @@ const FAQS: FaqItem[] = [
     id: '6',
     category: 'membership',
     question: 'What are the benefits of upgrading to a Premium Plan?',
-    answer: 'Premium plans unlock direct contact phone numbers, instant messaging/chat, horoscope porutham matching reports, priority profile listing in search results, and dedicated relationship manager assistance depending on your chosen tier (Silver, Gold, or Platinum).',
+    answer: 'Premium plans unlock direct contact phone numbers, instant messaging/chat, horoscope porutham matching reports, verified elite badges, and personalized AI match recommendations depending on your chosen tier (Silver, Gold, or Platinum).',
   },
   {
     id: '7',

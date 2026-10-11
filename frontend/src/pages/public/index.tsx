@@ -147,27 +147,33 @@ export const MembershipPage = () => {
   const defaultGeneralPlans = [
     { name: 'Free Plan', tier: 'FREE', category: 'GENERAL', price: '₹0', features: ['5 Daily Interests', 'Basic Search', '5 Profile Views/day'] },
     { name: 'Silver Plan', tier: 'SILVER', category: 'GENERAL', price: '₹599', period: '/month', features: ['50 Interests/day', '50 Contact Views', 'Direct Chat'] },
-    { name: 'Gold Plan', tier: 'GOLD', category: 'GENERAL', price: '₹999', period: '/3 months', isPopular: true, features: ['Unlimited Interests', 'Chat Access', '100 Contact Views', 'Priority Listing'] },
+    { name: 'Gold Plan', tier: 'GOLD', category: 'GENERAL', price: '₹999', period: '/3 months', isPopular: true, features: ['Unlimited Interests', 'Chat Access', '100 Contact Views', 'AI Match Score'] },
     { name: 'Platinum Plan', tier: 'PLATINUM', category: 'GENERAL', price: '₹1,899', period: '/6 months', features: ['Everything in Gold', 'Unlimited Contacts', 'AI Match Score', 'Horoscope Report'] },
   ];
 
   const defaultElitePlans = [
     { name: 'Silver Plan', tier: 'SILVER', category: 'ELITE', price: '₹1,499', period: '/3 months', features: ['100 Daily Interests', '100 Contact Views', 'Direct Live Chat', 'Verified Elite Badge'] },
-    { name: 'Gold Plan', tier: 'GOLD', category: 'ELITE', price: '₹2,999', period: '/6 months', isPopular: true, features: ['Unlimited Interests', 'Unlimited Contact Unlocks', 'Direct Chat', 'Priority Profile Ranking', 'AI Match Score'] },
+    { name: 'Gold Plan', tier: 'GOLD', category: 'ELITE', price: '₹2,999', period: '/6 months', isPopular: true, features: ['Unlimited Interests', 'Unlimited Contact Unlocks', 'Direct Chat', 'AI Match Score'] },
     { name: 'Platinum Plan', tier: 'PLATINUM', category: 'ELITE', price: '₹4,999', period: '/12 months', features: ['All Elite Privileges', 'Unlimited Contact Unlocks', 'Dedicated Support', 'Horoscope Matching Report'] },
   ];
 
-  const rawPlans = dbPlans.length > 0
-    ? dbPlans
-    : selectedCategory === 'ELITE' ? defaultElitePlans : defaultGeneralPlans;
+  const generalDbPlans = dbPlans.filter(
+    (p: any) => ((p as any).category || 'GENERAL').toUpperCase() === 'GENERAL'
+  );
+  const eliteDbPlans = dbPlans.filter(
+    (p: any) =>
+      ((p as any).category || '').toUpperCase() === 'ELITE' &&
+      (p.tier || '').toUpperCase() !== 'FREE'
+  );
 
-  const filteredPlans = rawPlans.filter((p: any) => {
-    const cat = ((p as any).category || 'GENERAL').toUpperCase();
-    if (selectedCategory === 'ELITE') {
-      return cat === 'ELITE' && (p.tier || '').toUpperCase() !== 'FREE';
-    }
-    return cat === 'GENERAL';
-  });
+  const filteredPlans =
+    selectedCategory === 'ELITE'
+      ? eliteDbPlans.length > 0
+        ? eliteDbPlans
+        : defaultElitePlans
+      : generalDbPlans.length > 0
+      ? generalDbPlans
+      : defaultGeneralPlans;
 
   const getPlanRank = (plan: any): number => {
     const tier = (plan.tier || '').toUpperCase();
@@ -200,6 +206,16 @@ export const MembershipPage = () => {
     'video profile highlight',
     'video highlight',
     'advanced search',
+    'priority listing',
+    'priority highlighting',
+    'profile highlighting',
+    'profile highlight',
+    'priority highlight',
+    'priority profile ranking',
+    'top priority search listing',
+    'priority search',
+    'priority ranking',
+    'priority profile',
   ];
 
   const plansToRender = sortedPlans.map((p) => {
@@ -226,6 +242,7 @@ export const MembershipPage = () => {
   });
 
   const handleSelectPlan = (plan: any) => {
+    if (!plan || !plan.id) return;
     if (isAuthenticated) {
       navigate('/premium');
     } else {
@@ -306,11 +323,14 @@ export const MembershipPage = () => {
         <div className={`grid grid-cols-1 md:grid-cols-2 ${selectedCategory === 'ELITE' ? 'lg:grid-cols-3 max-w-5xl' : 'lg:grid-cols-4 max-w-6xl'} gap-6 mx-auto w-full`}>
           {plansToRender.map((plan: any, i: number) => {
             const isPopular = plan.isPopular || (plansToRender.length === 3 && i === 2) || (plansToRender.length === 4 && i === 2);
+            const isAvailable = Boolean(plan.id);
             return (
               <div
                 key={i}
-                onClick={() => handleSelectPlan(plan)}
-                className={`plan-card w-full cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl ${
+                onClick={() => {
+                  if (isAvailable) handleSelectPlan(plan);
+                }}
+                className={`plan-card w-full ${isAvailable ? 'cursor-pointer hover:-translate-y-1 hover:shadow-2xl' : 'cursor-default opacity-85'} transition-all duration-200 ${
                   isPopular ? 'plan-card-popular border-2 border-primary/60 shadow-xl lg:scale-[1.02] z-10' : ''
                 }`}
               >
@@ -339,13 +359,22 @@ export const MembershipPage = () => {
                   </div>
                   <button
                     type="button"
+                    disabled={!isAvailable}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleSelectPlan(plan);
+                      if (isAvailable) {
+                        handleSelectPlan(plan);
+                      }
                     }}
-                    className={`btn w-full font-bold py-3 mt-4 ${isPopular ? 'btn-primary shadow-md' : 'btn-secondary'}`}
+                    className={`btn w-full font-bold py-3 mt-4 ${
+                      !isAvailable
+                        ? 'bg-slate-200 text-slate-500 cursor-not-allowed opacity-80 border-slate-300'
+                        : isPopular
+                        ? 'btn-primary shadow-md'
+                        : 'btn-secondary'
+                    }`}
                   >
-                    Choose {plan.name}
+                    {isAvailable ? `Choose ${plan.name}` : 'Currently Unavailable'}
                   </button>
                 </div>
               </div>

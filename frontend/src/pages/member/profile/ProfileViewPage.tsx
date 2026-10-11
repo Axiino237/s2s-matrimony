@@ -128,7 +128,7 @@ const ProfileViewPage = () => {
   ] as const;
 
   // Fetch real profile from DB
-  const { data: apiProfile, isLoading, refetch: refetchProfile } = useQuery({
+  const { data: apiProfile, isLoading, isError, error, refetch: refetchProfile } = useQuery({
     queryKey: ['profile-view', id || 'me'],
     queryFn: () => (isOwnProfile ? profilesApi.getMyProfile() : profilesApi.getProfileById(id!)),
     retry: false,
@@ -166,12 +166,23 @@ const ProfileViewPage = () => {
     reader.readAsDataURL(file);
   };
 
+  const isLimitReached = !isOwnProfile && Boolean(
+    (error as any)?.response?.status === 403 ||
+    (error as any)?.status === 403 ||
+    (error as any)?.response?.data?.message?.toLowerCase()?.includes('profile view limit') ||
+    (error as any)?.message?.toLowerCase()?.includes('profile view limit')
+  );
+
+  const limitReachedMessage =
+    (error as any)?.response?.data?.message ||
+    'You have reached your daily profile view limit. Upgrade your membership to view more profiles.';
+
   // Record a profile view once the target profile owner is known
   useEffect(() => {
-    if (!isOwnProfile && apiProfile?.userId) {
+    if (!isOwnProfile && apiProfile?.userId && !isLimitReached) {
       profilesApi.recordProfileView(apiProfile.userId).catch(() => null);
     }
-  }, [isOwnProfile, apiProfile?.userId]);
+  }, [isOwnProfile, apiProfile?.userId, isLimitReached]);
 
   const { data: similarProfilesData } = useQuery({
     queryKey: ['similar-matches-db', id || 'me', user?.id],
@@ -372,7 +383,10 @@ const ProfileViewPage = () => {
       propertyDetails: p.propertyDetails || 'Not Specified',
       assetValue: p.assetValue !== null && p.assetValue !== undefined ? Number(p.assetValue) : null,
       bankBalance: p.bankBalance !== null && p.bankBalance !== undefined ? Number(p.bankBalance) : null,
-      netWorth: p.netWorth !== null && p.netWorth !== undefined ? Number(p.netWorth) : null,
+      netWorth:
+        p.netWorth !== null && p.netWorth !== undefined && p.netWorth !== '' && !isNaN(Number(p.netWorth)) && Number(p.netWorth) > 0
+          ? Number(p.netWorth)
+          : null,
       membershipCategory: p.membershipCategory || (p.isElite ? 'ELITE' : 'GENERAL'),
       isElite: Boolean(p.isElite || p.membershipCategory === 'ELITE'),
       isEliteQualified: Boolean(p.isEliteQualified || p.eliteStatus === 'ELITE_QUALIFIED'),
@@ -513,6 +527,81 @@ const ProfileViewPage = () => {
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
         <p className="text-sm font-semibold text-text-secondary">Loading profile details...</p>
+      </div>
+    );
+  }
+
+  if (isLimitReached) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 px-4 sm:px-6 animate-fade-in">
+        <div className="card bg-white border border-rose-100 rounded-3xl p-8 sm:p-10 text-center shadow-xl relative overflow-hidden">
+          {/* Subtle decorative background glow */}
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-rose-50 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-amber-50 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Icon Badge */}
+          <div className="relative mx-auto w-20 h-20 bg-gradient-to-tr from-rose-500/10 to-amber-500/10 rounded-3xl flex items-center justify-center mb-6 border border-rose-200/50 shadow-inner">
+            <Lock className="w-10 h-10 text-rose-500" />
+          </div>
+
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold uppercase tracking-wider mb-3 border border-rose-200">
+            <Crown className="w-3.5 h-3.5 text-amber-500" /> Daily View Limit Reached
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-3 tracking-tight">
+            Daily Profile View Limit Reached
+          </h2>
+
+          <p className="text-slate-600 text-base max-w-lg mx-auto mb-6 leading-relaxed">
+            {limitReachedMessage}
+          </p>
+
+          <div className="bg-slate-50 border border-slate-200/70 rounded-2xl p-4 sm:p-5 text-left mb-8 space-y-2">
+            <p className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              Why am I seeing this?
+            </p>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Free plan accounts are limited to a daily quota of profile views. This counter resets automatically at midnight (00:00 IST).
+            </p>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Upgrade to a Premium membership to unlock unlimited daily profile views, direct contact details, express interests, and real-time chat.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              to="/membership"
+              className="w-full sm:w-auto px-6 py-3.5 bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500 hover:from-rose-700 hover:to-amber-600 text-white font-bold rounded-2xl shadow-lg shadow-rose-500/25 transition-all flex items-center justify-center gap-2 text-sm"
+            >
+              <Crown className="w-4 h-4 text-amber-200" />
+              Upgrade Membership
+              <ArrowUpRight className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/matches"
+              className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold rounded-2xl transition-all flex items-center justify-center gap-2 text-sm"
+            >
+              Back to Matches
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="max-w-lg mx-auto py-16 px-4 text-center animate-fade-in">
+        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mx-auto mb-4">
+          <User className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Profile Not Available</h2>
+        <p className="text-sm text-slate-500 mb-6">
+          {(error as any)?.response?.data?.message || 'The profile you are looking for is either private, unverified, or does not exist.'}
+        </p>
+        <Link to="/matches" className="btn btn-primary inline-flex items-center gap-2">
+          Back to Matches
+        </Link>
       </div>
     );
   }
@@ -833,6 +922,9 @@ const ProfileViewPage = () => {
                       ['Country', profile.country],
                       ['Complexion', profile.complexion],
                       ['Diet', profile.diet],
+                      ...(profile.netWorth !== null && profile.netWorth !== undefined && Number(profile.netWorth) > 0
+                        ? [['Net Worth', `₹ ${Number(profile.netWorth).toLocaleString('en-IN')}`]]
+                        : []),
                     ].map(([k, v]) => (
                       <div key={k} className="flex justify-between py-2 border-b border-slate-100">
                         <span className="text-text-muted text-xs font-medium">{k}</span>
@@ -894,12 +986,14 @@ const ProfileViewPage = () => {
                             {profile.bankBalance !== null ? `₹ ${profile.bankBalance.toLocaleString('en-IN')}` : 'Not Specified'}
                           </span>
                         </div>
-                        <div className="sm:col-span-2 flex justify-between py-2.5 px-3 bg-emerald-50/60 rounded-lg border border-emerald-100">
-                          <span className="text-emerald-800 text-xs font-bold">Net Worth</span>
-                          <span className="text-emerald-700 text-sm font-extrabold">
-                            {profile.netWorth !== null ? `₹ ${profile.netWorth.toLocaleString('en-IN')}` : 'Not Specified'}
-                          </span>
-                        </div>
+                        {profile.netWorth !== null && profile.netWorth !== undefined && Number(profile.netWorth) > 0 && (
+                          <div className="sm:col-span-2 flex justify-between py-2.5 px-3 bg-emerald-50/60 rounded-lg border border-emerald-100">
+                            <span className="text-emerald-800 text-xs font-bold">Net Worth</span>
+                            <span className="text-emerald-700 text-sm font-extrabold">
+                              ₹ {Number(profile.netWorth).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        )}
                         <div className="sm:col-span-2 flex justify-between items-center py-2 px-3 bg-amber-50/70 rounded-lg border border-amber-200">
                           <div>
                             <span className="text-amber-900 text-xs font-bold block">Membership Category</span>
@@ -924,6 +1018,25 @@ const ProfileViewPage = () => {
                               </span>
                             )}
                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Financial Details for other users - only visible when Net Worth is provided */}
+                  {!isOwnProfile && profile.netWorth !== null && profile.netWorth !== undefined && Number(profile.netWorth) > 0 && (
+                    <div className="mt-6 pt-5 border-t border-slate-100">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                          Financial Details
+                        </h4>
+                      </div>
+                      <div className="grid sm:grid-cols-2 gap-x-6 gap-y-3">
+                        <div className="sm:col-span-2 flex justify-between py-2.5 px-3 bg-emerald-50/60 rounded-lg border border-emerald-100">
+                          <span className="text-emerald-800 text-xs font-bold">Net Worth</span>
+                          <span className="text-emerald-700 text-sm font-extrabold">
+                            ₹ {Number(profile.netWorth).toLocaleString('en-IN')}
+                          </span>
                         </div>
                       </div>
                     </div>

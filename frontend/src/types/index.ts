@@ -37,6 +37,15 @@ export interface UserEntitlements {
     remaining: number;
   };
 
+  profileViews?: {
+    enabled: boolean;
+    max: number;
+    usedToday: number;
+    remainingToday: number;
+    isRestricted: boolean;
+    viewedOwnerIdsToday?: string[];
+  };
+
   hasChat: boolean;
   hasAiMatch: boolean;
   hasVideoProfile: boolean;
