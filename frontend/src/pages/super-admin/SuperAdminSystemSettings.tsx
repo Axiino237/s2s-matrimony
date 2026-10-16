@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Settings, Save, Loader2, Eye, EyeOff, CheckCircle2, Globe, Mail, Phone, CreditCard, Cpu, Server, Palette, Shield, Link as LinkIcon, BarChart2, Upload, Image as ImageIcon, Award } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { useSettingsStore, SystemSettingsState } from '../../store/settings.store';
 
 const TAB_GROUPS = [
   { id: 'branding', label: 'Branding', icon: Palette },
   { id: 'elite', label: 'Elite Qualification', icon: Award },
+  { id: 'uploads', label: 'Upload Limits', icon: Upload },
   { id: 'email', label: 'Email & SMS', icon: Mail },
   { id: 'payment', label: 'Payment Gateway', icon: CreditCard },
   { id: 'ai', label: 'AI & OCR', icon: Cpu },
@@ -139,8 +141,6 @@ const DUAL_COLOR_PRESETS = [
   { name: 'Crimson & Amber', primary: '#DC2626', secondary: '#F59E0B' },
 ];
 
-import { useSettingsStore } from '../../store/settings.store';
-
 const SuperAdminSystemSettings = () => {
   const [activeTab, setActiveTab] = useState('branding');
   const [saving, setSaving] = useState(false);
@@ -212,6 +212,14 @@ const SuperAdminSystemSettings = () => {
     maintenanceMode: 'false',
     enableBiodataForm: 'true',
     freeDailyProfileViewLimit: '5',
+
+    // Document Upload & Storage Limits
+    maxBiodataFileSizeMb: '10',
+    maxBiodataFilesCount: '10',
+    maxProfilePhotoSizeMb: '5',
+    maxProfilePhotosCount: '5',
+    maxHoroscopeFileSizeMb: '10',
+    maxHoroscopeFilesCount: '2',
   });
 
   useEffect(() => {
@@ -230,10 +238,16 @@ const SuperAdminSystemSettings = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    const storePayload = {
+    const storePayload: Partial<SystemSettingsState> = {
       ...settings,
       maintenanceMode: settings.maintenanceMode === 'true' || (settings.maintenanceMode as any) === true,
       enableBiodataForm: settings.enableBiodataForm === 'true' || (settings.enableBiodataForm as any) === true,
+      maxBiodataFileSizeMb: Number(settings.maxBiodataFileSizeMb) || 10,
+      maxBiodataFilesCount: Number(settings.maxBiodataFilesCount) || 10,
+      maxProfilePhotoSizeMb: Number(settings.maxProfilePhotoSizeMb) || 5,
+      maxProfilePhotosCount: Number(settings.maxProfilePhotosCount) || 5,
+      maxHoroscopeFileSizeMb: Number(settings.maxHoroscopeFileSizeMb) || 10,
+      maxHoroscopeFilesCount: Number(settings.maxHoroscopeFilesCount) || 2,
     };
     try {
       await api.put('/super-admin/settings', settings);
@@ -613,9 +627,91 @@ const SuperAdminSystemSettings = () => {
     );
   };
 
+  const renderUploadLimits = () => {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Document Upload & Storage Limits</h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Configure system-wide file size and file count limits across all document upload fields
+          </p>
+        </div>
+
+        <div className="space-y-5">
+          {/* Biodata Document / Photo Upload */}
+          <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div>
+                <span className="font-bold text-slate-900 text-sm block">
+                  1. Biodata Document / Photo Upload (Biodata & Horoscope)
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Supports biodata PDFs, horoscope charts, DOC/DOCX documents, and images
+                </span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                PDF, DOC, DOCX, JPEG, PNG
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TextInput
+                label="Max File Size (MB per file)"
+                value={settings.maxBiodataFileSizeMb || '10'}
+                onChange={(e: any) => set('maxBiodataFileSizeMb', e.target.value)}
+                placeholder="10"
+                hint="Default: 10 MB per file"
+              />
+              <TextInput
+                label="Max Retained Files Count"
+                value={settings.maxBiodataFilesCount || '10'}
+                onChange={(e: any) => set('maxBiodataFilesCount', e.target.value)}
+                placeholder="10"
+                hint="Default: Up to 10 files"
+              />
+            </div>
+          </div>
+
+          {/* Member Profile Photo (Profile Pic) */}
+          <div className="p-5 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div>
+                <span className="font-bold text-slate-900 text-sm block">
+                  2. Member Profile Photo (Profile Pic)
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Used for the member's profile pictures
+                </span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                JPEG, PNG, WebP
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <TextInput
+                label="Max File Size (MB per photo)"
+                value={settings.maxProfilePhotoSizeMb || '5'}
+                onChange={(e: any) => set('maxProfilePhotoSizeMb', e.target.value)}
+                placeholder="5"
+                hint="Default: 5 MB per photo"
+              />
+              <TextInput
+                label="Max Retained Photos Count"
+                value={settings.maxProfilePhotosCount || '5'}
+                onChange={(e: any) => set('maxProfilePhotosCount', e.target.value)}
+                placeholder="5"
+                hint="Default: Up to 5 photos"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const RENDERERS: Record<string, () => React.ReactNode> = {
     branding: renderBranding,
     elite: renderEliteQualification,
+    uploads: renderUploadLimits,
     email: renderEmail,
     payment: renderPayment,
     ai: renderAI,

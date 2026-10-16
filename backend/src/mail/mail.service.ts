@@ -14,8 +14,8 @@ export class MailService {
       port,
       secure: port === 465,
       auth: {
-        user: this.config.get<string>('MAIL_USER'),
-        pass: (this.config.get<string>('MAIL_PASS') || '').replace(/\s+/g, ''),
+        user: this.config.get<string>('MAIL_USER') || this.config.get<string>('EMAIL_USER'),
+        pass: (this.config.get<string>('MAIL_PASS') || this.config.get<string>('EMAIL_PASSWORD') || '').replace(/\s+/g, ''),
       },
     });
 
@@ -183,7 +183,7 @@ export class MailService {
     subject?: string;
     message: string;
   }): Promise<{ success: boolean; message: string }> {
-    const mailUser = this.config.get<string>('MAIL_USER');
+    const mailUser = this.config.get<string>('MAIL_USER') || this.config.get<string>('EMAIL_USER');
     const mailFrom = this.config.get<string>('MAIL_FROM', 'S2S Matrimony <axiino237@gmail.com>');
 
     // Extract email from MAIL_FROM (e.g. "S2S Matrimony <s2smdoffice@gmail.com>")

@@ -459,6 +459,20 @@ export interface SystemSettingsState {
   aboutMarkdown: string;
   privacyMarkdown: string;
   termsMarkdown: string;
+  maxBiodataFileSizeMb: number;
+  maxBiodataFilesCount: number;
+  maxProfilePhotoSizeMb: number;
+  maxProfilePhotosCount: number;
+  maxHoroscopeFileSizeMb: number;
+  maxHoroscopeFilesCount: number;
+  uploadLimits?: {
+    maxBiodataFileSizeMb: number;
+    maxBiodataFilesCount: number;
+    maxProfilePhotoSizeMb: number;
+    maxProfilePhotosCount: number;
+    maxHoroscopeFileSizeMb: number;
+    maxHoroscopeFilesCount: number;
+  };
 
   // Actions
   setSettings: (settings: Partial<SystemSettingsState>) => void;
@@ -492,6 +506,12 @@ export const useSettingsStore = create<SystemSettingsState>()(
       aboutMarkdown: DEFAULT_ABOUT_MARKDOWN,
       privacyMarkdown: DEFAULT_PRIVACY_MARKDOWN,
       termsMarkdown: DEFAULT_TERMS_MARKDOWN,
+      maxBiodataFileSizeMb: 10,
+      maxBiodataFilesCount: 10,
+      maxProfilePhotoSizeMb: 5,
+      maxProfilePhotosCount: 5,
+      maxHoroscopeFileSizeMb: 10,
+      maxHoroscopeFilesCount: 2,
 
       setSettings: (newSettings) => set((state) => ({ ...state, ...newSettings })),
       setLogoUrl: (logoUrl) => set({ logoUrl }),
@@ -537,6 +557,20 @@ export const useSettingsStore = create<SystemSettingsState>()(
               secondaryColor: data.secondaryColor || state.secondaryColor,
               supportEmail: data.supportEmail || state.supportEmail,
               supportPhone: data.supportPhone || state.supportPhone,
+              maxBiodataFileSizeMb: Number(data.maxBiodataFileSizeMb) || state.maxBiodataFileSizeMb,
+              maxBiodataFilesCount: Number(data.maxBiodataFilesCount) || state.maxBiodataFilesCount,
+              maxProfilePhotoSizeMb: Number(data.maxProfilePhotoSizeMb) || state.maxProfilePhotoSizeMb,
+              maxProfilePhotosCount: Number(data.maxProfilePhotosCount) || state.maxProfilePhotosCount,
+              maxHoroscopeFileSizeMb: Number(data.maxHoroscopeFileSizeMb) || state.maxHoroscopeFileSizeMb,
+              maxHoroscopeFilesCount: Number(data.maxHoroscopeFilesCount) || state.maxHoroscopeFilesCount,
+              uploadLimits: {
+                maxBiodataFileSizeMb: Number(data.maxBiodataFileSizeMb) || state.maxBiodataFileSizeMb,
+                maxBiodataFilesCount: Number(data.maxBiodataFilesCount) || state.maxBiodataFilesCount,
+                maxProfilePhotoSizeMb: Number(data.maxProfilePhotoSizeMb) || state.maxProfilePhotoSizeMb,
+                maxProfilePhotosCount: Number(data.maxProfilePhotosCount) || state.maxProfilePhotosCount,
+                maxHoroscopeFileSizeMb: Number(data.maxHoroscopeFileSizeMb) || state.maxHoroscopeFileSizeMb,
+                maxHoroscopeFilesCount: Number(data.maxHoroscopeFilesCount) || state.maxHoroscopeFilesCount,
+              },
               maintenanceMode:
                 data.maintenanceMode !== undefined
                   ? Boolean(data.maintenanceMode === true || data.maintenanceMode === 'true')

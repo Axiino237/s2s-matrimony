@@ -10,6 +10,13 @@ import { EliteQualificationService } from '../common/elite-qualification.service
 import { EntitlementsService } from '../common/entitlements.service';
 import { parseAnnualIncome, normalizeComplexion } from './biodata-parser.service';
 import { HoroscopeMatchingService } from './horoscope-matching.service';
+import {
+  UploadLimitsConfig,
+  DEFAULT_UPLOAD_LIMITS,
+  validateUploadItem,
+  parseHoroscopeFiles,
+  serializeHoroscopeFiles,
+} from '../common/upload-limits';
 
 @Injectable()
 export class ProfilesService {
@@ -194,6 +201,7 @@ export class ProfilesService {
         netWorth: profile.netWorth !== null && profile.netWorth !== undefined ? Number(profile.netWorth) : (devUser.netWorth !== undefined && devUser.netWorth !== null && devUser.netWorth !== '' ? Number(devUser.netWorth) : null),
         rasiChart: (profile as any).rasiChart || (profile.horoscope?.horoscopeData as any)?.rasiChart || devUser.rasiChart || devUser.horoscopeData?.rasiChart || {},
         amsamChart: (profile as any).amsamChart || (profile.horoscope?.horoscopeData as any)?.amsamChart || (profile.horoscope?.horoscopeData as any)?.navamsamChart || devUser.amsamChart || devUser.horoscopeData?.amsamChart || {},
+        horoscopeFile: profile.horoscope?.horoscopeFile || devUser.horoscopeFile || null,
         horoscope: {
           star,
           rasi,
@@ -205,6 +213,7 @@ export class ProfilesService {
           starPadam: profile.horoscope?.starPadam || devUser.starPadam || null,
           birthTime: profile.horoscope?.birthTime || devUser.birthTime || devUser.timeOfBirth || '',
           birthPlace: profile.horoscope?.birthPlace || devUser.birthPlace || devUser.placeOfBirth || '',
+          horoscopeFile: profile.horoscope?.horoscopeFile || devUser.horoscopeFile || null,
           rasiChart: (profile as any).rasiChart || (profile.horoscope?.horoscopeData as any)?.rasiChart || devUser.rasiChart || devUser.horoscopeData?.rasiChart || {},
           amsamChart: (profile as any).amsamChart || (profile.horoscope?.horoscopeData as any)?.amsamChart || (profile.horoscope?.horoscopeData as any)?.navamsamChart || devUser.amsamChart || devUser.horoscopeData?.amsamChart || {},
           horoscopeData: {
@@ -363,6 +372,7 @@ export class ProfilesService {
         religion: devUser?.religion ? { name: devUser.religion } : undefined,
         community: devUser?.community ? { name: devUser.community } : undefined,
         subCaste: devUser?.subCaste ? { name: devUser.subCaste } : undefined,
+        horoscopeFile: devUser?.horoscopeFile || devUser?.horoscope?.horoscopeFile || null,
         horoscope: {
           star: devUser?.star || '',
           rasi: devUser?.rasi || '',
@@ -371,6 +381,7 @@ export class ProfilesService {
           dosham: devUser?.dosham || '',
           birthTime: devUser?.timeOfBirth || devUser?.birthTime || '',
           birthPlace: devUser?.placeOfBirth || devUser?.birthPlace || '',
+          horoscopeFile: devUser?.horoscopeFile || devUser?.horoscope?.horoscopeFile || null,
           rasiChart: devUser?.rasiChart || devUser?.horoscopeData?.rasiChart || {},
           amsamChart: devUser?.amsamChart || devUser?.horoscopeData?.amsamChart || {},
           horoscopeData: devUser?.horoscopeData || {
@@ -547,9 +558,11 @@ export class ProfilesService {
       workLocation: workLocation || '',
       rasiChart,
       amsamChart,
+      horoscopeFile: profile.horoscope?.horoscopeFile || null,
       horoscope: profile.horoscope
         ? {
             ...profile.horoscope,
+            horoscopeFile: profile.horoscope?.horoscopeFile || null,
             rasiChart,
             amsamChart,
             horoscopeData: {
@@ -912,7 +925,7 @@ export class ProfilesService {
 
       if (profileId) {
         // Upsert Horoscope relation (storing both individual columns and full JSON snapshot)
-        if (data.star || data.starPadam || data.rasi || data.lagnam || data.gothram || data.kuladeivam || data.dosham || data.dasaBalance || data.timeOfBirth || data.birthTime || data.placeOfBirth || data.birthPlace || data.horoscopeData || data.rasiChart || data.amsamChart) {
+        if (data.star || data.starPadam || data.rasi || data.lagnam || data.gothram || data.kuladeivam || data.dosham || data.dasaBalance || data.timeOfBirth || data.birthTime || data.placeOfBirth || data.birthPlace || data.horoscopeData || data.rasiChart || data.amsamChart || data.horoscopeFile !== undefined) {
           const existingHoroscope = (existing as any)?.horoscope;
           const prevHData = (existingHoroscope?.horoscopeData as any) || {};
           const incomingHData = typeof data.horoscopeData === 'object' && data.horoscopeData !== null ? data.horoscopeData : {};
@@ -965,6 +978,7 @@ export class ProfilesService {
               dasaBalance: data.dasaBalance || null,
               birthTime: data.timeOfBirth || data.birthTime || null,
               birthPlace: data.placeOfBirth || data.birthPlace || null,
+              horoscopeFile: data.horoscopeFile || null,
               horoscopeData: horoscopeJson,
             },
             update: {
@@ -978,6 +992,7 @@ export class ProfilesService {
               dasaBalance: data.dasaBalance !== undefined ? data.dasaBalance : undefined,
               birthTime: (data.timeOfBirth || data.birthTime) !== undefined ? (data.timeOfBirth || data.birthTime) : undefined,
               birthPlace: (data.placeOfBirth || data.birthPlace) !== undefined ? (data.placeOfBirth || data.birthPlace) : undefined,
+              horoscopeFile: data.horoscopeFile !== undefined ? data.horoscopeFile : undefined,
               horoscopeData: horoscopeJson,
             },
           }).catch(() => null);
@@ -1640,10 +1655,45 @@ export class ProfilesService {
     }
   }
 
+  private async getSystemUploadLimits(): Promise<UploadLimitsConfig> {
+    try {
+      const record = await this.prisma.setting.findUnique({ where: { key: 'system_settings' } });
+      const dbSettings = record?.value ? JSON.parse(record.value) : {};
+      const devSettings = (devStore as any).systemSettings || {};
+      const merged = { ...DEFAULT_UPLOAD_LIMITS, ...devSettings, ...dbSettings };
+      return {
+        maxBiodataFileSizeMb: Number(merged.maxBiodataFileSizeMb) || 10,
+        maxBiodataFilesCount: Number(merged.maxBiodataFilesCount) || 10,
+        maxProfilePhotoSizeMb: Number(merged.maxProfilePhotoSizeMb) || 5,
+        maxProfilePhotosCount: Number(merged.maxProfilePhotosCount) || 5,
+        maxHoroscopeFileSizeMb: Number(merged.maxHoroscopeFileSizeMb) || 10,
+        maxHoroscopeFilesCount: Number(merged.maxHoroscopeFilesCount) || 2,
+      };
+    } catch {
+      return DEFAULT_UPLOAD_LIMITS;
+    }
+  }
+
   async uploadPhoto(userId: string, photoUrl: string, isMain: boolean = false) {
+    if (!photoUrl) throw new BadRequestException('Photo URL or file data is required');
+    const limits = await this.getSystemUploadLimits();
+
+    // 1. Authoritative Backend Validation: Validate file size (max 5MB) and format
+    validateUploadItem(photoUrl, 'profilePhoto', undefined, limits);
+
     try {
       const profile = await this.prisma.profile.findUnique({ where: { userId } });
       if (!profile) throw new NotFoundException('Profile not found');
+
+      // 2. Authoritative Backend Validation: Validate cumulative photo count (max 5)
+      const currentPhotoCount = await this.prisma.profilePhoto.count({
+        where: { profileId: profile.id },
+      });
+      if (currentPhotoCount >= limits.maxProfilePhotosCount) {
+        throw new BadRequestException(
+          `Maximum limit of ${limits.maxProfilePhotosCount} profile photos reached. Please delete an existing photo before uploading a new one.`,
+        );
+      }
 
       if (isMain) {
         await this.prisma.profilePhoto.updateMany({
@@ -1663,15 +1713,22 @@ export class ProfilesService {
 
       return photo;
     } catch (err: any) {
-      if (err instanceof NotFoundException) throw err;
+      if (err instanceof NotFoundException || err instanceof BadRequestException) throw err;
 
       console.warn('Database error in uploadPhoto (saving to devStore):', err?.message || err);
       const devUser = devStore.get(userId);
+      const existingPhotos = (devUser as any)?.photos || [];
+      if (existingPhotos.length >= limits.maxProfilePhotosCount) {
+        throw new BadRequestException(
+          `Maximum limit of ${limits.maxProfilePhotosCount} profile photos reached. Please delete an existing photo before uploading a new one.`,
+        );
+      }
+
       const newPhoto = {
         id: `photo-${Date.now()}`,
         profileId: `prof-${userId}`,
         url: photoUrl,
-        isMain: isMain || !((devUser as any)?.photos?.length > 0),
+        isMain: isMain || existingPhotos.length === 0,
         status: 'APPROVED',
         createdAt: new Date(),
       };
@@ -1745,6 +1802,154 @@ export class ProfilesService {
       }
       return { success: true };
     }
+  }
+
+  async uploadHoroscopeFile(userId: string, horoscopeFile: string | string[], append: boolean = true) {
+    if (!horoscopeFile) throw new BadRequestException('Horoscope file data is required');
+    const limits = await this.getSystemUploadLimits();
+
+    const incomingFiles = parseHoroscopeFiles(horoscopeFile);
+    if (incomingFiles.length === 0) {
+      throw new BadRequestException('No valid horoscope file data provided');
+    }
+
+    // 1. Authoritative Backend Validation: Validate file size (max 10MB) and format individually
+    for (const f of incomingFiles) {
+      validateUploadItem(f, 'horoscope', undefined, limits);
+    }
+
+    const profile = await this.prisma.profile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const existingHoro = await this.prisma.horoscope.findUnique({ where: { profileId: profile.id } });
+    const devUser = devStore.get(userId);
+    const existingFiles = parseHoroscopeFiles(existingHoro?.horoscopeFile || devUser?.horoscopeFile);
+
+    let combined: string[];
+    if (append) {
+      // Append while avoiding exact duplicates
+      const newFiles = incomingFiles.filter((f) => !existingFiles.includes(f));
+      combined = [...existingFiles, ...newFiles];
+    } else {
+      combined = incomingFiles;
+    }
+
+    // 2. Authoritative Backend Validation: Max 2 horoscope files per member profile
+    if (combined.length > limits.maxHoroscopeFilesCount) {
+      throw new BadRequestException(
+        `Maximum limit of ${limits.maxHoroscopeFilesCount} horoscope files reached per member profile. Total retained would be ${combined.length}.`,
+      );
+    }
+
+    const serialized = serializeHoroscopeFiles(combined);
+
+    const horoscope = await this.prisma.horoscope.upsert({
+      where: { profileId: profile.id },
+      create: {
+        profileId: profile.id,
+        horoscopeFile: serialized,
+      },
+      update: {
+        horoscopeFile: serialized,
+      },
+    });
+
+    if (devUser) {
+      devUser.horoscopeFile = serialized;
+      if (devUser.horoscope) devUser.horoscope.horoscopeFile = serialized;
+      devStore.set(userId, devUser);
+    }
+
+    return {
+      success: true,
+      message: 'Horoscope file(s) uploaded successfully',
+      horoscopeFile: horoscope.horoscopeFile,
+      horoscopeFiles: combined,
+      count: combined.length,
+      maxAllowed: limits.maxHoroscopeFilesCount,
+    };
+  }
+
+  async deleteHoroscopeFile(userId: string, fileIdentifier?: string | number) {
+    const profile = await this.prisma.profile.findUnique({ where: { userId } });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const existingHoro = await this.prisma.horoscope.findUnique({ where: { profileId: profile.id } });
+    const devUser = devStore.get(userId);
+    const existingFiles = parseHoroscopeFiles(existingHoro?.horoscopeFile || devUser?.horoscopeFile);
+
+    let updatedFiles: string[] = [];
+    if (fileIdentifier !== undefined && fileIdentifier !== null && String(fileIdentifier).trim() !== '') {
+      const idStr = String(fileIdentifier).trim();
+      if (/^\d+$/.test(idStr)) {
+        const idx = parseInt(idStr, 10);
+        updatedFiles = existingFiles.filter((_, i) => i !== idx);
+      } else {
+        updatedFiles = existingFiles.filter((f) => f !== idStr);
+      }
+    } else {
+      updatedFiles = [];
+    }
+
+    const serialized = serializeHoroscopeFiles(updatedFiles);
+
+    await this.prisma.horoscope.updateMany({
+      where: { profileId: profile.id },
+      data: { horoscopeFile: serialized },
+    });
+
+    if (devUser) {
+      devUser.horoscopeFile = serialized;
+      if (devUser.horoscope) devUser.horoscope.horoscopeFile = serialized;
+      devStore.set(userId, devUser);
+    }
+
+    return {
+      success: true,
+      message: serialized ? 'Horoscope file removed successfully' : 'All horoscope files removed successfully',
+      horoscopeFile: serialized,
+      horoscopeFiles: updatedFiles,
+    };
+  }
+
+  async updateProfileHoroscopeFile(profileId: string, horoscopeFile: string | string[] | null) {
+    const profile = await this.prisma.profile.findUnique({ where: { id: profileId } });
+    if (!profile) throw new NotFoundException('Profile not found');
+
+    const limits = await this.getSystemUploadLimits();
+    let serialized: string | null = null;
+    let filesList: string[] = [];
+
+    if (horoscopeFile) {
+      filesList = parseHoroscopeFiles(horoscopeFile);
+      if (filesList.length > limits.maxHoroscopeFilesCount) {
+        throw new BadRequestException(
+          `Maximum limit of ${limits.maxHoroscopeFilesCount} horoscope files reached per member profile.`,
+        );
+      }
+      for (const f of filesList) {
+        validateUploadItem(f, 'horoscope', undefined, limits);
+      }
+      serialized = serializeHoroscopeFiles(filesList);
+    }
+
+    const horoscope = await this.prisma.horoscope.upsert({
+      where: { profileId: profile.id },
+      create: {
+        profileId: profile.id,
+        horoscopeFile: serialized,
+      },
+      update: {
+        horoscopeFile: serialized,
+      },
+    });
+
+    return {
+      success: true,
+      message: serialized ? 'Horoscope file(s) updated successfully' : 'Horoscope file(s) removed successfully',
+      horoscopeFile: horoscope.horoscopeFile,
+      horoscopeFiles: filesList,
+    };
   }
 
   // ==========================================
@@ -2473,11 +2678,27 @@ export class ProfilesService {
     const star = horo.star || p.star || p.nakshatra || null;
     const rasiChart = horo.rasiChart || horo.rasi_chart || extractedData.rasiChart;
     const amsamChart = horo.amsamChart || horo.amsam_chart || extractedData.amsamChart || extractedData.navamsamChart;
+    const rawHoroFile = horo.horoscopeFile || extractedData.horoscopeFile || null;
+
+    const limits = await this.getSystemUploadLimits();
+    let horoscopeFile: string | null = null;
+    if (rawHoroFile) {
+      const parsedHoroFiles = parseHoroscopeFiles(rawHoroFile);
+      if (parsedHoroFiles.length > limits.maxHoroscopeFilesCount) {
+        throw new BadRequestException(
+          `Maximum limit of ${limits.maxHoroscopeFilesCount} horoscope files allowed per member profile.`,
+        );
+      }
+      for (const f of parsedHoroFiles) {
+        validateUploadItem(f, 'horoscope', undefined, limits);
+      }
+      horoscopeFile = serializeHoroscopeFiles(parsedHoroFiles);
+    }
 
     const hasRasiPlanets = rasiChart && typeof rasiChart === 'object' && Object.values(rasiChart).some(v => Boolean(v && typeof v === 'string' && v.trim()));
     const hasAmsamPlanets = amsamChart && typeof amsamChart === 'object' && Object.values(amsamChart).some(v => Boolean(v && typeof v === 'string' && v.trim()));
 
-    if (rasi || star || horo.lagnam || horo.dosham || horo.birthPlace || horo.birth_place || horo.birthTime || horo.birth_time || hasRasiPlanets || hasAmsamPlanets) {
+    if (rasi || star || horo.lagnam || horo.dosham || horo.birthPlace || horo.birth_place || horo.birthTime || horo.birth_time || hasRasiPlanets || hasAmsamPlanets || horoscopeFile) {
       const hData: any = {};
       if (hasRasiPlanets) hData.rasiChart = rasiChart;
       if (hasAmsamPlanets) hData.amsamChart = amsamChart;
@@ -2495,6 +2716,7 @@ export class ProfilesService {
           dasaBalance: horo.dasaBalance || horo.dasa_balance || null,
           birthPlace: horo.birthPlace || horo.birth_place || p.birth_place || null,
           birthTime: horo.birthTime || horo.birth_time || p.birth_time || null,
+          horoscopeFile: horoscopeFile || null,
           horoscopeData: Object.keys(hData).length > 0 ? hData : undefined,
         },
         update: {
@@ -2507,6 +2729,7 @@ export class ProfilesService {
           dasaBalance: horo.dasaBalance || horo.dasa_balance || undefined,
           birthPlace: horo.birthPlace || horo.birth_place || p.birth_place || undefined,
           birthTime: horo.birthTime || horo.birth_time || p.birth_time || undefined,
+          horoscopeFile: horoscopeFile !== undefined ? horoscopeFile : undefined,
           horoscopeData: Object.keys(hData).length > 0 ? hData : undefined,
         },
       });
@@ -2515,17 +2738,38 @@ export class ProfilesService {
       this.horoscopeMatchingService?.onHoroscopeUpdated(profile.id);
     }
 
-    // Save Profile Photo if present
-    const photoUrl = extractedData.profile_photo || extractedData.profilePhoto || p.profile_photo || extractedData.images?.profile_photo;
-    if (photoUrl && typeof photoUrl === 'string' && photoUrl.length > 10) {
-      await this.prisma.profilePhoto.create({
-        data: {
-          profileId: profile.id,
-          url: photoUrl,
-          isMain: true,
-          status: 'PENDING',
-        },
-      }).catch(() => null);
+    // Save Profile Photos (support up to maxProfilePhotosCount photos)
+    const rawPhotosInput =
+      extractedData.profile_photos ||
+      extractedData.photos ||
+      extractedData.images?.photos ||
+      (extractedData.profile_photo || extractedData.profilePhoto || p.profile_photo || extractedData.images?.profile_photo
+        ? [extractedData.profile_photo || extractedData.profilePhoto || p.profile_photo || extractedData.images?.profile_photo]
+        : []);
+
+    const rawPhotosList: string[] = Array.isArray(rawPhotosInput)
+      ? rawPhotosInput.map((item: any) => (typeof item === 'string' ? item : item?.url || item?.preview || '')).filter(Boolean)
+      : [];
+
+    if (rawPhotosList.length > limits.maxProfilePhotosCount) {
+      throw new BadRequestException(
+        `Maximum limit of ${limits.maxProfilePhotosCount} profile photos reached.`,
+      );
+    }
+
+    for (let i = 0; i < rawPhotosList.length; i++) {
+      const pUrl = rawPhotosList[i];
+      if (pUrl && typeof pUrl === 'string' && pUrl.length > 10) {
+        validateUploadItem(pUrl, 'profilePhoto', undefined, limits);
+        await this.prisma.profilePhoto.create({
+          data: {
+            profileId: profile.id,
+            url: pUrl,
+            isMain: i === 0,
+            status: 'APPROVED',
+          },
+        }).catch(() => null);
+      }
     }
 
     // 6. Verify that the saved data actually exists in PostgreSQL and can be retrieved
@@ -2577,6 +2821,8 @@ export class ProfilesService {
         hasOccupation: Boolean(saved.occupation),
         hasFamily: Boolean(saved.family),
         hasHoroscope: Boolean(saved.horoscope),
+        hasHoroscopeFile: Boolean(saved.horoscope?.horoscopeFile),
+        horoscopeFile: saved.horoscope?.horoscopeFile || null,
       },
     };
   }

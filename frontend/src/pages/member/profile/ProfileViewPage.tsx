@@ -10,9 +10,11 @@ import {
   Heart, Send, Lock, Phone, Mail, ShieldCheck, Crown, Sparkles, 
   Share2, MoreVertical, MapPin, Briefcase, GraduationCap, Star, 
   CheckCircle2, Image as ImageIcon, Calendar, BookOpen, Users, 
-  UserCheck, Award, ArrowUpRight, Edit, Loader2, User, Camera, Trash2, FileText, MessageSquare 
+  UserCheck, Award, ArrowUpRight, Edit, Loader2, User, Camera, Trash2, FileText, MessageSquare,
+  Moon, Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { parseHoroscopeFiles } from '../../../utils/upload-limits';
 
 const TAMIL_NAMES_FEMALE = ['Kavitha Rajan', 'Priya Mudaliar', 'Meera Gounder', 'Divya Iyer', 'Saranya Udayar', 'Nithya Pillai', 'Anjali Iyengar', 'Revathi Chettiar', 'Padma Vellalar', 'Mala Pillai'];
 const TAMIL_NAMES_MALE = ['Arjun Shankar', 'Suresh Pillai', 'Vikram Chettiar', 'Anand Thevar', 'Karthik Konar', 'Babu Devar', 'Senthil Nadar', 'Mani Mudaliar', 'Ganesh Gounder', 'Rajesh Thevar'];
@@ -1080,6 +1082,77 @@ const ProfileViewPage = () => {
                       </div>
                     ))}
                   </div>
+
+                  {/* Attached Horoscope Document(s) (Option 3) */}
+                  {(() => {
+                    const files = parseHoroscopeFiles((apiProfile as any)?.horoscope?.horoscopeFile || (apiProfile as any)?.horoscopeFile);
+                    if (files.length === 0) return null;
+                    return (
+                      <div className="card p-4 bg-gradient-to-r from-amber-50/80 via-white to-amber-50/40 border border-amber-200 rounded-2xl shadow-xs space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/60 pb-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shrink-0">
+                              <Moon className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wide">
+                                Attached Horoscope Document{files.length > 1 ? 's' : ''} (ஜாதக நகல் / கோப்பு)
+                              </h4>
+                              <p className="text-[11px] text-slate-500">
+                                {files.length} document{files.length > 1 ? 's' : ''} attached to member profile
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200 self-start sm:self-auto">
+                            {files.length} File{files.length > 1 ? 's' : ''} Attached
+                          </span>
+                        </div>
+
+                        <div className="space-y-3 pt-1">
+                          {files.map((item, idx) => (
+                            <div key={item.url || idx} className="p-3 bg-white/90 border border-amber-200 rounded-xl space-y-2">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-8 h-8 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shrink-0">
+                                    <FileText className="w-4 h-4" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-bold text-slate-900 truncate">
+                                      {item.name || `Horoscope File #${idx + 1}`}
+                                    </p>
+                                    <p className="text-[10px] text-slate-500">
+                                      {item.size ? `${(item.size / (1024 * 1024)).toFixed(2)} MB • ` : ''}
+                                      Attached Horoscope Record #{idx + 1}
+                                    </p>
+                                  </div>
+                                </div>
+                                <a
+                                  href={item.url}
+                                  download={item.name || `Horoscope_Document_${idx + 1}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-xs bg-gradient-gold text-slate-900 font-bold px-3 py-1.5 rounded-lg shadow-2xs flex items-center justify-center gap-1.5 hover:opacity-90 shrink-0"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  <span>View / Download #{idx + 1}</span>
+                                </a>
+                              </div>
+
+                              {item.url.startsWith('data:image/') || /\.(jpe?g|png)$/i.test(item.url) ? (
+                                <div className="rounded-lg overflow-hidden border border-amber-200 max-h-64 bg-slate-950 flex items-center justify-center p-2">
+                                  <img
+                                    src={item.url}
+                                    alt={`Horoscope Document ${idx + 1}`}
+                                    className="max-h-60 max-w-full object-contain rounded"
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* 12-HOUSE ASTROLOGY CHART DIAGRAMS (NON-EDITABLE DISPLAY) */}
                   <div className="space-y-4 pt-4 border-t border-slate-100">

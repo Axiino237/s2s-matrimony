@@ -152,6 +152,45 @@ export class ProfilesController {
     return this.profilesService.deletePhoto(userId, targetId, body?.url);
   }
 
+  @Post('horoscope-file')
+  @ApiOperation({ summary: 'Upload or update horoscope file for current member' })
+  async uploadHoroscopeFile(
+    @Req() req: any,
+    @Body() body: { horoscopeFile: string | string[]; append?: boolean },
+  ) {
+    const userId = req.user.sub || req.user.id;
+    return this.profilesService.uploadHoroscopeFile(userId, body.horoscopeFile, body.append !== false);
+  }
+
+  @Delete('horoscope-file')
+  @ApiOperation({ summary: 'Remove horoscope file for current member' })
+  async deleteHoroscopeFile(
+    @Req() req: any,
+    @Query('file') queryFile?: string,
+    @Body() body?: { fileIdentifier?: string | number; fileIndex?: number; url?: string },
+  ) {
+    const userId = req.user.sub || req.user.id;
+    const fileId = body?.fileIdentifier ?? body?.fileIndex ?? body?.url ?? queryFile;
+    return this.profilesService.deleteHoroscopeFile(userId, fileId);
+  }
+
+  @Post(':id/horoscope-file')
+  @RequirePermissions(Permission.PROFILES_WRITE)
+  @ApiOperation({ summary: 'Upload or update horoscope file for a profile (Admin)' })
+  async updateProfileHoroscopeFile(
+    @Param('id') id: string,
+    @Body() body: { horoscopeFile: string },
+  ) {
+    return this.profilesService.updateProfileHoroscopeFile(id, body.horoscopeFile);
+  }
+
+  @Delete(':id/horoscope-file')
+  @RequirePermissions(Permission.PROFILES_WRITE)
+  @ApiOperation({ summary: 'Remove horoscope file for a profile (Admin)' })
+  async deleteProfileHoroscopeFile(@Param('id') id: string) {
+    return this.profilesService.updateProfileHoroscopeFile(id, null);
+  }
+
   @Post(':id/favorite')
   @ApiOperation({ summary: 'Toggle favorite status for a profile' })
   async toggleFavorite(@Req() req: any, @Param('id') profileId: string) {

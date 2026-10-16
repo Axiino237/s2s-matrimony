@@ -252,7 +252,7 @@ function App() {
               <Route path="/admin/payments" element={<AdminPayments />} />
               <Route path="/admin/blogs" element={<AdminBlogs />} />
               <Route path="/admin/success-stories" element={<AdminSuccessStories />} />
-              <Route path="/admin/reports" element={<AdminReports />} />
+              <Route path="/admin/reports" element={<SuperAdminReports />} />
               <Route path="/admin/ai-biodata" element={<AdminAiBiodata />} />
               <Route path="/admin/biodata-entry" element={<BiodataEntryPage />} />
               <Route path="/admin/biodata-list" element={<AdminBiodataListPage />} />

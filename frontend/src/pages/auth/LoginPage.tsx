@@ -152,7 +152,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="relative min-h-screen pt-24 pb-16 flex items-center overflow-hidden bg-slate-950">
+    <div className="relative min-h-screen pt-20 sm:pt-24 pb-12 sm:pb-16 flex items-center overflow-x-hidden bg-slate-950">
       {/* High Resolution Marriage Background Image — Bright & Clearly Visible */}
       <div 
         className="absolute inset-0 bg-cover bg-center opacity-85 scale-100 transition-transform duration-1000"
@@ -163,34 +163,34 @@ const LoginPage = () => {
       <div className="absolute inset-0 bg-mesh opacity-15" />
 
       {/* Dynamic Glowing Mesh Orbs */}
-      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-amber-500/30 rounded-full blur-3xl animate-pulse-slow" />
-      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-primary/30 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
+      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-amber-500/30 rounded-full blur-3xl animate-pulse-slow pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-primary/30 rounded-full blur-3xl animate-pulse-slow pointer-events-none" style={{ animationDelay: '2s' }} />
 
-      <div className="container relative z-10 mx-auto px-4 md:px-8">
-        <div className="grid lg:grid-cols-12 gap-12 items-center">
+      <div className="container relative z-10 mx-auto px-3 sm:px-4 md:px-8 max-w-full w-full min-w-0">
+        <div className="grid lg:grid-cols-12 gap-6 lg:gap-12 items-center w-full max-w-full min-w-0">
           {/* Left Column: Ultra Light Transparent Glassmorphic Showcase */}
-          <div className="lg:col-span-6 animate-slide-up">
-            <div className="p-4 sm:p-8 md:p-10 rounded-3xl bg-black/15 border border-white/20 backdrop-blur-sm shadow-xl space-y-6">
-              <div className="inline-flex items-center gap-2 bg-amber-500/25 border border-amber-300/50 backdrop-blur-md rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-amber-200 text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-md max-w-full">
+          <div className="lg:col-span-6 animate-slide-up w-full max-w-full min-w-0">
+            <div className="p-3.5 sm:p-8 md:p-10 rounded-2xl sm:rounded-3xl bg-black/25 border border-white/20 backdrop-blur-sm shadow-xl space-y-4 sm:space-y-6 w-full max-w-full min-w-0 box-border overflow-hidden">
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-amber-500/25 border border-amber-300/50 backdrop-blur-md rounded-full px-2.5 sm:px-4 py-1 sm:py-2 text-amber-200 text-[10px] sm:text-xs font-black uppercase tracking-tight sm:tracking-wider shadow-md max-w-full min-w-0">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin-slow flex-shrink-0" />
-                <span className="truncate">Trusted South Indian Matrimony Platform</span>
+                <span className="truncate min-w-0">Trusted South Indian Matrimony Platform</span>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
-                <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-20 h-20 sm:w-28 sm:h-28 object-contain rounded-3xl shadow-2xl border-2 border-amber-400/60 p-2 bg-white flex-shrink-0" />
-                <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-black leading-tight drop-shadow-lg break-words">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-4 text-center sm:text-left min-w-0 w-full">
+                <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-16 h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 object-contain rounded-2xl sm:rounded-3xl shadow-2xl border-2 border-amber-400/60 p-1.5 sm:p-2 bg-white flex-shrink-0" />
+                <h1 className="font-display text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight drop-shadow-lg break-words min-w-0">
                   <span style={{ color: '#FBBF24' }} className="font-extrabold drop-shadow">
                     S2S Matrimony
                   </span>
                 </h1>
               </div>
 
-              <p className="text-sm sm:text-base leading-relaxed font-semibold drop-shadow" style={{ color: '#ffffff' }}>
+              <p className="text-xs sm:text-base leading-relaxed font-semibold drop-shadow break-words w-full" style={{ color: '#ffffff' }}>
                 Connect with 50,000+ verified profiles across 200+ Tamil and South Indian communities with 100% privacy, AI horoscope matching, and instant connection.
               </p>
 
               {/* Key Value Propositions */}
-              <div className="grid sm:grid-cols-2 gap-3.5 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5 pt-1 w-full min-w-0">
                 {[
                   { icon: ShieldCheck, title: '100% Verified Profiles', desc: 'Aadhaar & phone verified members' },
                   { icon: Sparkles, title: 'AI Horoscope Matching', desc: 'Porutham & Star compatibility' },
@@ -199,13 +199,13 @@ const LoginPage = () => {
                 ].map((item, idx) => {
                   const Icon = item.icon;
                   return (
-                    <div key={idx} className="flex items-start gap-3 p-3.5 rounded-2xl bg-black/25 border border-white/20 backdrop-blur-sm hover:bg-black/40 transition-all duration-300 shadow-sm">
+                    <div key={idx} className="flex items-start gap-2.5 sm:gap-3 p-3 rounded-2xl bg-black/25 border border-white/20 backdrop-blur-sm hover:bg-black/40 transition-all duration-300 shadow-sm min-w-0 w-full overflow-hidden">
                       <div className="w-8 h-8 rounded-xl bg-gradient-primary flex items-center justify-center flex-shrink-0 text-white shadow-md mt-0.5">
                         <Icon className="w-4 h-4" />
                       </div>
-                      <div>
-                        <h4 className="font-extrabold text-xs" style={{ color: '#ffffff' }}>{item.title}</h4>
-                        <p className="text-[11px] font-medium mt-0.5 leading-snug" style={{ color: '#f1f5f9' }}>{item.desc}</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-extrabold text-xs truncate sm:whitespace-normal" style={{ color: '#ffffff' }}>{item.title}</h4>
+                        <p className="text-[11px] font-medium mt-0.5 leading-snug break-words" style={{ color: '#f1f5f9' }}>{item.desc}</p>
                       </div>
                     </div>
                   );
@@ -213,43 +213,41 @@ const LoginPage = () => {
               </div>
 
               {/* Live Couple Testimonial Card */}
-              <div className="p-4 rounded-2xl bg-black/25 border border-amber-400/40 backdrop-blur-sm flex items-center gap-4 shadow-lg">
-                <img src="/images/couple_happy.png" alt="Happy Couple" className="w-12 h-12 rounded-xl object-cover border-2 border-amber-400 shadow-md flex-shrink-0" />
-                <div>
+              <div className="p-3 sm:p-4 rounded-2xl bg-black/25 border border-amber-400/40 backdrop-blur-sm flex items-center gap-3 sm:gap-4 shadow-lg min-w-0 w-full overflow-hidden">
+                <img src="/images/couple_happy.png" alt="Happy Couple" className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover border-2 border-amber-400 shadow-md flex-shrink-0" />
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1 text-amber-300 mb-0.5">
                     {[...Array(5)].map((_, i) => (
                       <Star key={i} className="w-3 h-3 fill-current" />
                     ))}
-                    <span className="text-[10px] text-amber-200 font-extrabold ml-1">Verified Union</span>
+                    <span className="text-[10px] text-amber-200 font-extrabold ml-1 truncate">Verified Union</span>
                   </div>
-                  <p className="text-xs italic font-semibold" style={{ color: '#ffffff' }}>"Found our life partner with total family trust in 3 weeks!"</p>
-                  <p className="font-black text-xs mt-0.5" style={{ color: '#FBBF24' }}>— Karthik & Shalini (Chennai)</p>
+                  <p className="text-xs italic font-semibold break-words" style={{ color: '#ffffff' }}>"Found our life partner with total family trust in 3 weeks!"</p>
+                  <p className="font-black text-xs mt-0.5 truncate" style={{ color: '#FBBF24' }}>— Karthik & Shalini (Chennai)</p>
                 </div>
               </div>
 
               {/* Quick Stats Counter */}
-              <div className="flex items-center justify-between pt-2 border-t border-white/20">
-                <div>
-                  <p className="font-display text-xl sm:text-2xl font-black" style={{ color: '#ffffff' }}>50,000+</p>
-                  <p className="text-[11px] font-bold" style={{ color: '#ffffff' }}>Active Members</p>
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/20 text-center w-full min-w-0">
+                <div className="min-w-0">
+                  <p className="font-display text-base sm:text-2xl font-black truncate" style={{ color: '#ffffff' }}>50,000+</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold leading-tight truncate" style={{ color: '#ffffff' }}>Active Members</p>
                 </div>
-                <div className="h-7 w-px bg-white/30" />
-                <div>
-                  <p className="font-display text-xl sm:text-2xl font-black" style={{ color: '#ffffff' }}>10,000+</p>
-                  <p className="text-[11px] font-bold" style={{ color: '#ffffff' }}>Happy Marriages</p>
+                <div className="min-w-0 border-x border-white/30 px-1">
+                  <p className="font-display text-base sm:text-2xl font-black truncate" style={{ color: '#ffffff' }}>10,000+</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold leading-tight truncate" style={{ color: '#ffffff' }}>Happy Marriages</p>
                 </div>
-                <div className="h-7 w-px bg-white/30" />
-                <div>
-                  <p className="font-display text-xl sm:text-2xl font-black" style={{ color: '#ffffff' }}>200+</p>
-                  <p className="text-[11px] font-bold" style={{ color: '#ffffff' }}>Communities</p>
+                <div className="min-w-0">
+                  <p className="font-display text-base sm:text-2xl font-black truncate" style={{ color: '#ffffff' }}>200+</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold leading-tight truncate" style={{ color: '#ffffff' }}>Communities</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Right Column: Animated Glassmorphic Login Card */}
-          <div className="lg:col-span-6 flex justify-center">
-            <div className="w-full max-w-md bg-white/95 backdrop-blur-2xl p-8 rounded-3xl shadow-2xl border border-slate-200/80 animate-scale-in">
+          <div className="lg:col-span-6 flex justify-center w-full min-w-0 max-w-full">
+            <div className="w-full max-w-md bg-white/95 backdrop-blur-2xl p-5 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 animate-scale-in min-w-0 w-full overflow-hidden">
               {/* Header inside Card */}
               <div className="text-center mb-6">
                 <Link to="/" className="inline-flex flex-col items-center gap-2 mb-3 group">

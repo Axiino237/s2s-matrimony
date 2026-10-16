@@ -155,6 +155,7 @@ export interface Profile {
   occupation?: Occupation;
   family?: FamilyDetail;
   horoscope?: Horoscope;
+  horoscopeFile?: string;
   partnerPreference?: PartnerPreference;
   privacySetting?: PrivacySetting;
   state?: State;

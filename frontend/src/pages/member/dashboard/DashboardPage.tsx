@@ -25,9 +25,14 @@ const DashboardPage = () => {
   // Force Mandatory Profile Completion Guard
   useEffect(() => {
     if (profile && !user?.roles?.includes('ADMIN') && !user?.roles?.includes('SUPER_ADMIN')) {
-      const isFilled = Boolean(profile.about && profile.heightCm && profile.maritalStatus);
+      const completion = Math.max(
+        profile.profileCompletionPercent ?? 0,
+        (user as any)?.profileCompletionPercent ?? 0
+      );
+      if (completion >= 100) return;
+      const isFilled = Boolean((profile.about || (profile as any).aboutMe) && profile.heightCm && profile.maritalStatus);
       if (!isFilled) {
-        toast.error('⚠️ Mandatory: Please fill your 50 profile details first before accessing the dashboard!', { id: 'profile-mandatory' });
+        toast.error('⚠️ Mandatory: Please fill your profile details first before accessing the dashboard!', { id: 'profile-mandatory' });
         navigate('/profile/edit', { state: { isOnboarding: true }, replace: true });
       }
     }
@@ -47,11 +52,12 @@ const DashboardPage = () => {
     retry: 1,
   });
 
-  const completionPct = profile?.profileCompletionPercent 
-    ?? (user as any)?.profileCompletionPercent
-    ?? dashStats?.profileCompletionPercent 
-    ?? dashStats?.profileCompletion 
-    ?? (user?.firstName ? 100 : 0);
+  const completionPct = Math.max(
+    profile?.profileCompletionPercent ?? 0,
+    (user as any)?.profileCompletionPercent ?? 0,
+    dashStats?.profileCompletionPercent ?? 0,
+    dashStats?.profileCompletion ?? 0
+  );
 
   const hasBasicInfo = completionPct >= 25 || Boolean(profile?.firstName && profile?.gender && profile?.maritalStatus);
   const hasPhotos = completionPct >= 50 || Boolean(profile?.photos && profile.photos.length > 0) || Boolean(profile?.mainPhotoId);

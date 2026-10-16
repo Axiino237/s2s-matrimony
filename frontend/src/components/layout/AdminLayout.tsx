@@ -344,7 +344,7 @@ const AdminLayout = () => {
       '/admin/payments': 'Payments & Transactions',
       '/admin/blogs': 'Blogs & CMS',
       '/admin/success-stories': 'Success Stories',
-      '/admin/reports': 'Reports & Analytics',
+      '/admin/reports': 'Platform Reports',
       '/admin/ai-biodata': 'AI Biodata Engine',
       '/admin/logs': 'Audit Logs',
       '/admin/settings': 'Admin Settings',

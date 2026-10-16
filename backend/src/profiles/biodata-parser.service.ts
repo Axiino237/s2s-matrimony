@@ -140,8 +140,16 @@ export class BiodataParserService {
         if (commaIdx !== -1) {
           const mimeMatch = rawPayload.substring(0, commaIdx).match(/data:(.*?);/);
           if (mimeMatch) mimeType = mimeMatch[1].toLowerCase();
-          base64Data = rawPayload.substring(commaIdx + 1);
+        base64Data = rawPayload.substring(commaIdx + 1);
         }
+      }
+
+      // Authoritative Backend Validation: Max 10MB file size limit for Biodata Document
+      const byteSize = Math.max(0, Math.floor((base64Data.length * 3) / 4) - (base64Data.endsWith('==') ? 2 : base64Data.endsWith('=') ? 1 : 0));
+      const maxBiodataSizeMb = 10;
+      if (byteSize > maxBiodataSizeMb * 1024 * 1024) {
+        const sizeMb = (byteSize / (1024 * 1024)).toFixed(1);
+        throw new BadRequestException(`Biodata file size (${sizeMb} MB) exceeds maximum allowed limit of ${maxBiodataSizeMb} MB.`);
       }
 
       // Inspect magic bytes from the binary header
@@ -310,17 +318,20 @@ export class BiodataParserService {
       // --- 3. JPEG & PNG IMAGE EXTRACTION ---
       if (isJpeg || isPng) {
         const effectiveMime = isJpeg ? 'image/jpeg' : 'image/png';
-        this.logger.log(`📸 Image uploaded (${effectiveMime}) - extracting via Gemini Vision...`);
+        const imgStartTime = Date.now();
+        this.logger.log(`📸 [AI Extraction] File "${input?.fileName || 'image'}" (${effectiveMime}, ${(byteSize / 1024).toFixed(1)} KB) - Stage: Gemini Vision starting...`);
         try {
           const aiResult = await this.extractWithGeminiVision(base64Data, effectiveMime);
+          const elapsedMs = Date.now() - imgStartTime;
           if (aiResult) {
-            this.logger.log('✨ Gemini Vision extracted biodata fields successfully');
+            this.logger.log(`✨ [AI Extraction] File "${input?.fileName || 'image'}" successfully extracted in ${elapsedMs}ms`);
             return this.normalizeSchema(aiResult, text);
           }
           const quotaOrAuthMsg = this.getQuotaOrAuthErrorMessage();
           throw new Error(quotaOrAuthMsg || 'AI Vision model could not extract structured biodata from the image');
         } catch (err: any) {
-          this.logger.error('Image Vision extraction failed:', err?.message || err);
+          const elapsedMs = Date.now() - imgStartTime;
+          this.logger.error(`❌ [AI Extraction] File "${input?.fileName || 'image'}" failed at Stage: Gemini Vision after ${elapsedMs}ms:`, err?.message || err);
           throw new BadRequestException(
             this.getQuotaOrAuthErrorMessage() ||
               err?.message ||
@@ -507,10 +518,12 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
     const apiKey = this.getGeminiApiKey();
     if (!apiKey) return null;
 
-    // Active verified Gemini models
-    const models = ['gemini-1.5-flash', 'gemini-flash-latest', 'gemini-1.5-pro', 'gemini-pro-latest'];
+    // Active verified Gemini models (deprecated 1.5 versions removed)
+    const models = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-pro-latest'];
     for (const model of models) {
+      const startTime = Date.now();
       try {
+        this.logger.log(`🤖 Invoking Gemini AI model: ${model}...`);
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 45000);
@@ -525,27 +538,30 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
 
         if (!response.ok) {
           const errText = await response.text();
+          const duration = Date.now() - startTime;
           if (response.status === 429) {
             this.lastGeminiError = {
               status: 429,
               message: 'AI service rate limit or quota exceeded. Please try again in a few moments or enter biodata manually.',
             };
-            this.logger.error(`🚨 Gemini API quota exceeded (HTTP 429) on model ${model}: ${errText.substring(0, 200)}`);
+            this.logger.error(`🚨 Gemini API quota exceeded (HTTP 429) on model ${model} in ${duration}ms: ${errText.substring(0, 200)}`);
           } else if (response.status === 403) {
             this.lastGeminiError = {
               status: 403,
               message: 'AI service authorization error. Please check the API configuration or contact support.',
             };
-            this.logger.error(`🚨 Gemini API forbidden / auth error (HTTP 403) on model ${model}: ${errText.substring(0, 200)}`);
+            this.logger.error(`🚨 Gemini API forbidden / auth error (HTTP 403) on model ${model} in ${duration}ms: ${errText.substring(0, 200)}`);
           } else {
-            this.logger.warn(`Gemini (${model}) API error: ${response.status} - ${errText.substring(0, 200)}`);
+            this.logger.warn(`Gemini (${model}) API error ${response.status} in ${duration}ms: ${errText.substring(0, 200)}`);
           }
           continue;
         }
 
         const data: any = await response.json();
+        const duration = Date.now() - startTime;
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
+          this.logger.log(`✨ Gemini AI (${model}) responded successfully in ${duration}ms`);
           try {
             return JSON.parse(text);
           } catch {
@@ -554,7 +570,12 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
           }
         }
       } catch (err: any) {
-        this.logger.warn(`Gemini call error on ${model}:`, err?.message || err);
+        const duration = Date.now() - startTime;
+        if (err?.name === 'AbortError') {
+          this.logger.warn(`⏱️ Gemini (${model}) aborted after timeout (${duration}ms)`);
+        } else {
+          this.logger.warn(`Gemini call error on ${model} after ${duration}ms:`, err?.message || err);
+        }
       }
     }
     return null;

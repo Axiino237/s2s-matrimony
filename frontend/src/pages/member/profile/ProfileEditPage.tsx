@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, ChangeEvent, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   User, Heart, GraduationCap, Briefcase, Users, Star, Image as ImageIcon,
-  Sliders, Lock, Save, CheckCircle2, ShieldCheck, ChevronRight, Upload, Phone, Mail, Loader2, ArrowRight, Sparkles, FileText, AlertCircle
+  Sliders, Lock, Save, CheckCircle2, ShieldCheck, ChevronRight, Upload, Phone, Mail, Loader2, ArrowRight, Sparkles, FileText, AlertCircle,
+  Moon, Download, XCircle, Eye
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { profilesApi } from '../../../services/profiles.service';
@@ -10,6 +12,14 @@ import { useAuthStore } from '../../../store/auth.store';
 import { AiBiodataModal } from '../../../components/profile/AiBiodataModal';
 import { communitiesApi, CommunityData } from '../../../services/communities.service';
 import { DOSHAMS } from '../../../constants/index';
+import { useSettingsStore } from '../../../store/settings.store';
+import {
+  getEffectiveUploadLimits,
+  validateFileBatch,
+  parseHoroscopeFiles,
+  serializeHoroscopeFiles,
+  ParsedHoroscopeFileItem,
+} from '../../../utils/upload-limits';
 
 
 const SECTIONS = [
@@ -79,6 +89,7 @@ const formatDiet = (val?: string) => {
 
 const ProfileEditPage = () => {
   const location = useLocation();
+  const queryClient = useQueryClient();
   const navState = location.state as { isOnboarding?: boolean; firstName?: string; lastName?: string; section?: string };
   const [activeSection, setActiveSection] = useState(navState?.section || 'basic');
   const [loading, setLoading] = useState(true);
@@ -203,6 +214,7 @@ const ProfileEditPage = () => {
     dasaBalance: '',
     timeOfBirth: '',
     placeOfBirth: '',
+    horoscopeFile: '',
     rasiChart: {} as Record<string, string>,
     amsamChart: {} as Record<string, string>,
     // Partner Preferences
@@ -235,6 +247,29 @@ const ProfileEditPage = () => {
   const navigate = useNavigate();
   const isAlreadyComplete = ((user as any)?.profileCompletionPercent ?? 0) >= 100;
   const isOnboarding = (navState?.isOnboarding || false) && !isAlreadyComplete;
+
+  const maxBiodataFileSizeMb = useSettingsStore((s) => s.maxBiodataFileSizeMb);
+  const maxBiodataFilesCount = useSettingsStore((s) => s.maxBiodataFilesCount);
+  const maxProfilePhotoSizeMb = useSettingsStore((s) => s.maxProfilePhotoSizeMb);
+  const maxProfilePhotosCount = useSettingsStore((s) => s.maxProfilePhotosCount);
+  const maxHoroscopeFileSizeMb = useSettingsStore((s) => s.maxHoroscopeFileSizeMb);
+  const maxHoroscopeFilesCount = useSettingsStore((s) => s.maxHoroscopeFilesCount);
+
+  const limits = useMemo(() => getEffectiveUploadLimits({
+    maxBiodataFileSizeMb,
+    maxBiodataFilesCount,
+    maxProfilePhotoSizeMb,
+    maxProfilePhotosCount,
+    maxHoroscopeFileSizeMb,
+    maxHoroscopeFilesCount,
+  }), [
+    maxBiodataFileSizeMb,
+    maxBiodataFilesCount,
+    maxProfilePhotoSizeMb,
+    maxProfilePhotosCount,
+    maxHoroscopeFileSizeMb,
+    maxHoroscopeFilesCount,
+  ]);
 
   // Load Profile from Live Backend API
   useEffect(() => {
@@ -341,6 +376,7 @@ const ProfileEditPage = () => {
             dasaBalance: data.horoscope?.dasaBalance || prev.dasaBalance || '',
             timeOfBirth: data.horoscope?.birthTime || (data as any).birthTime || prev.timeOfBirth || '',
             placeOfBirth: data.horoscope?.birthPlace || (data as any).birthPlace || prev.placeOfBirth || '',
+            horoscopeFile: data.horoscope?.horoscopeFile || (data as any).horoscopeFile || prev.horoscopeFile || '',
             rasiChart: data.rasiChart || data.horoscope?.rasiChart || data.horoscope?.horoscopeData?.rasiChart || prev.rasiChart || {},
             amsamChart: data.amsamChart || data.horoscope?.amsamChart || data.horoscope?.horoscopeData?.amsamChart || data.horoscope?.horoscopeData?.navamsamChart || prev.amsamChart || {},
             // Partner Preferences from DB
@@ -485,6 +521,33 @@ const ProfileEditPage = () => {
     });
   };
 
+  const currentHoroscopeFiles = useMemo<ParsedHoroscopeFileItem[]>(() => {
+    return parseHoroscopeFiles(formData.horoscopeFile);
+  }, [formData.horoscopeFile]);
+
+  const handleRemoveHoroscopeFile = async (indexOrUrl: number | string) => {
+    let targetIdentifier: string | number = indexOrUrl;
+    let nextList: ParsedHoroscopeFileItem[] = [];
+
+    if (typeof indexOrUrl === 'number') {
+      const targetItem = currentHoroscopeFiles[indexOrUrl];
+      targetIdentifier = targetItem?.url || indexOrUrl;
+      nextList = currentHoroscopeFiles.filter((_, idx) => idx !== indexOrUrl);
+    } else {
+      nextList = currentHoroscopeFiles.filter((item) => item.url !== indexOrUrl);
+    }
+
+    const serialized = serializeHoroscopeFiles(nextList);
+    setFormData((prev) => ({ ...prev, horoscopeFile: serialized || '' }));
+
+    try {
+      await profilesApi.deleteHoroscopeFile(targetIdentifier);
+      toast.success('Horoscope file removed successfully.');
+    } catch {
+      toast.success('Horoscope file removed.');
+    }
+  };
+
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -528,32 +591,43 @@ const ProfileEditPage = () => {
   };
 
   const handlePhotoUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFiles = Array.from(e.target.files || []);
+    if (rawFiles.length === 0) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Image size must be less than 10MB');
+    const existingCount = userPhotos.length;
+    const { validFiles, rejectedFiles } = validateFileBatch(rawFiles, 'photo', existingCount, limits);
+
+    for (const rej of rejectedFiles) {
+      toast.error(`"${rej.file.name}": ${rej.reason}`, { duration: 5000 });
+    }
+
+    if (validFiles.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setTargetPhotoIndex(null);
       return;
     }
 
-    try {
-      const compressedDataUrl = await compressImage(file);
-      const res = await profilesApi.uploadPhoto(compressedDataUrl, userPhotos.length === 0);
-      const newPhotoObj = { id: res?.id, url: res?.url || compressedDataUrl };
-      setUserPhotos((prev) => {
-        const updated = [...prev];
-        const targetIdx = targetPhotoIndex !== null ? targetPhotoIndex : updated.length;
-        updated[targetIdx] = newPhotoObj;
-        return updated;
-      });
-      toast.success('Photo uploaded & saved to database!');
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Failed to save photo to database.';
-      toast.error(Array.isArray(msg) ? msg.join(', ') : msg);
-    } finally {
-      setTargetPhotoIndex(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+    // Process valid files sequentially, retaining existing photos additively
+    for (const file of validFiles) {
+      try {
+        const compressedDataUrl = await compressImage(file);
+        const res = await profilesApi.uploadPhoto(compressedDataUrl, userPhotos.length === 0);
+        const newPhotoObj = { id: res?.id, url: res?.url || compressedDataUrl };
+        setUserPhotos((prev) => {
+          const updated = [...prev];
+          const targetIdx = targetPhotoIndex !== null ? targetPhotoIndex : updated.length;
+          updated[targetIdx] = newPhotoObj;
+          return updated.slice(0, limits.maxProfilePhotosCount);
+        });
+        toast.success(`Photo (${file.name}) uploaded & saved!`);
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || err?.message || 'Failed to save photo to database.';
+        toast.error(Array.isArray(msg) ? msg.join(', ') : msg);
+      }
     }
+
+    setTargetPhotoIndex(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSetMainPhoto = (index: number) => {
@@ -640,6 +714,7 @@ const ProfileEditPage = () => {
       dosham: formData.dosham || undefined,
       dasaBalance: formData.dasaBalance || undefined,
       timeOfBirth: formData.timeOfBirth || undefined,
+      horoscopeFile: formData.horoscopeFile || undefined,
       rasiChart: formData.rasiChart,
       amsamChart: formData.amsamChart,
       horoscopeData: {
@@ -657,27 +732,27 @@ const ProfileEditPage = () => {
       prefCommunity: formData.prefCommunity || undefined,
       prefCaste: formData.prefCommunity || undefined,
       prefLocation: formData.prefLocation || undefined,
-      profileCompletionPercent: isAlreadyComplete ? 100 : undefined,
+      profileCompletionPercent: (isAlreadyComplete || validateMandatoryFields().length === 0) ? 100 : undefined,
       // Privacy Settings
       photoPrivacy: formData.photoPrivacy || undefined,
       phonePrivacy: formData.phonePrivacy || undefined,
       publicVisibility: formData.publicVisibility,
     };
     console.log('💾 [S2S PROFILE UPDATE PAYLOAD]:', payload);
-    await profilesApi.updateMyProfile(payload);
+    return await profilesApi.updateMyProfile(payload);
   };
 
   const validateMandatoryFields = () => {
-    const missing: { name: string; section: string }[] = [];
+    const missing: { name: string; section: string; id: string }[] = [];
 
-    if (!formData.firstName.trim()) missing.push({ name: 'First Name', section: 'basic' });
-    if (!formData.dateOfBirth.trim()) missing.push({ name: 'Date of Birth', section: 'basic' });
-    if (!formData.maritalStatus.trim()) missing.push({ name: 'Marital Status', section: 'basic' });
-    if (!formData.motherTongue.trim()) missing.push({ name: 'Mother Tongue', section: 'basic' });
-    if (!formData.religion.trim()) missing.push({ name: 'Religion', section: 'basic' });
-    if (!formData.community.trim()) missing.push({ name: 'Community / Caste', section: 'basic' });
-    if (!formData.about.trim()) missing.push({ name: 'About Me', section: 'basic' });
-    if (!formData.heightCm.trim()) missing.push({ name: 'Height (cm)', section: 'personal' });
+    if (!formData.firstName.trim()) missing.push({ name: 'First Name', section: 'basic', id: 'firstName' });
+    if (!formData.dateOfBirth.trim()) missing.push({ name: 'Date of Birth', section: 'basic', id: 'dateOfBirth' });
+    if (!formData.maritalStatus.trim()) missing.push({ name: 'Marital Status', section: 'basic', id: 'maritalStatus' });
+    if (!formData.motherTongue.trim()) missing.push({ name: 'Mother Tongue', section: 'basic', id: 'motherTongue' });
+    if (!formData.religion.trim()) missing.push({ name: 'Religion', section: 'basic', id: 'religion' });
+    if (!formData.community.trim()) missing.push({ name: 'Community / Caste', section: 'basic', id: 'community' });
+    if (!formData.about.trim()) missing.push({ name: 'About Me', section: 'basic', id: 'about' });
+    if (!formData.heightCm.trim()) missing.push({ name: 'Height (cm)', section: 'personal', id: 'heightCm' });
 
     return missing;
   };
@@ -714,18 +789,46 @@ const ProfileEditPage = () => {
 
     const missing = validateMandatoryFields();
     if (missing.length > 0) {
-      const missingNames = missing.map((m) => m.name).join(', ');
-      toast.error(`Please fill out mandatory fields: ${missingNames}`, {
+      const firstMissing = missing[0];
+      toast.error(`Please fill out mandatory field: ${firstMissing.name}`, {
         duration: 5000,
+        id: 'mandatory-field',
       });
       // Switch section tab to the first missing field's section so user sees it immediately
-      setActiveSection(missing[0].section);
+      setActiveSection(firstMissing.section);
+      setTimeout(() => {
+        const el = document.getElementById(firstMissing.id) || document.querySelector(`[name="${firstMissing.id}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if ((el as any).focus) (el as HTMLElement).focus();
+        }
+      }, 150);
       return; // STOP! DO NOT RELOAD, DO NOT NAVIGATE
     }
 
     setSaving(true);
     try {
-      await saveProfileData();
+      const res = await saveProfileData();
+      const savedProfile = res?.data || res;
+      // Immediately set 100% completion in queryClient & authStore
+      queryClient.setQueryData(['my-profile'], (old: any) => ({
+        ...(old || {}),
+        ...(savedProfile || {}),
+        profileCompletionPercent: 100,
+      }));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['my-profile'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] }),
+        queryClient.invalidateQueries({ queryKey: ['recommended-profiles'] }),
+      ]);
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        useAuthStore.getState().setUser({
+          ...currentUser,
+          profileCompletionPercent: 100,
+        });
+      }
+      window.dispatchEvent(new Event('s2s_permissions_updated'));
       toast.success('Profile details saved! Welcome to your dashboard.');
       navigate('/dashboard');
     } catch (err: any) {
@@ -1659,6 +1762,76 @@ const ProfileEditPage = () => {
               </div>
             </div>
 
+            {/* Previously Attached Horoscope Documents (Preserved for existing profiles) */}
+            {currentHoroscopeFiles.length > 0 && (
+              <div className="card p-4 bg-amber-50/50 border border-amber-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-amber-700 shrink-0" />
+                    <h3 className="font-bold text-amber-950 text-xs">
+                      Attached Horoscope Documents ({currentHoroscopeFiles.length})
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-semibold text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-full">
+                    Previously Attached
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {currentHoroscopeFiles.map((item, idx) => (
+                    <div
+                      key={item.url || idx}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 bg-white border border-amber-300 rounded-xl shadow-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {item.url.startsWith('data:image/') || /\.(jpe?g|png)$/i.test(item.url) ? (
+                          <img
+                            src={item.url}
+                            alt={`Horoscope #${idx + 1}`}
+                            className="w-10 h-10 rounded-lg object-cover border border-amber-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0 text-amber-800">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate">
+                            {item.name || `Horoscope_Document_${idx + 1}`}
+                          </p>
+                          <p className="text-[10px] text-slate-500">
+                            {item.size ? `${(item.size / (1024 * 1024)).toFixed(2)} MB • ` : ''}
+                            Horoscope file
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <a
+                          href={item.url}
+                          download={item.name || `Horoscope_Document_${idx + 1}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-xs bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-lg px-2 py-1 flex items-center gap-1 font-bold text-[11px]"
+                          title="View / Download Attached Horoscope"
+                        >
+                          <Download className="w-3 h-3" /> View / Download
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveHoroscopeFile(idx)}
+                          className="btn btn-xs bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg px-2 py-1 flex items-center gap-1 font-bold text-[11px]"
+                          title="Remove this file"
+                        >
+                          <XCircle className="w-3 h-3" /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Interactive Rasi & Navamsam Chart Grids - Stacked vertically for optimal breathing room */}
             <div className="space-y-8 pt-6 border-t border-slate-100 max-w-2xl mx-auto w-full">
               <div className="text-center sm:text-left">
@@ -1794,30 +1967,42 @@ const ProfileEditPage = () => {
         {/* Photos & Gallery */}
         {activeSection === 'photos' && (
           <div className="card p-6 space-y-4 bg-white border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
               <div>
-                <h2 className="text-text-primary font-semibold text-sm uppercase tracking-wider">Photos & Avatar Gallery</h2>
-                <p className="text-text-secondary text-xs mt-0.5">Upload up to 6 high quality photos. Profiles with photos get 10x more responses!</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-text-primary font-semibold text-sm uppercase tracking-wider">Photos & Avatar Gallery</h2>
+                  <span className="text-[11px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+                    {userPhotos.length} / {limits.maxProfilePhotosCount} Photos
+                  </span>
+                </div>
+                <p className="text-text-secondary text-xs mt-0.5">
+                  Upload up to {limits.maxProfilePhotosCount} high quality photos (Max {limits.maxProfilePhotoSizeMb} MB per photo • JPEG, PNG, WebP). Profiles with photos get 10x more responses!
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="btn btn-primary btn-sm flex items-center gap-1.5 shadow-md"
+                disabled={userPhotos.length >= limits.maxProfilePhotosCount}
+                onClick={() => {
+                  setTargetPhotoIndex(null);
+                  fileInputRef.current?.click();
+                }}
+                className="btn btn-primary btn-sm flex items-center gap-1.5 shadow-md disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
               >
-                <Upload className="w-4 h-4" /> Upload New Photo
+                <Upload className="w-4 h-4" /> Upload Photo{limits.maxProfilePhotosCount > 1 ? 's' : ''}
               </button>
             </div>
 
             <input
               type="file"
               ref={fileInputRef}
-              accept="image/*"
+              multiple
+              accept="image/jpeg,image/png,image/webp"
               className="hidden"
               onChange={handlePhotoUpload}
             />
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
-              {Array.from({ length: 6 }).map((_, i) => {
+              {Array.from({ length: limits.maxProfilePhotosCount }).map((_, i) => {
                 const photoObj = userPhotos[i];
                 const photoUrl = photoObj?.url;
                 const isMain = i === 0;
@@ -1879,7 +2064,7 @@ const ProfileEditPage = () => {
                           <Upload className="w-5 h-5" />
                         </div>
                         <span className="text-text-primary text-xs font-bold block">+ Add Photo</span>
-                        <span className="text-text-muted text-[10px]">JPG or PNG</span>
+                        <span className="text-text-muted text-[10px]">Max {limits.maxProfilePhotoSizeMb} MB</span>
                       </div>
                     )}
                   </div>

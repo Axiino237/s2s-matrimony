@@ -3,12 +3,13 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SuperAdminService } from './super-admin.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/rbac.decorator';
-import { Role } from '../common/enums/rbac.enum';
+import { PermissionsGuard } from '../common/guards/permissions.guard';
+import { Roles, RequirePermissions } from '../common/decorators/rbac.decorator';
+import { Role, Permission } from '../common/enums/rbac.enum';
 
 @ApiTags('Super Admin')
 @Controller('super-admin')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Roles(Role.SUPER_ADMIN)
 @ApiBearerAuth()
 export class SuperAdminController {
@@ -45,6 +46,8 @@ export class SuperAdminController {
   }
 
   @Get('reports')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermissions(Permission.REPORTS_VIEW)
   @ApiOperation({ summary: 'Get live platform reports & analytics metrics' })
   async getReportsAnalytics() {
     return this.superAdminService.getReportsAnalytics();
@@ -103,6 +106,8 @@ export class SuperAdminController {
   }
 
   @Get('reports/data')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @RequirePermissions(Permission.REPORTS_VIEW)
   @ApiOperation({ summary: 'Get dataset for report exports' })
   async getReportData(
     @Query('type') type: string,

@@ -23,11 +23,22 @@ export class AppService {
     const merged = { ...settings, ...devSettings };
     const isMaintenance = Boolean(merged.maintenanceMode === true || merged.maintenanceMode === 'true');
 
+    const uploadLimits = {
+      maxBiodataFileSizeMb: Number(merged.maxBiodataFileSizeMb) || 10,
+      maxBiodataFilesCount: Number(merged.maxBiodataFilesCount) || 10,
+      maxProfilePhotoSizeMb: Number(merged.maxProfilePhotoSizeMb) || 5,
+      maxProfilePhotosCount: Number(merged.maxProfilePhotosCount) || 5,
+      maxHoroscopeFileSizeMb: Number(merged.maxHoroscopeFileSizeMb) || 10,
+      maxHoroscopeFilesCount: Number(merged.maxHoroscopeFilesCount) || 2,
+    };
+
     return {
       facebookUrl: 'https://www.facebook.com/s2smatrimony',
       instagramUrl: 'https://www.instagram.com/s2smatrimony',
       twitterUrl: 'https://x.com/s2smatrimony',
       youtubeUrl: 'https://www.youtube.com/@s2smatrimony',
+      ...uploadLimits,
+      uploadLimits,
       ...merged,
       maintenanceMode: isMaintenance,
       isMaintenanceMode: isMaintenance,

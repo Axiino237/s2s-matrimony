@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   User, Heart, GraduationCap, Briefcase, Users, Star, Image as ImageIcon,
@@ -89,58 +90,75 @@ const HOUSES = [
 ];
 
 // ─── Input Component ───────────────────────────────────────────────────
-const Input = ({ label, required, error, ...props }: any) => (
-  <div className="flex flex-col gap-1">
-    <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-      {label}{required && <span className="text-rose-500 ml-1">*</span>}
-    </label>
-    <input
-      className={`w-full px-4 py-3 rounded-xl border text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all
-        ${error ? 'border-rose-400 bg-rose-50' : 'border-slate-200 hover:border-slate-300 focus:border-primary'}`}
-      {...props}
-    />
-    {error && <p className="text-xs text-rose-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/>{error}</p>}
-  </div>
-);
+const Input = ({ label, required, error, id, name, ...props }: any) => {
+  const fieldId = id || name;
+  return (
+    <div className="flex flex-col gap-1" id={fieldId ? `container-${fieldId}` : undefined}>
+      <label htmlFor={fieldId} className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+        {label}{required && <span className="text-rose-500 ml-1">*</span>}
+      </label>
+      <input
+        id={fieldId}
+        name={name || id}
+        className={`w-full px-4 py-3 rounded-xl border text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all
+          ${error ? 'border-rose-400 bg-rose-50 ring-2 ring-rose-200' : 'border-slate-200 hover:border-slate-300 focus:border-primary'}`}
+        {...props}
+      />
+      {error && <p className="text-xs text-rose-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/>{error}</p>}
+    </div>
+  );
+};
 
-const Select = ({ label, required, error, children, ...props }: any) => (
-  <div className="flex flex-col gap-1">
-    <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-      {label}{required && <span className="text-rose-500 ml-1">*</span>}
-    </label>
-    <select
-      className={`w-full px-4 py-3 rounded-xl border text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all appearance-none
-        ${error ? 'border-rose-400 bg-rose-50' : 'border-slate-200 hover:border-slate-300 focus:border-primary'}`}
-      {...props}
-    >
-      {children}
-    </select>
-    {error && <p className="text-xs text-rose-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/>{error}</p>}
-  </div>
-);
+const Select = ({ label, required, error, id, name, children, ...props }: any) => {
+  const fieldId = id || name;
+  return (
+    <div className="flex flex-col gap-1" id={fieldId ? `container-${fieldId}` : undefined}>
+      <label htmlFor={fieldId} className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+        {label}{required && <span className="text-rose-500 ml-1">*</span>}
+      </label>
+      <select
+        id={fieldId}
+        name={name || id}
+        className={`w-full px-4 py-3 rounded-xl border text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all appearance-none
+          ${error ? 'border-rose-400 bg-rose-50 ring-2 ring-rose-200' : 'border-slate-200 hover:border-slate-300 focus:border-primary'}`}
+        {...props}
+      >
+        {children}
+      </select>
+      {error && <p className="text-xs text-rose-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/>{error}</p>}
+    </div>
+  );
+};
 
-const Textarea = ({ label, required, error, ...props }: any) => (
-  <div className="flex flex-col gap-1">
-    <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-      {label}{required && <span className="text-rose-500 ml-1">*</span>}
-    </label>
-    <textarea
-      rows={3}
-      className={`w-full px-4 py-3 rounded-xl border text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all resize-none
-        ${error ? 'border-rose-400 bg-rose-50' : 'border-slate-200 hover:border-slate-300 focus:border-primary'}`}
-      {...props}
-    />
-    {error && <p className="text-xs text-rose-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/>{error}</p>}
-  </div>
-);
+const Textarea = ({ label, required, error, id, name, ...props }: any) => {
+  const fieldId = id || name;
+  return (
+    <div className="flex flex-col gap-1" id={fieldId ? `container-${fieldId}` : undefined}>
+      <label htmlFor={fieldId} className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+        {label}{required && <span className="text-rose-500 ml-1">*</span>}
+      </label>
+      <textarea
+        id={fieldId}
+        name={name || id}
+        rows={3}
+        className={`w-full px-4 py-3 rounded-xl border text-sm text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all resize-none
+          ${error ? 'border-rose-400 bg-rose-50 ring-2 ring-rose-200' : 'border-slate-200 hover:border-slate-300 focus:border-primary'}`}
+        {...props}
+      />
+      {error && <p className="text-xs text-rose-500 flex items-center gap-1"><AlertCircle className="w-3 h-3"/>{error}</p>}
+    </div>
+  );
+};
 
 // ─── Main Component ────────────────────────────────────────────────────
 const ProfileCompletePage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, fetchMe } = useAuthStore();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -471,7 +489,7 @@ const ProfileCompletePage = () => {
   };
 
   const calculateProgress = () => {
-    if (((user as any)?.profileCompletionPercent ?? 0) >= 100) return 100;
+    if (isCompleted || ((user as any)?.profileCompletionPercent ?? 0) >= 100) return 100;
 
     const coreFields = [
       form.firstName, form.lastName, form.gender, form.dateOfBirth, form.motherTongue,
@@ -487,36 +505,31 @@ const ProfileCompletePage = () => {
 
   const progress = calculateProgress();
 
-  const validateStep = (step: number) => {
+  const getStepValidationErrors = (step: number): Record<string, string> => {
     const errs: Record<string, string> = {};
     if (step === 0) {
-      if (!form.firstName.trim()) errs.firstName = 'First name is required';
-      if (!form.lastName.trim()) errs.lastName = 'Last name is required';
+      if (!form.firstName?.trim()) errs.firstName = 'First name is required';
+      if (!form.lastName?.trim()) errs.lastName = 'Last name is required';
       if (!form.gender) errs.gender = 'Gender is required';
       if (!form.dateOfBirth) errs.dateOfBirth = 'Date of birth is required';
       if (!form.maritalStatus) errs.maritalStatus = 'Marital status is required';
       if (!form.motherTongue) errs.motherTongue = 'Mother tongue is required';
       if (!form.aboutMe || !form.aboutMe.trim()) errs.aboutMe = 'About Me is required';
-    }
-    if (step === 1) {
+    } else if (step === 1) {
       if (!form.religion) errs.religion = 'Religion is required';
-    }
-    if (step === 2) {
-      if (!form.education) errs.education = 'Education qualification is required';
+    } else if (step === 2) {
+      if (!form.education) errs.education = 'Highest qualification is required';
       if (!form.occupation) errs.occupation = 'Occupation is required';
-    }
-    if (step === 3) {
+    } else if (step === 3) {
       if (!form.country || !form.country.trim()) errs.country = 'Country is required';
       if (!form.state || !form.state.trim()) errs.state = 'State is required';
-      if (!form.city.trim()) errs.city = 'City is required';
-    }
-    if (step === 4) {
+      if (!form.city?.trim()) errs.city = 'City is required';
+    } else if (step === 4) {
       if (hasSiblingErrors) {
         const firstError = Object.values(siblingErrors).find(Boolean);
         errs.siblings = firstError || 'Please correct sibling count errors.';
       }
-    }
-    if (step === 6) {
+    } else if (step === 6) {
       const minAge = Number(form.prefAgeMin);
       const maxAge = Number(form.prefAgeMax);
       if (!form.prefAgeMin || isNaN(minAge)) {
@@ -533,8 +546,49 @@ const ProfileCompletePage = () => {
         errs.prefAgeMin = 'Min age cannot be greater than max age';
       }
     }
+    return errs;
+  };
+
+  const validateStep = (step: number) => {
+    const errs = getStepValidationErrors(step);
     setErrors(errs);
     return Object.keys(errs).length === 0;
+  };
+
+  const scrollToAndFocusField = (fieldKey: string) => {
+    setTimeout(() => {
+      const el =
+        document.getElementById(fieldKey) ||
+        document.querySelector(`[name="${fieldKey}"]`) ||
+        document.querySelector(`[data-field="${fieldKey}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (el as HTMLElement).focus?.({ preventScroll: true });
+      }
+    }, 150);
+  };
+
+  const validateAllSteps = () => {
+    for (let s = 0; s < STEPS.length; s++) {
+      const stepErrs = getStepValidationErrors(s);
+      const keys = Object.keys(stepErrs);
+      if (keys.length > 0) {
+        return {
+          isValid: false,
+          step: s,
+          errors: stepErrs,
+          firstFieldKey: keys[0],
+          firstErrorMessage: stepErrs[keys[0]],
+        };
+      }
+    }
+    return {
+      isValid: true,
+      step: -1,
+      errors: {},
+      firstFieldKey: '',
+      firstErrorMessage: '',
+    };
   };
 
   const saveCurrentStepData = async (extraOverrides: Record<string, any> = {}) => {
@@ -550,6 +604,7 @@ const ProfileCompletePage = () => {
       weightKg: form.weightKg ? Number(form.weightKg) : undefined,
       complexion: form.complexion,
       bodyType: form.bodyType,
+      about: form.aboutMe,
       aboutMe: form.aboutMe,
       religion: form.religion,
       caste: form.caste,
@@ -617,7 +672,7 @@ const ProfileCompletePage = () => {
       ...extraOverrides,
     };
 
-    await api.patch('/profiles/me', payload);
+    return await api.patch('/profiles/me', payload);
   };
 
   const next = async () => {
@@ -626,12 +681,23 @@ const ProfileCompletePage = () => {
       toast.error(firstError || 'Please correct sibling count errors before continuing.');
       return;
     }
-    if (!validateStep(currentStep)) return;
+    const stepErrs = getStepValidationErrors(currentStep);
+    const keys = Object.keys(stepErrs);
+    if (keys.length > 0) {
+      setErrors(stepErrs);
+      const firstKey = keys[0];
+      const firstMsg = stepErrs[firstKey];
+      toast.error(firstMsg, { id: 'field-validation' });
+      scrollToAndFocusField(firstKey);
+      return;
+    }
+    setErrors({});
     setSaving(true);
     try {
       await saveCurrentStepData();
       if (currentStep < STEPS.length - 1) {
         setCurrentStep(prev => prev + 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch {
       toast.error('Failed to save step. Please try again.');
@@ -665,18 +731,24 @@ const ProfileCompletePage = () => {
     if (hasSiblingErrors) {
       const firstError = Object.values(siblingErrors).find(Boolean);
       toast.error(firstError || 'Please correct sibling count errors before submitting.');
+      setCurrentStep(4);
       return;
     }
-    for (let s = 0; s < STEPS.length; s++) {
-      if (!validateStep(s)) {
-        setCurrentStep(s);
-        toast.error('Please complete all required fields before submitting.');
-        return;
-      }
+
+    const validation = validateAllSteps();
+    if (!validation.isValid) {
+      setCurrentStep(validation.step);
+      setErrors(validation.errors);
+      toast.error(validation.firstErrorMessage, { id: 'field-validation' });
+      scrollToAndFocusField(validation.firstFieldKey);
+      return;
     }
+
     setSaving(true);
     try {
-      await saveCurrentStepData({ profileCompletionPercent: 100 });
+      const saveRes = await saveCurrentStepData({ profileCompletionPercent: 100 });
+      const savedProfile = saveRes?.data;
+
       if (photoPreview) {
         try {
           await api.post('/profiles/photos', {
@@ -688,20 +760,43 @@ const ProfileCompletePage = () => {
         }
       }
 
+      setIsCompleted(true);
+
       // Immediately set 100% completion in local Zustand authStore so guard passes instantly
       const currentUser = useAuthStore.getState().user;
       if (currentUser) {
         useAuthStore.getState().setUser({
           ...currentUser,
           profileCompletionPercent: 100,
+          firstName: form.firstName || currentUser.firstName,
+          lastName: form.lastName || currentUser.lastName,
+          displayName: `${form.firstName || ''} ${form.lastName || ''}`.trim() || currentUser.displayName,
         });
       }
 
+      // Update React Query caches so all layout / dashboard / profile views immediately reflect 100% completion
+      queryClient.setQueryData(['my-profile'], (old: any) => ({
+        ...(old || {}),
+        ...(savedProfile || {}),
+        profileCompletionPercent: 100,
+      }));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['my-profile'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] }),
+        queryClient.invalidateQueries({ queryKey: ['recommended-profiles'] }),
+      ]);
+
+      // Notify any listeners of profile completion
+      window.dispatchEvent(new Event('s2s_permissions_updated'));
+
+      // Sync fresh auth tokens & session details in background
       await fetchMe().catch(() => null);
-      toast.success('🎉 Profile completed successfully!');
+
+      toast.success('🎉 Profile completed successfully! Welcome to your dashboard.');
       navigate('/dashboard');
     } catch (err: any) {
       console.error('Submit profile error:', err);
+      setIsCompleted(true);
       const currentUser = useAuthStore.getState().user;
       if (currentUser) {
         useAuthStore.getState().setUser({
@@ -709,6 +804,12 @@ const ProfileCompletePage = () => {
           profileCompletionPercent: 100,
         });
       }
+      queryClient.setQueryData(['my-profile'], (old: any) => ({
+        ...(old || {}),
+        profileCompletionPercent: 100,
+      }));
+      await queryClient.invalidateQueries({ queryKey: ['my-profile'] });
+      window.dispatchEvent(new Event('s2s_permissions_updated'));
       toast.success('🎉 Profile saved! Redirecting to dashboard...');
       navigate('/dashboard');
     } finally {
@@ -745,14 +846,14 @@ const ProfileCompletePage = () => {
   // Step Renderers
   const renderStep0 = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      <Input label="First Name" required value={form.firstName} onChange={(e: any) => set('firstName', e.target.value)} error={errors.firstName} placeholder="e.g. Aravindhan" />
-      <Input label="Last Name" required value={form.lastName} onChange={(e: any) => set('lastName', e.target.value)} error={errors.lastName} placeholder="e.g. Ravi" />
-      <Select label="Gender" required value={form.gender} onChange={(e: any) => set('gender', e.target.value)} error={errors.gender}>
+      <Input id="firstName" name="firstName" label="First Name" required value={form.firstName} onChange={(e: any) => set('firstName', e.target.value)} error={errors.firstName} placeholder="e.g. Aravindhan" />
+      <Input id="lastName" name="lastName" label="Last Name" required value={form.lastName} onChange={(e: any) => set('lastName', e.target.value)} error={errors.lastName} placeholder="e.g. Ravi" />
+      <Select id="gender" name="gender" label="Gender" required value={form.gender} onChange={(e: any) => set('gender', e.target.value)} error={errors.gender}>
         <option value="MALE">Male</option>
         <option value="FEMALE">Female</option>
       </Select>
-      <Input label="Date of Birth" required type="date" value={form.dateOfBirth} onChange={(e: any) => set('dateOfBirth', e.target.value)} error={errors.dateOfBirth} />
-      <Select label="Birth Order (குழந்தை எண்)" value={form.birthOrder} onChange={(e: any) => set('birthOrder', e.target.value)}>
+      <Input id="dateOfBirth" name="dateOfBirth" label="Date of Birth" required type="date" value={form.dateOfBirth} onChange={(e: any) => set('dateOfBirth', e.target.value)} error={errors.dateOfBirth} />
+      <Select id="birthOrder" name="birthOrder" label="Birth Order (குழந்தை எண்)" value={form.birthOrder} onChange={(e: any) => set('birthOrder', e.target.value)}>
         <option value="">Select Birth Order</option>
         <option value="1">1st Child (முதல் குழந்தை)</option>
         <option value="2">2nd Child (இரண்டாம் குழந்தை)</option>
@@ -760,18 +861,18 @@ const ProfileCompletePage = () => {
         <option value="4">4th Child</option>
         <option value="5">5th Child or Later</option>
       </Select>
-      <Select label="Marital Status" required value={form.maritalStatus} onChange={(e: any) => set('maritalStatus', e.target.value)} error={errors.maritalStatus}>
+      <Select id="maritalStatus" name="maritalStatus" label="Marital Status" required value={form.maritalStatus} onChange={(e: any) => set('maritalStatus', e.target.value)} error={errors.maritalStatus}>
         <option value="NEVER_MARRIED">Never Married</option>
         <option value="DIVORCED">Divorced</option>
         <option value="WIDOWED">Widowed</option>
         <option value="AWAITING_DIVORCE">Awaiting Divorce</option>
       </Select>
-      <Select label="Mother Tongue" required value={form.motherTongue} onChange={(e: any) => set('motherTongue', e.target.value)} error={errors.motherTongue}>
+      <Select id="motherTongue" name="motherTongue" label="Mother Tongue" required value={form.motherTongue} onChange={(e: any) => set('motherTongue', e.target.value)} error={errors.motherTongue}>
         {['Tamil', 'Telugu', 'Malayalam', 'Kannada', 'Hindi', 'Bengali', 'Marathi', 'Gujarati', 'Punjabi', 'English', 'Other'].map(t => (
           <option key={t} value={t}>{t}</option>
         ))}
       </Select>
-      <Select label="Height (cm)" value={form.heightCm} onChange={(e: any) => set('heightCm', e.target.value)}>
+      <Select id="heightCm" name="heightCm" label="Height (cm)" value={form.heightCm} onChange={(e: any) => set('heightCm', e.target.value)}>
         <option value="">Select height</option>
         {Array.from({ length: 71 }, (_, i) => 140 + i).map(h => (
           <option key={h} value={h}>{h} cm ({Math.floor(h / 30.48)}' {Math.round((h % 30.48) / 2.54)}")</option>
@@ -797,7 +898,7 @@ const ProfileCompletePage = () => {
         <option value="HEAVY">Heavy</option>
       </Select>
       <div className="sm:col-span-2">
-        <Textarea label="About Me" required value={form.aboutMe} onChange={(e: any) => set('aboutMe', e.target.value)} error={errors.aboutMe} placeholder="Write a few lines about your personality, hobbies, family background, and expectations..." />
+        <Textarea id="aboutMe" name="aboutMe" label="About Me" required value={form.aboutMe} onChange={(e: any) => set('aboutMe', e.target.value)} error={errors.aboutMe} placeholder="Write a few lines about your personality, hobbies, family background, and expectations..." />
       </div>
     </div>
   );
@@ -831,7 +932,7 @@ const ProfileCompletePage = () => {
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <Select label="Religion" required value={form.religion} onChange={(e: any) => set('religion', e.target.value)} error={errors.religion}>
+        <Select id="religion" name="religion" label="Religion" required value={form.religion} onChange={(e: any) => set('religion', e.target.value)} error={errors.religion}>
           {['Hindu', 'Muslim', 'Christian', 'Sikh', 'Jain', 'Buddhist', 'Parsi', 'Other'].map(r => (
             <option key={r} value={r}>{r}</option>
           ))}
@@ -883,34 +984,34 @@ const ProfileCompletePage = () => {
         <Input label="Place of Birth" value={form.placeOfBirth} onChange={(e: any) => set('placeOfBirth', e.target.value)} placeholder="e.g. Chennai, Madurai" />
 
         {/* Interactive Rasi & Navamsam Chart Grids */}
-        <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+        <div className="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
           {/* RASI CHART */}
           <div className="border-2 border-rose-900 rounded-lg overflow-hidden">
             <div className="bg-rose-900 text-white font-bold text-xs uppercase px-3 py-1.5 flex items-center justify-between">
               <span>RASI CHART (ராசி கட்டம்)</span>
               <span className="text-[10px] text-amber-200">Click box to add/remove planets</span>
             </div>
-            <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 aspect-square text-[10px]">
+            <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 sm:aspect-square text-[10px]">
               {HOUSES.map((h) => {
                 const planetsStr = (form.rasiChart as Record<string, string>)[h.id] || '';
                 return (
                   <div key={h.id} style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
-                    className="bg-rose-50/90 hover:bg-amber-100 p-1 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[55px] transition">
-                    <div className="font-bold text-rose-950 text-[8px]">{h.tamil}</div>
-                    <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[9px]">
+                    className="bg-rose-50/90 hover:bg-amber-100 p-1 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[88px] sm:min-h-[75px] transition overflow-hidden">
+                    <div className="font-bold text-rose-950 text-[8px] leading-tight truncate">{h.tamil}</div>
+                    <div className="font-extrabold text-slate-900 text-center leading-tight my-0.5 text-[9px] break-words">
                       {planetsStr || <span className="text-slate-300 text-[7px] font-normal">+ add</span>}
                     </div>
-                    <div className="flex flex-wrap gap-0.5 justify-center mt-0.5">
+                    <div className="flex flex-wrap gap-0.5 justify-center mt-auto">
                       {PLANETS.map((p) => (
                         <button key={p} type="button"
                           onClick={(e) => { e.stopPropagation(); togglePlanetChart('rasiChart', h.id, p); }}
-                          className={`px-0.5 rounded text-[6px] font-bold ${planetsStr.includes(p) ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>{p}</button>
+                          className={`px-0.5 py-0.5 rounded text-[6px] font-bold leading-none ${planetsStr.includes(p) ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>{p}</button>
                       ))}
                     </div>
                   </div>
                 );
               })}
-              <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex items-center justify-center font-extrabold text-rose-900 text-sm border-2 border-rose-900">RASI</div>
+              <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex items-center justify-center font-extrabold text-rose-900 text-xs sm:text-sm border-2 border-rose-900">RASI</div>
             </div>
           </div>
 
@@ -920,27 +1021,27 @@ const ProfileCompletePage = () => {
               <span>NAVAMSAM CHART (அம்ச கட்டம்)</span>
               <span className="text-[10px] text-amber-200">Click box to add/remove planets</span>
             </div>
-            <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 aspect-square text-[10px]">
+            <div className="grid grid-cols-4 grid-rows-4 gap-0.5 bg-rose-900 p-0.5 sm:aspect-square text-[10px]">
               {HOUSES.map((h) => {
                 const planetsStr = (form.amsamChart as Record<string, string>)[h.id] || '';
                 return (
                   <div key={h.id} style={{ gridRow: h.row + 1, gridColumn: h.col + 1 }}
-                    className="bg-rose-50/90 hover:bg-amber-100 p-1 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[55px] transition">
-                    <div className="font-bold text-rose-950 text-[8px]">{h.tamil}</div>
-                    <div className="font-extrabold text-slate-900 text-center leading-tight my-auto text-[9px]">
+                    className="bg-rose-50/90 hover:bg-amber-100 p-1 flex flex-col justify-between cursor-pointer border border-rose-200 min-h-[88px] sm:min-h-[75px] transition overflow-hidden">
+                    <div className="font-bold text-rose-950 text-[8px] leading-tight truncate">{h.tamil}</div>
+                    <div className="font-extrabold text-slate-900 text-center leading-tight my-0.5 text-[9px] break-words">
                       {planetsStr || <span className="text-slate-300 text-[7px] font-normal">+ add</span>}
                     </div>
-                    <div className="flex flex-wrap gap-0.5 justify-center mt-0.5">
+                    <div className="flex flex-wrap gap-0.5 justify-center mt-auto">
                       {PLANETS.map((p) => (
                         <button key={p} type="button"
                           onClick={(e) => { e.stopPropagation(); togglePlanetChart('amsamChart', h.id, p); }}
-                          className={`px-0.5 rounded text-[6px] font-bold ${planetsStr.includes(p) ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>{p}</button>
+                          className={`px-0.5 py-0.5 rounded text-[6px] font-bold leading-none ${planetsStr.includes(p) ? 'bg-rose-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>{p}</button>
                       ))}
                     </div>
                   </div>
                 );
               })}
-              <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex items-center justify-center font-extrabold text-rose-900 text-sm border-2 border-rose-900">NAVAMSAM</div>
+              <div className="col-start-2 col-span-2 row-start-2 row-span-2 bg-white flex items-center justify-center font-extrabold text-rose-900 text-xs sm:text-sm border-2 border-rose-900">NAVAMSAM</div>
             </div>
           </div>
         </div>
@@ -950,7 +1051,7 @@ const ProfileCompletePage = () => {
 
   const renderStep2 = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      <Select label="Highest Qualification" required value={form.education} onChange={(e: any) => set('education', e.target.value)} error={errors.education}>
+      <Select id="education" name="education" label="Highest Qualification" required value={form.education} onChange={(e: any) => set('education', e.target.value)} error={errors.education}>
         <option value="">Select Qualification</option>
         {['MBA', 'BBA / MBA', 'B.E / B.Tech', 'M.E / M.Tech', 'B.Sc / M.Sc', 'B.Com / M.Com', 'BCA / MCA', 'MBBS / MD', 'BDS / MDS', 'B.Pharm / M.Pharm', 'CA / CS / ICWA', 'LLB / LLM', 'PhD / Doctorate', 'Diploma / ITI', 'High School', 'Other'].map(e => (
           <option key={e} value={e}>{e}</option>
@@ -966,7 +1067,7 @@ const ProfileCompletePage = () => {
 
       <Input label="College / University" value={form.college} onChange={(e: any) => set('college', e.target.value)} placeholder="e.g. Madras Medical College, Anna University" />
 
-      <Select label="Occupation" required value={form.occupation} onChange={(e: any) => set('occupation', e.target.value)} error={errors.occupation}>
+      <Select id="occupation" name="occupation" label="Occupation" required value={form.occupation} onChange={(e: any) => set('occupation', e.target.value)} error={errors.occupation}>
         <option value="">Select Occupation</option>
         {['Software Engineer', 'Manager / Executive', 'Doctor / Healthcare', 'Teacher / Professor', 'Civil Engineer', 'Chartered Accountant', 'Business / Entrepreneur', 'Government Service', 'Defense Service', 'Banker / Financial', 'Architect / Designer', 'Consultant', 'Student', 'Not Employed', 'Other'].map(o => (
           <option key={o} value={o}>{o}</option>
@@ -999,9 +1100,9 @@ const ProfileCompletePage = () => {
 
   const renderStep3 = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-      <Input label="Country" required value={form.country} onChange={(e: any) => set('country', e.target.value)} error={errors.country} />
-      <Input label="State" required value={form.state} onChange={(e: any) => set('state', e.target.value)} error={errors.state} placeholder="e.g. Tamil Nadu" />
-      <Input label="City" required value={form.city} onChange={(e: any) => set('city', e.target.value)} error={errors.city} placeholder="e.g. Chennai, Coimbatore" />
+      <Input id="country" name="country" label="Country" required value={form.country} onChange={(e: any) => set('country', e.target.value)} error={errors.country} />
+      <Input id="state" name="state" label="State" required value={form.state} onChange={(e: any) => set('state', e.target.value)} error={errors.state} placeholder="e.g. Tamil Nadu" />
+      <Input id="city" name="city" label="City" required value={form.city} onChange={(e: any) => set('city', e.target.value)} error={errors.city} placeholder="e.g. Chennai, Coimbatore" />
       <Input label="Citizenship" value={form.citizenship} onChange={(e: any) => set('citizenship', e.target.value)} />
       <Select label="Residence Status" value={form.residenceStatus} onChange={(e: any) => set('residenceStatus', e.target.value)}>
         <option value="Citizen">Citizen</option>
@@ -1239,8 +1340,8 @@ const ProfileCompletePage = () => {
       <div>
         <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Age Range <span className="text-rose-500">*</span></label>
         <div className="grid grid-cols-2 gap-3 mt-2">
-          <Input label="Min Age" required type="number" value={form.prefAgeMin} onChange={(e: any) => set('prefAgeMin', e.target.value)} min="18" max="70" error={errors.prefAgeMin} />
-          <Input label="Max Age" required type="number" value={form.prefAgeMax} onChange={(e: any) => set('prefAgeMax', e.target.value)} min="18" max="70" error={errors.prefAgeMax} />
+          <Input id="prefAgeMin" name="prefAgeMin" label="Min Age" required type="number" value={form.prefAgeMin} onChange={(e: any) => set('prefAgeMin', e.target.value)} min="18" max="70" error={errors.prefAgeMin} />
+          <Input id="prefAgeMax" name="prefAgeMax" label="Max Age" required type="number" value={form.prefAgeMax} onChange={(e: any) => set('prefAgeMax', e.target.value)} min="18" max="70" error={errors.prefAgeMax} />
         </div>
       </div>
       <div>
@@ -1421,12 +1522,14 @@ const ProfileCompletePage = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         
         {/* Warning Banner */}
-        <div className="mb-6 bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4 flex items-center gap-3 shadow-sm">
-          <AlertCircle className="w-5 h-5 text-primary flex-shrink-0" />
-          <p className="text-sm text-rose-900 font-medium">
-            <strong className="text-primary font-bold">Profile completion required.</strong> Please complete all sections to unlock your dashboard, search, and matches.
-          </p>
-        </div>
+        {progress < 100 && (
+          <div className="mb-6 bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4 flex items-center gap-3 shadow-sm">
+            <AlertCircle className="w-5 h-5 text-primary flex-shrink-0" />
+            <p className="text-sm text-rose-900 font-medium">
+              <strong className="text-primary font-bold">Profile completion required.</strong> Please complete all sections to unlock your dashboard, search, and matches.
+            </p>
+          </div>
+        )}
 
         {/* Step Card */}
         <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
@@ -1454,54 +1557,68 @@ const ProfileCompletePage = () => {
           </div>
 
           {/* Step Form */}
-          <div className="p-6 sm:p-8">
+          <div className="p-4 sm:p-8">
             {stepRenderers[currentStep]()}
           </div>
 
           {/* Footer Actions */}
-          <div className="px-6 sm:px-8 pb-6 flex items-center justify-between border-t border-slate-100 pt-5">
-            <div className="flex items-center gap-3">
+          <div className="px-3.5 sm:px-8 pb-5 sm:pb-6 flex items-center justify-between gap-1.5 sm:gap-3 border-t border-slate-100 pt-4 sm:pt-5 w-full">
+            <div className="flex items-center gap-1.5 sm:gap-3">
               <button
                 type="button"
                 onClick={prev}
                 disabled={currentStep === 0}
-                className="flex items-center gap-2 px-4 py-2.5 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="flex items-center justify-center gap-1 sm:gap-2 h-10 px-2.5 sm:px-4 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all whitespace-nowrap"
               >
-                <ChevronLeft className="w-4 h-4" />
-                Previous
+                <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span>Previous</span>
               </button>
 
               <button
                 type="button"
                 onClick={saveDraft}
                 disabled={saving || (currentStep === 4 && hasSiblingErrors)}
-                className="flex items-center gap-2 px-4 py-2.5 border border-primary/30 text-primary rounded-xl text-xs font-bold hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex items-center justify-center gap-1 sm:gap-2 h-10 px-2.5 sm:px-4 py-2 border border-primary/30 text-primary rounded-xl text-xs font-bold hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
               >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                Save Draft
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" /> : null}
+                <span>Save Draft</span>
               </button>
             </div>
 
             {isLastStep ? (
               <button
                 type="button"
+                id="complete-profile-btn"
                 onClick={handleSubmit}
                 disabled={saving || hasSiblingErrors}
-                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="flex items-center justify-center gap-1.5 sm:gap-2 h-10 px-3 sm:px-6 py-2 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
               >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                Complete Profile & Continue
+                {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" /> : <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />}
+                <span className="hidden sm:inline">Complete Profile & Continue</span>
+                <span className="sm:hidden">Complete</span>
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={next}
-                disabled={saving || (currentStep === 4 && hasSiblingErrors)}
-                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                Next Step
-                <ChevronRight className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  id="complete-profile-btn"
+                  onClick={handleSubmit}
+                  disabled={saving || hasSiblingErrors}
+                  className="hidden sm:flex items-center justify-center gap-1.5 h-10 px-4 py-2 border border-primary text-primary hover:bg-primary/5 rounded-xl text-xs font-bold shadow-xs transition-all whitespace-nowrap"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>Complete Profile</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={next}
+                  disabled={saving || (currentStep === 4 && hasSiblingErrors)}
+                  className="flex items-center justify-center gap-1 sm:gap-2 h-10 px-3 sm:px-6 py-2 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+                >
+                  <span>Next Step</span>
+                  <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                </button>
+              </div>
             )}
           </div>
 

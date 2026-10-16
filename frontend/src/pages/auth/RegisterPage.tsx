@@ -119,7 +119,7 @@ const RegisterPage = () => {
   ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center relative overflow-x-hidden py-8 sm:py-12 px-3 sm:px-6 lg:px-8 w-full max-w-full">
       {/* Background Image with Rich Overlay */}
       <div 
         className="absolute inset-0 bg-cover bg-center opacity-70"
@@ -132,8 +132,8 @@ const RegisterPage = () => {
       <div className="absolute top-1/4 -left-32 w-96 h-96 bg-amber-500/30 rounded-full blur-3xl animate-pulse-slow" />
       <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-primary/30 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
 
-      <div className="container relative z-10 mx-auto px-4 md:px-8">
-        <div className="grid lg:grid-cols-12 gap-12 items-center">
+      <div className="container relative z-10 mx-auto px-0 sm:px-4 md:px-8 max-w-full w-full min-w-0">
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center w-full min-w-0 max-w-full justify-center">
           {/* Left Column: Glassmorphic Hero Showcase */}
           <div className="lg:col-span-6 animate-slide-up hidden lg:block">
             <div className="p-8 sm:p-10 rounded-3xl bg-black/15 border border-white/20 backdrop-blur-sm shadow-xl space-y-6">
@@ -197,12 +197,12 @@ const RegisterPage = () => {
           </div>
 
           {/* Right Column: Unified Glassmorphic Card with Big Top Logo */}
-          <div className="lg:col-span-6 flex justify-center">
-            <div className="w-full max-w-lg bg-white/95 backdrop-blur-2xl p-8 rounded-3xl shadow-2xl border border-slate-200/80 animate-scale-in">
+          <div className="lg:col-span-6 flex justify-center w-full mx-auto">
+            <div className="w-full max-w-lg bg-white/95 backdrop-blur-2xl p-4 sm:p-8 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200/80 animate-scale-in mx-auto">
               {/* Header inside Card — Big Logo centered at Top */}
-              <div className="text-center mb-6">
+              <div className="text-center mb-5 sm:mb-6">
                 <Link to="/" className="inline-flex flex-col items-center gap-2 mb-3 group">
-                  <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-36 h-36 sm:w-44 sm:h-44 object-contain rounded-3xl p-1.5 bg-white shadow-xl group-hover:scale-105 transition-transform border border-slate-100" />
+                  <img src={logoUrl || "/images/logo.png"} alt="S2S Matrimony Logo" className="w-32 h-32 sm:w-44 sm:h-44 object-contain rounded-3xl p-1.5 bg-white shadow-xl group-hover:scale-105 transition-transform border border-slate-100" />
                 </Link>
                 <h2 className="font-display text-2xl font-bold text-slate-900">Create Free Account</h2>
                 <p className="text-slate-500 text-xs mt-1">Join 50,000+ members and find your match</p>
@@ -220,13 +220,13 @@ const RegisterPage = () => {
               </div>
 
               {/* Step Progress Bar */}
-              <div className="flex items-center mb-6 px-1">
+              <div className="flex items-center justify-between mb-3 sm:mb-6 px-1 w-full">
                 {STEPS.map((s, i) => (
                   <div key={i} className="flex items-center flex-1 last:flex-none">
-                    <div className={`step-circle ${i < step ? 'step-completed' : i === step ? 'step-active' : 'step-inactive'}`}>
+                    <div className={`step-circle flex-shrink-0 ${i < step ? 'step-completed' : i === step ? 'step-active' : 'step-inactive'}`}>
                       {i < step ? '✓' : i + 1}
                     </div>
-                    <div className="flex-1 flex flex-col items-start ml-2 last:hidden">
+                    <div className="hidden sm:flex flex-1 flex-col items-start ml-2 last:hidden">
                       <span className={`text-[11px] font-bold ${i <= step ? 'text-text-primary' : 'text-text-muted'}`}>{s}</span>
                     </div>
                     {i < STEPS.length - 1 && (
@@ -235,6 +235,7 @@ const RegisterPage = () => {
                   </div>
                 ))}
               </div>
+              <p className="text-center text-xs font-bold text-slate-700 sm:hidden mb-5">Step {step + 1}: {STEPS[step]}</p>
 
               <form 
                 autoComplete="off"

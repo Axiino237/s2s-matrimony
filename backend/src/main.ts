@@ -30,8 +30,8 @@ async function bootstrap() {
   });
 
   // Middleware — Body limits & cookie parser
-  app.use(json({ limit: '15mb' }));
-  app.use(urlencoded({ limit: '15mb', extended: true }));
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ limit: '50mb', extended: true }));
   app.use(cookieParser());
 
   // CORS
@@ -73,7 +73,10 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = configService.get('PORT', 3001);
-  await app.listen(port);
+  const server = await app.listen(port);
+  if (server && typeof server.setTimeout === 'function') {
+    server.setTimeout(300000);
+  }
 
   logger.log(`🚀 S2S Matrimony API running on http://localhost:${port}`);
   logger.log(`📚 Swagger docs at http://localhost:${port}/api/docs`);

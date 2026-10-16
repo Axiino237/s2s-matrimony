@@ -56,8 +56,25 @@ export const profilesApi = {
     return res.data.data || res.data;
   },
 
+  uploadHoroscopeFile: async (horoscopeFile: string | string[]) => {
+    const payload = typeof horoscopeFile === 'string' ? { horoscopeFile } : { files: horoscopeFile };
+    const res = await api.post('/profiles/horoscope-file', payload);
+    return res.data.data || res.data;
+  },
+
+  deleteHoroscopeFile: async (fileIdentifier?: string | number) => {
+    const res = await api.delete('/profiles/horoscope-file', {
+      data: fileIdentifier !== undefined ? { fileIdentifier } : undefined,
+    });
+    return res.data.data || res.data;
+  },
+
   parseBiodata: async (text: string, imageBase64?: string, fileName?: string) => {
-    const res = await api.post('/profiles/parse-biodata', { text, imageBase64, fileName });
+    const res = await api.post(
+      '/profiles/parse-biodata',
+      { text, imageBase64, fileName },
+      { timeout: 150000 }
+    );
     return res.data.data || res.data;
   },
 

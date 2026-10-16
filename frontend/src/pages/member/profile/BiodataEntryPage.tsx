@@ -1,12 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Save, ArrowLeft, Printer, Sparkles, CheckCircle2, Upload, FileText, KeyRound, Eye, EyeOff, ShieldCheck, RotateCcw, Share2, MessageCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Save, ArrowLeft, Printer, Sparkles, CheckCircle2, Upload, FileText, KeyRound, Eye, EyeOff, ShieldCheck, RotateCcw, Share2, MessageCircle, Loader2, AlertCircle, Moon, Download, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../../services/api';
 import { profilesApi } from '../../../services/profiles.service';
 import { useAuthStore } from '../../../store/auth.store';
 import { useSettingsStore } from '../../../store/settings.store';
 import { STARS, RASIS, DOSHAMS, CASTE_SUBCASTES, BILINGUAL_STARS, BILINGUAL_RASIS, normalizeStar, normalizeRasi } from '../../../constants/index';
+import {
+  getEffectiveUploadLimits,
+  validateFileBatch,
+  parseHoroscopeFiles,
+  serializeHoroscopeFiles,
+  ParsedHoroscopeFileItem,
+} from '../../../utils/upload-limits';
 
 // Planet choices for 12-box chart grids
 const PLANETS = ['சூரி (Sun)', 'சந் (Moon)', 'செவ் (Mars)', 'புத (Merc)', 'குரு (Jup)', 'சுக் (Ven)', 'சனி (Sat)', 'ராகு (Rahu)', 'கேது (Ketu)', 'லக் (Lag)'];
@@ -32,6 +39,29 @@ export default function BiodataEntryPage() {
   const { user } = useAuthStore();
   const enableBiodataForm = useSettingsStore((s) => s.enableBiodataForm);
   const logoUrl = useSettingsStore((s) => s.logoUrl);
+
+  const maxBiodataFileSizeMb = useSettingsStore((s) => s.maxBiodataFileSizeMb);
+  const maxBiodataFilesCount = useSettingsStore((s) => s.maxBiodataFilesCount);
+  const maxProfilePhotoSizeMb = useSettingsStore((s) => s.maxProfilePhotoSizeMb);
+  const maxProfilePhotosCount = useSettingsStore((s) => s.maxProfilePhotosCount);
+  const maxHoroscopeFileSizeMb = useSettingsStore((s) => s.maxHoroscopeFileSizeMb);
+  const maxHoroscopeFilesCount = useSettingsStore((s) => s.maxHoroscopeFilesCount);
+
+  const limits = useMemo(() => getEffectiveUploadLimits({
+    maxBiodataFileSizeMb,
+    maxBiodataFilesCount,
+    maxProfilePhotoSizeMb,
+    maxProfilePhotosCount,
+    maxHoroscopeFileSizeMb,
+    maxHoroscopeFilesCount,
+  }), [
+    maxBiodataFileSizeMb,
+    maxBiodataFilesCount,
+    maxProfilePhotoSizeMb,
+    maxProfilePhotosCount,
+    maxHoroscopeFileSizeMb,
+    maxHoroscopeFilesCount,
+  ]);
 
   if (enableBiodataForm === false) {
     return (
@@ -115,6 +145,7 @@ export default function BiodataEntryPage() {
     showPassword: false,
     isEmailVerified: false,
     isPhoneVerified: false,
+    horoscopeFile: '',
     rasiChart: {} as Record<string, string>,
     amsamChart: {} as Record<string, string>,
   };
@@ -287,6 +318,7 @@ export default function BiodataEntryPage() {
           phone: p.user?.phone || p.phone || p.mobile || '',
           isEmailVerified: Boolean(p.user?.isEmailVerified ?? p.isEmailVerified ?? false),
           isPhoneVerified: Boolean(p.user?.isPhoneVerified ?? p.isPhoneVerified ?? false),
+          horoscopeFile: p.horoscope?.horoscopeFile || p.horoscopeFile || '',
           rasiChart: p.rasiChart || p.horoscope?.rasiChart || hData.rasiChart || {},
           amsamChart: p.amsamChart || p.horoscope?.amsamChart || hData.amsamChart || (hData as any).navamsamChart || {},
         }));
@@ -336,8 +368,14 @@ export default function BiodataEntryPage() {
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Photo size must be less than 10MB');
+    if (file.size > limits.maxProfilePhotoSizeMb * 1024 * 1024) {
+      toast.error(`Photo size must be less than ${limits.maxProfilePhotoSizeMb} MB`);
+      return;
+    }
+    const nameLower = file.name.toLowerCase();
+    const isImage = /\.(jpe?g|png|webp)$/i.test(nameLower) || file.type.startsWith('image/');
+    if (!isImage) {
+      toast.error('Unsupported photo format. Please upload a JPEG, PNG, or WebP image.');
       return;
     }
     const reader = new FileReader();
@@ -348,8 +386,9 @@ export default function BiodataEntryPage() {
         try {
           await api.post('/profiles/photos', { url: dataUrl, isMain: true });
           toast.success('Photo updated!');
-        } catch (err) {
-          console.warn('Photo upload notice:', err);
+        } catch (err: any) {
+          const msg = err?.response?.data?.message || err?.message || 'Photo upload notice';
+          toast.error(Array.isArray(msg) ? msg.join(', ') : msg);
         }
       }
     };
@@ -444,11 +483,13 @@ export default function BiodataEntryPage() {
         birthTime: form.birthTime || undefined,
         birthPlace: form.birthPlace || undefined,
         aboutPartner: form.expectation || undefined,
+        horoscopeFile: form.horoscopeFile || undefined,
         rasiChart: form.rasiChart,
         amsamChart: form.amsamChart,
         horoscopeData: {
           rasiChart: form.rasiChart,
           amsamChart: form.amsamChart,
+          horoscopeFile: form.horoscopeFile || undefined,
         },
       };
 
@@ -751,8 +792,11 @@ export default function BiodataEntryPage() {
 
               <label className="no-print mt-2 cursor-pointer bg-rose-900 hover:bg-rose-950 text-white text-[11px] font-bold py-1 px-2.5 rounded shadow-sm transition flex items-center gap-1">
                 <Upload className="w-3 h-3" /> Upload Photo
-                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoSelect} />
               </label>
+              <span className="no-print text-[10px] text-slate-500 mt-1 font-medium text-center">
+                Max {limits.maxProfilePhotoSizeMb} MB (JPEG, PNG, WebP)
+              </span>
             </div>
 
             {/* Inputs: 1 column on mobile, 2 columns on tablet/desktop */}
@@ -1303,6 +1347,70 @@ export default function BiodataEntryPage() {
                 />
               </div>
             </div>
+
+            {/* Previously Attached Horoscope Documents (Preserved for existing profiles) */}
+            {parseHoroscopeFiles(form.horoscopeFile).length > 0 && (
+              <div className="no-print mt-3 pt-3 border-t border-slate-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-amber-900 text-xs flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-amber-700 shrink-0" /> Attached Horoscope Documents:
+                  </span>
+                  <span className="text-[10px] font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-full">
+                    {parseHoroscopeFiles(form.horoscopeFile).length} Attached
+                  </span>
+                </div>
+
+                <div className="space-y-2 mb-2">
+                  {parseHoroscopeFiles(form.horoscopeFile).map((item, idx) => (
+                    <div
+                      key={item.url || idx}
+                      className="flex items-center justify-between p-2.5 bg-amber-50/70 border border-amber-300 rounded-lg gap-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="w-4 h-4 text-amber-700 shrink-0" />
+                        <span className="text-xs font-bold text-slate-800 truncate">
+                          {item.name || `Horoscope File #${idx + 1}`}
+                        </span>
+                        {item.size ? (
+                          <span className="text-[10px] text-slate-500 shrink-0">
+                            ({(item.size / (1024 * 1024)).toFixed(2)} MB)
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <a
+                          href={item.url}
+                          download={item.name || `Horoscope_Document_${idx + 1}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 px-2 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded font-bold text-[11px] flex items-center gap-1 shadow-2xs"
+                        >
+                          <Download className="w-3 h-3" /> View / Download
+                        </a>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const existingFiles = parseHoroscopeFiles(form.horoscopeFile);
+                            const updated = existingFiles.filter((_, i) => i !== idx);
+                            const serialized = serializeHoroscopeFiles(updated);
+                            handleSet('horoscopeFile', serialized || '');
+                            try {
+                              await profilesApi.deleteHoroscopeFile(item.url);
+                              toast.success('Horoscope file removed.');
+                            } catch {
+                              toast.success('Horoscope file removed.');
+                            }
+                          }}
+                          className="p-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded font-bold text-[11px] flex items-center gap-1 shadow-2xs"
+                        >
+                          <XCircle className="w-3 h-3" /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

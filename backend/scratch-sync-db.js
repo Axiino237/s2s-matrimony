@@ -1,8 +1,9 @@
+require('dotenv').config();
 const { Client } = require('pg');
 
 async function sync() {
   const client = new Client({
-    connectionString: 'postgresql://postgres:password@localhost:5432/s2s_matrimony',
+    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5433/s2s_matrimony?schema=public',
   });
   await client.connect();
 

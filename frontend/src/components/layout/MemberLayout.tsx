@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth.store';
 import { profilesApi } from '../../services/profiles.service';
 import { MembershipBadge } from '../common/MembershipBadge';
@@ -60,11 +60,15 @@ const MemberSidebar = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, isPremium, logout, hasPermission, isSuperAdmin } = useAuthStore();
   const logoUrl = useSettingsStore((s) => s.logoUrl);
   const [, setRefreshKey] = useState(0);
 
-  const profileCompletion = myProfile?.profileCompletionPercent ?? (user as any)?.profileCompletionPercent ?? 0;
+  const profileCompletion = Math.max(
+    myProfile?.profileCompletionPercent ?? 0,
+    (user as any)?.profileCompletionPercent ?? 0
+  );
   const isProfileComplete = profileCompletion >= 100;
 
   const rawTier = (
@@ -90,10 +94,13 @@ const MemberSidebar = ({
   const initialChar = resolvedFirstName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'M';
 
   useEffect(() => {
-    const handlePermUpdate = () => setRefreshKey((k) => k + 1);
+    const handlePermUpdate = () => {
+      setRefreshKey((k) => k + 1);
+      queryClient.refetchQueries({ queryKey: ['my-profile'] });
+    };
     window.addEventListener('s2s_permissions_updated', handlePermUpdate);
     return () => window.removeEventListener('s2s_permissions_updated', handlePermUpdate);
-  }, []);
+  }, [queryClient]);
 
   const memberCategory = (
     user?.membershipCategory ||
@@ -394,7 +401,10 @@ const MemberLayout = () => {
 
     if (!isMember) return;
 
-    const completion = myProfile?.profileCompletionPercent ?? (user as any)?.profileCompletionPercent ?? 0;
+    const completion = Math.max(
+      myProfile?.profileCompletionPercent ?? 0,
+      (user as any)?.profileCompletionPercent ?? 0
+    );
     const hasBeenRedirected = sessionStorage.getItem('onboarding_auto_redirected');
 
     if (completion < 100 && !hasBeenRedirected && location.pathname !== '/complete-profile') {

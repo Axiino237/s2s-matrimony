@@ -76,10 +76,10 @@ const ProfileViewersPage = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const profileCompletion =
-    myProfile?.profileCompletionPercent ??
-    (user as any)?.profileCompletionPercent ??
-    (user?.firstName ? 100 : 0);
+  const profileCompletion = Math.max(
+    myProfile?.profileCompletionPercent ?? 0,
+    (user as any)?.profileCompletionPercent ?? 0
+  );
   const isProfileComplete = profileCompletion >= 100;
 
   const { data: rawViewers = [], isLoading } = useQuery({

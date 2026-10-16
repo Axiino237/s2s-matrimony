@@ -1061,6 +1061,12 @@ export class AdminService {
       twitterUrl: 'https://x.com/s2smatrimony',
       youtubeUrl: 'https://www.youtube.com/@s2smatrimony',
       eliteQualificationThreshold: 50000000,
+      maxBiodataFileSizeMb: 10,
+      maxBiodataFilesCount: 10,
+      maxProfilePhotoSizeMb: 5,
+      maxProfilePhotosCount: 5,
+      maxHoroscopeFileSizeMb: 10,
+      maxHoroscopeFilesCount: 2,
       ...merged,
     };
   }
@@ -1072,6 +1078,24 @@ export class AdminService {
       const merged = { ...current, ...data };
       if (data.eliteQualificationThreshold !== undefined) {
         merged.eliteQualificationThreshold = Number(data.eliteQualificationThreshold) || 50000000;
+      }
+      if (data.maxBiodataFileSizeMb !== undefined) {
+        merged.maxBiodataFileSizeMb = Math.max(1, Number(data.maxBiodataFileSizeMb) || 10);
+      }
+      if (data.maxBiodataFilesCount !== undefined) {
+        merged.maxBiodataFilesCount = Math.max(1, Number(data.maxBiodataFilesCount) || 10);
+      }
+      if (data.maxProfilePhotoSizeMb !== undefined) {
+        merged.maxProfilePhotoSizeMb = Math.max(1, Number(data.maxProfilePhotoSizeMb) || 5);
+      }
+      if (data.maxProfilePhotosCount !== undefined) {
+        merged.maxProfilePhotosCount = Math.max(1, Number(data.maxProfilePhotosCount) || 5);
+      }
+      if (data.maxHoroscopeFileSizeMb !== undefined) {
+        merged.maxHoroscopeFileSizeMb = Math.max(1, Number(data.maxHoroscopeFileSizeMb) || 10);
+      }
+      if (data.maxHoroscopeFilesCount !== undefined) {
+        merged.maxHoroscopeFilesCount = Math.max(1, Number(data.maxHoroscopeFilesCount) || 2);
       }
       if (data.maintenanceMode !== undefined) {
         const isMaint = Boolean(data.maintenanceMode === true || data.maintenanceMode === 'true');

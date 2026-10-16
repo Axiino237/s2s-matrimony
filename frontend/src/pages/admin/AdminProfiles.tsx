@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { UserCheck, CheckCircle2, X, Eye, Loader2, RefreshCw, User, Briefcase, GraduationCap, Users, Moon, Heart, MapPin, Phone, Mail, Award, Sparkles, Crown } from 'lucide-react';
+import { UserCheck, CheckCircle2, X, Eye, Loader2, RefreshCw, User, Briefcase, GraduationCap, Users, Moon, Heart, MapPin, Phone, Mail, Award, Sparkles, Crown, Download, FileText } from 'lucide-react';
 import { adminApi } from '../../services/admin.service';
 import { AiBiodataModal } from '../../components/profile/AiBiodataModal';
+import { parseHoroscopeFiles } from '../../utils/upload-limits';
 
 type ProfileRecord = {
   id: string;
@@ -92,6 +93,7 @@ type ProfileRecord = {
     dosham?: string;
     birthTime?: string;
     birthPlace?: string;
+    horoscopeFile?: string;
   };
   partnerPreference?: {
     gender?: string;
@@ -719,6 +721,47 @@ const AdminProfiles = () => {
                       </div>
                     ))}
                   </div>
+
+                  {(() => {
+                    const files = parseHoroscopeFiles(viewProfile.horoscope?.horoscopeFile || (viewProfile as any).horoscopeFile);
+                    if (files.length === 0) return null;
+                    return (
+                      <div className="mt-3 space-y-2">
+                        {files.map((item, idx) => (
+                          <div
+                            key={item.url || idx}
+                            className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center justify-between gap-3"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shrink-0">
+                                <FileText className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-800 text-xs truncate">
+                                  {item.name || `Horoscope File #${idx + 1}`}
+                                </p>
+                                <p className="text-[10px] text-slate-500">
+                                  {item.size ? `${(item.size / (1024 * 1024)).toFixed(2)} MB • ` : ''}
+                                  Official Astrological Record #{idx + 1}
+                                </p>
+                              </div>
+                            </div>
+
+                            <a
+                              href={item.url}
+                              download={`${getName(viewProfile)}_Horoscope_${idx + 1}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-xs bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs shrink-0"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>View / Download #{idx + 1}</span>
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 

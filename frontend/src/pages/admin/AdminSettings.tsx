@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Settings, Save, Award, ShieldCheck, Loader2, Wrench, AlertTriangle } from 'lucide-react';
+import { Settings, Save, Award, ShieldCheck, Loader2, Wrench, AlertTriangle, Upload } from 'lucide-react';
 import api from '../../services/api';
 import { useSettingsStore } from '../../store/settings.store';
 
@@ -16,6 +16,14 @@ const AdminSettings = () => {
   const [otpExpiry, setOtpExpiry] = useState('5');
   const [eliteThreshold, setEliteThreshold] = useState('50000000');
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+
+  // Upload limits states
+  const [maxBiodataSize, setMaxBiodataSize] = useState('10');
+  const [maxBiodataCount, setMaxBiodataCount] = useState('10');
+  const [maxPhotoSize, setMaxPhotoSize] = useState('5');
+  const [maxPhotoCount, setMaxPhotoCount] = useState('5');
+  const [maxHoroscopeSize, setMaxHoroscopeSize] = useState('10');
+  const [maxHoroscopeCount, setMaxHoroscopeCount] = useState('2');
 
   useEffect(() => {
     fetchSettings();
@@ -38,6 +46,12 @@ const AdminSettings = () => {
       } else if (data.isMaintenanceMode !== undefined) {
         setMaintenanceMode(data.isMaintenanceMode === true || data.isMaintenanceMode === 'true');
       }
+      if (data.maxBiodataFileSizeMb !== undefined) setMaxBiodataSize(String(data.maxBiodataFileSizeMb));
+      if (data.maxBiodataFilesCount !== undefined) setMaxBiodataCount(String(data.maxBiodataFilesCount));
+      if (data.maxProfilePhotoSizeMb !== undefined) setMaxPhotoSize(String(data.maxProfilePhotoSizeMb));
+      if (data.maxProfilePhotosCount !== undefined) setMaxPhotoCount(String(data.maxProfilePhotosCount));
+      if (data.maxHoroscopeFileSizeMb !== undefined) setMaxHoroscopeSize(String(data.maxHoroscopeFileSizeMb));
+      if (data.maxHoroscopeFilesCount !== undefined) setMaxHoroscopeCount(String(data.maxHoroscopeFilesCount));
     } catch {
       // Fallback to current settings store
       setMaintenanceMode(useSettingsStore.getState().maintenanceMode);
@@ -56,15 +70,37 @@ const AdminSettings = () => {
         otpExpiry: Number(otpExpiry) || 5,
         eliteQualificationThreshold: Number(eliteThreshold) || 50000000,
         maintenanceMode,
+        maxBiodataFileSizeMb: Number(maxBiodataSize) || 10,
+        maxBiodataFilesCount: Number(maxBiodataCount) || 10,
+        maxProfilePhotoSizeMb: Number(maxPhotoSize) || 5,
+        maxProfilePhotosCount: Number(maxPhotoCount) || 5,
+        maxHoroscopeFileSizeMb: Number(maxHoroscopeSize) || 10,
+        maxHoroscopeFilesCount: Number(maxHoroscopeCount) || 2,
       };
 
       await api.put('/admin/settings', payload);
-      useSettingsStore.getState().setSettings({ maintenanceMode });
+      useSettingsStore.getState().setSettings({
+        maintenanceMode,
+        maxBiodataFileSizeMb: payload.maxBiodataFileSizeMb,
+        maxBiodataFilesCount: payload.maxBiodataFilesCount,
+        maxProfilePhotoSizeMb: payload.maxProfilePhotoSizeMb,
+        maxProfilePhotosCount: payload.maxProfilePhotosCount,
+        maxHoroscopeFileSizeMb: payload.maxHoroscopeFileSizeMb,
+        maxHoroscopeFilesCount: payload.maxHoroscopeFilesCount,
+        uploadLimits: {
+          maxBiodataFileSizeMb: payload.maxBiodataFileSizeMb,
+          maxBiodataFilesCount: payload.maxBiodataFilesCount,
+          maxProfilePhotoSizeMb: payload.maxProfilePhotoSizeMb,
+          maxProfilePhotosCount: payload.maxProfilePhotosCount,
+          maxHoroscopeFileSizeMb: payload.maxHoroscopeFileSizeMb,
+          maxHoroscopeFilesCount: payload.maxHoroscopeFilesCount,
+        },
+      });
       setSaved(true);
       toast.success(
         maintenanceMode
           ? 'Settings saved: Site Maintenance Mode is ACTIVE!'
-          : 'Settings saved successfully!',
+          : 'Settings and upload limits saved successfully!',
       );
       setTimeout(() => setSaved(false), 3000);
     } catch {
@@ -240,6 +276,113 @@ const AdminSettings = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Document Upload & Storage Limits */}
+      <div className="card p-6 space-y-4 border border-slate-200">
+        <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+            <Upload className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-text-primary font-bold text-base">Document Upload & Storage Limits</h2>
+            <p className="text-xs text-text-secondary">
+              Configure file size and file count limits across all document upload fields
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4 pt-1">
+          {/* Biodata Document / Photo Upload */}
+          <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-bold text-slate-800 block">
+                  1. Biodata Document / Photo Upload (Biodata & Horoscope)
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Supports biodata PDFs, horoscopes, DOC/DOCX documents & images
+                </span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-500">
+                Supported: PDF, DOC, DOCX, JPEG, PNG
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">
+                  Max File Size (MB per file)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  className="input py-2 w-full text-sm"
+                  value={maxBiodataSize}
+                  onChange={(e) => setMaxBiodataSize(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">
+                  Max Retained Files Count
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  className="input py-2 w-full text-sm"
+                  value={maxBiodataCount}
+                  onChange={(e) => setMaxBiodataCount(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Member Profile Photo (Profile Pic) */}
+          <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm font-bold text-slate-800 block">
+                  2. Member Profile Photo (Profile Pic)
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Used for member's profile pictures
+                </span>
+              </div>
+              <span className="text-[11px] font-semibold text-slate-500">
+                Supported: JPEG, PNG, WebP
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">
+                  Max File Size (MB per photo)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="25"
+                  className="input py-2 w-full text-sm"
+                  value={maxPhotoSize}
+                  onChange={(e) => setMaxPhotoSize(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-slate-600 block mb-1">
+                  Max Retained Photos Count
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  className="input py-2 w-full text-sm"
+                  value={maxPhotoCount}
+                  onChange={(e) => setMaxPhotoCount(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Notifications */}
