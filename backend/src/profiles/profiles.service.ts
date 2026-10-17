@@ -8,7 +8,7 @@ import { OtpService } from '../auth/otp.service';
 import { MailService } from '../mail/mail.service';
 import { EliteQualificationService } from '../common/elite-qualification.service';
 import { EntitlementsService } from '../common/entitlements.service';
-import { parseAnnualIncome, normalizeComplexion } from './biodata-parser.service';
+import { parseAnnualIncome, normalizeComplexion, normalizeDiet, ABOUT_ME_TEMPLATES, getAboutMeTemplate } from './biodata-parser.service';
 import { HoroscopeMatchingService } from './horoscope-matching.service';
 import {
   UploadLimitsConfig,
@@ -1744,6 +1744,54 @@ export class ProfilesService {
     }
   }
 
+  async setMainPhoto(userIdOrProfileId: string, photoId: string) {
+    if (!photoId) throw new BadRequestException('Photo ID is required');
+
+    const profile = await this.prisma.profile.findFirst({
+      where: {
+        OR: [{ userId: userIdOrProfileId }, { id: userIdOrProfileId }],
+      },
+    });
+
+    if (profile) {
+      const targetPhoto = await this.prisma.profilePhoto.findFirst({
+        where: {
+          profileId: profile.id,
+          OR: [{ id: photoId }, { url: photoId }],
+        },
+      });
+
+      if (!targetPhoto) {
+        throw new NotFoundException('Photo not found for this profile');
+      }
+
+      // Demote all photos for this profile
+      await this.prisma.profilePhoto.updateMany({
+        where: { profileId: profile.id },
+        data: { isMain: false },
+      });
+
+      // Promote chosen photo to main with order 0
+      const updated = await this.prisma.profilePhoto.update({
+        where: { id: targetPhoto.id },
+        data: { isMain: true, order: 0 },
+      });
+
+      return updated;
+    }
+
+    const devUser = devStore.get(userIdOrProfileId);
+    if (devUser && (devUser as any).photos) {
+      (devUser as any).photos.forEach((p: any) => {
+        p.isMain = p.id === photoId || p.url === photoId;
+      });
+      devStore.set(userIdOrProfileId, devUser);
+      return { success: true };
+    }
+
+    throw new NotFoundException('Profile not found');
+  }
+
   async deletePhoto(userId: string, photoId?: string, photoUrl?: string) {
     try {
       const profile = await this.prisma.profile.findUnique({ where: { userId } });
@@ -2134,7 +2182,6 @@ export class ProfilesService {
         success: true,
         message: res.message || `OTP sent to ${formattedPhone}`,
         phone: formattedPhone,
-        devOtp: process.env.NODE_ENV === 'production' ? undefined : devOtp,
       };
     } else if (dto.type === 'email') {
       const email = dto.value.trim().toLowerCase();
@@ -2156,7 +2203,6 @@ export class ProfilesService {
         success: true,
         message: `OTP sent to ${email}`,
         email,
-        devOtp: process.env.NODE_ENV === 'production' ? undefined : otp,
       };
     } else {
       throw new BadRequestException('Invalid contact type. Must be "phone" or "email"');
@@ -2531,7 +2577,7 @@ export class ProfilesService {
       weight: weightKg,
       complexion: normalizeComplexion(p.complexion) || null,
       bodyType: p.bodyType || p.body_type || null,
-      diet: p.diet || null,
+      diet: normalizeDiet(p.diet || extractedData.diet),
       motherTongue: p.motherTongue || p.mother_tongue || 'Tamil',
       religionId,
       communityId,
@@ -2548,7 +2594,22 @@ export class ProfilesService {
       bankBalance: p.bankBalance !== undefined && p.bankBalance !== null && p.bankBalance !== '' ? Number(p.bankBalance) : null,
       netWorth: p.netWorth !== undefined && p.netWorth !== null && p.netWorth !== '' ? Number(p.netWorth) : null,
       membershipCategory: (p.membershipCategory || p.category || 'GENERAL').toString().toUpperCase() === 'ELITE' ? 'ELITE' : 'GENERAL',
-      about: p.about || `Profile for ${displayName}`,
+      about: (() => {
+        const rawP = p.gender ? String(p.gender).trim().toUpperCase() : '';
+        const isMale = rawP === 'MALE' || rawP === 'GROOM' || rawP === 'SON' || rawP === 'BOY';
+        const isFemale = rawP === 'FEMALE' || rawP === 'BRIDE' || rawP === 'DAUGHTER' || rawP === 'GIRL';
+        if (!isMale && !isFemale) {
+          // If gender is missing or invalid, leave About Me empty rather than guessing
+          return '';
+        }
+        if (p.about && typeof p.about === 'string' && p.about.trim().length > 0 && !p.about.trim().startsWith('Profile for ')) {
+          return p.about.trim();
+        }
+        if (extractedData.about && typeof extractedData.about === 'string' && extractedData.about.trim().length > 0 && !extractedData.about.trim().startsWith('Profile for ')) {
+          return extractedData.about.trim();
+        }
+        return isMale ? ABOUT_ME_TEMPLATES.MALE : ABOUT_ME_TEMPLATES.FEMALE;
+      })(),
       status: 'ACTIVE',
       isVerified: true,
       verificationStatus: 'VERIFIED',
@@ -2747,29 +2808,103 @@ export class ProfilesService {
         ? [extractedData.profile_photo || extractedData.profilePhoto || p.profile_photo || extractedData.images?.profile_photo]
         : []);
 
-    const rawPhotosList: string[] = Array.isArray(rawPhotosInput)
-      ? rawPhotosInput.map((item: any) => (typeof item === 'string' ? item : item?.url || item?.preview || '')).filter(Boolean)
-      : [];
+    const designatedMainPhoto =
+      extractedData.profile_photo ||
+      extractedData.profilePhoto ||
+      p.profile_photo ||
+      extractedData.images?.profile_photo ||
+      null;
 
-    if (rawPhotosList.length > limits.maxProfilePhotosCount) {
+    interface PhotoCandidate {
+      url: string;
+      isMain: boolean;
+      order: number;
+    }
+
+    let photoCandidates: PhotoCandidate[] = [];
+
+    if (Array.isArray(rawPhotosInput)) {
+      photoCandidates = rawPhotosInput
+        .map((item: any, idx: number) => {
+          if (typeof item === 'string') {
+            const trimmed = item.trim();
+            if (!trimmed || trimmed.length <= 10) return null;
+            const matchesDesignated = designatedMainPhoto ? trimmed === String(designatedMainPhoto).trim() : false;
+            return {
+              url: trimmed,
+              isMain: matchesDesignated,
+              order: idx,
+            };
+          }
+          if (item && typeof item === 'object') {
+            const url = String(item.url || item.preview || '').trim();
+            if (!url || url.length <= 10) return null;
+            const itemIsMain = item.isMain === true || item.isMain === 'true';
+            const matchesDesignated = designatedMainPhoto ? url === String(designatedMainPhoto).trim() : false;
+            return {
+              url,
+              isMain: itemIsMain || matchesDesignated,
+              order: typeof item.order === 'number' ? item.order : idx,
+            };
+          }
+          return null;
+        })
+        .filter((x): x is PhotoCandidate => Boolean(x));
+    } else if (designatedMainPhoto && typeof designatedMainPhoto === 'string' && designatedMainPhoto.length > 10) {
+      photoCandidates = [{ url: designatedMainPhoto.trim(), isMain: true, order: 0 }];
+    }
+
+    // If none was marked isMain, default the first photo to main
+    if (photoCandidates.length > 0 && !photoCandidates.some((ph) => ph.isMain)) {
+      photoCandidates[0].isMain = true;
+    }
+
+    // If multiple were marked isMain, ensure only one is isMain (prioritize designatedMainPhoto or first marked)
+    if (photoCandidates.filter((ph) => ph.isMain).length > 1) {
+      let foundMain = false;
+      photoCandidates = photoCandidates.map((ph) => {
+        if (ph.isMain) {
+          if (!foundMain) {
+            foundMain = true;
+            return ph;
+          }
+          return { ...ph, isMain: false };
+        }
+        return ph;
+      });
+    }
+
+    // Sort candidates so the main photo has order 0 and is processed first
+    photoCandidates.sort((a, b) => (b.isMain ? 1 : 0) - (a.isMain ? 1 : 0));
+    photoCandidates.forEach((ph, idx) => {
+      ph.order = idx;
+    });
+
+    if (photoCandidates.length > limits.maxProfilePhotosCount) {
       throw new BadRequestException(
         `Maximum limit of ${limits.maxProfilePhotosCount} profile photos reached.`,
       );
     }
 
-    for (let i = 0; i < rawPhotosList.length; i++) {
-      const pUrl = rawPhotosList[i];
-      if (pUrl && typeof pUrl === 'string' && pUrl.length > 10) {
-        validateUploadItem(pUrl, 'profilePhoto', undefined, limits);
-        await this.prisma.profilePhoto.create({
-          data: {
-            profileId: profile.id,
-            url: pUrl,
-            isMain: i === 0,
-            status: 'APPROVED',
-          },
-        }).catch(() => null);
-      }
+    // Clean up existing photos for this profile if updating
+    if (existingProfile && photoCandidates.length > 0) {
+      await this.prisma.profilePhoto.deleteMany({
+        where: { profileId: profile.id },
+      }).catch(() => null);
+    }
+
+    for (let i = 0; i < photoCandidates.length; i++) {
+      const ph = photoCandidates[i];
+      validateUploadItem(ph.url, 'profilePhoto', undefined, limits);
+      await this.prisma.profilePhoto.create({
+        data: {
+          profileId: profile.id,
+          url: ph.url,
+          isMain: ph.isMain,
+          order: ph.order,
+          status: 'APPROVED',
+        },
+      }).catch(() => null);
     }
 
     // 6. Verify that the saved data actually exists in PostgreSQL and can be retrieved
@@ -2780,7 +2915,13 @@ export class ProfilesService {
         occupation: true,
         family: true,
         horoscope: true,
-        photos: true,
+        photos: {
+          orderBy: [
+            { isMain: 'desc' },
+            { order: 'asc' },
+            { createdAt: 'asc' },
+          ],
+        },
         user: { select: { id: true, email: true, phone: true, isPhoneVerified: true, isActive: true } },
       },
     });

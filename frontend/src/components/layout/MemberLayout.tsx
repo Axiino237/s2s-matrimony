@@ -240,7 +240,7 @@ const MemberSidebar = ({
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary text-white font-bold flex items-center justify-center text-sm flex-shrink-0 shadow-md overflow-hidden">
               {avatarPhoto ? (
-                <img src={avatarPhoto} alt={displayName} className="w-full h-full object-cover" />
+                <img src={avatarPhoto} alt={displayName} className="w-full h-full object-cover object-top" style={{ objectPosition: 'top center' }} />
               ) : (
                 initialChar
               )}
@@ -581,7 +581,7 @@ const MemberLayout = () => {
               className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-rose-500 text-white font-bold flex items-center justify-center text-xs shadow-md hover:scale-110 transition-transform flex-shrink-0 overflow-hidden"
             >
               {avatarPhoto ? (
-                <img src={avatarPhoto} alt={displayName} className="w-full h-full object-cover" />
+                <img src={avatarPhoto} alt={displayName} className="w-full h-full object-cover object-top" style={{ objectPosition: 'top center' }} />
               ) : (
                 initialChar
               )}

@@ -313,7 +313,6 @@ export class AuthService {
       }).catch(() => null);
 
       const authRes = await this.generateAuthResponse(user.id, user.email, user.phone, [Role.MEMBER], 'FREE');
-      (authRes as any).otp = otpRes?.otp || '123456';
       return authRes;
     } catch (err: any) {
       if (err instanceof ConflictException) throw err;

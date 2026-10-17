@@ -191,17 +191,15 @@ export default function BiodataEntryPage() {
         value: val,
         name: form.name || 'Member',
       });
-      const devOtp = res.devOtp || '';
       setOtpModal((prev) => ({
         ...prev,
         sending: false,
-        generatedOtp: devOtp,
-        enteredOtp: devOtp,
+        enteredOtp: '',
       }));
       toast.success(res.message || `OTP sent to ${val}!`);
     } catch (err: any) {
       const errMsg = err?.response?.data?.message || 'Failed to send OTP code.';
-      setOtpModal((prev) => ({ ...prev, sending: false, generatedOtp: '123456', enteredOtp: '123456' }));
+      setOtpModal((prev) => ({ ...prev, sending: false, enteredOtp: '' }));
       toast.error(errMsg);
     }
   };
@@ -1696,7 +1694,7 @@ export default function BiodataEntryPage() {
                 className="w-full text-center text-2xl font-mono font-extrabold tracking-widest py-3 border-2 border-slate-300 rounded-xl focus:border-rose-600 focus:outline-none bg-slate-50 text-rose-900 shadow-inner"
                 value={otpModal.enteredOtp}
                 onChange={(e) => setOtpModal((prev) => ({ ...prev, enteredOtp: e.target.value }))}
-                placeholder="123456"
+                placeholder="••••••"
                 autoFocus
               />
             </div>
@@ -1718,17 +1716,6 @@ export default function BiodataEntryPage() {
               </button>
             </div>
 
-            {/* Development OTP display directly below button */}
-            {import.meta.env.DEV && (
-              <div className="mt-3 p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-center shadow-xs">
-                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-0.5">
-                  Development OTP
-                </p>
-                <p className="text-lg font-mono font-black text-rose-600 tracking-widest">
-                  {otpModal.generatedOtp || '123456'}
-                </p>
-              </div>
-            )}
           </div>
         </div>
       )}

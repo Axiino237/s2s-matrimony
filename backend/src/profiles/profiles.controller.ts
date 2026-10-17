@@ -133,6 +133,23 @@ export class ProfilesController {
     return this.profilesService.uploadPhoto(userId, body.url, body.isMain);
   }
 
+  @Patch('photos/:id/main')
+  @ApiOperation({ summary: 'Set photo as main profile photo' })
+  async setMainPhoto(@Req() req: any, @Param('id') photoId: string) {
+    const userId = req.user.sub || req.user.id;
+    return this.profilesService.setMainPhoto(userId, photoId);
+  }
+
+  @Patch(':profileId/photos/:photoId/main')
+  @RequirePermissions(Permission.PROFILES_WRITE)
+  @ApiOperation({ summary: 'Admin set member profile photo as main' })
+  async adminSetMainPhoto(
+    @Param('profileId') profileId: string,
+    @Param('photoId') photoId: string,
+  ) {
+    return this.profilesService.setMainPhoto(profileId, photoId);
+  }
+
   @Delete('photos/:id')
   @ApiOperation({ summary: 'Delete a profile photo' })
   async deletePhoto(@Req() req: any, @Param('id') photoId: string) {

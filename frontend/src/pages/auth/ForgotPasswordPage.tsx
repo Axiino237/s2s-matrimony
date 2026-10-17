@@ -21,7 +21,6 @@ const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [resetToken, setResetToken] = useState('');
-  const [devOtp, setDevOtp] = useState(import.meta.env.DEV ? '123456' : '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -48,12 +47,7 @@ const ForgotPasswordPage = () => {
     }
     setLoading(true);
     try {
-      const res = await api.post('/auth/forgot-password', { email });
-      if (res.data?.otp) {
-        setDevOtp(res.data.otp);
-      } else if (import.meta.env.DEV) {
-        setDevOtp('123456');
-      }
+      await api.post('/auth/forgot-password', { email });
       toast.success('OTP sent! Check your inbox.');
       setStep('otp');
       setResendTimer(RESEND_SECONDS);
@@ -115,12 +109,7 @@ const ForgotPasswordPage = () => {
     if (resendTimer > 0) return;
     setLoading(true);
     try {
-      const res = await api.post('/auth/forgot-password', { email });
-      if (res.data?.otp) {
-        setDevOtp(res.data.otp);
-      } else if (import.meta.env.DEV) {
-        setDevOtp('123456');
-      }
+      await api.post('/auth/forgot-password', { email });
       toast.success('New OTP sent!');
       setOtpDigits(['', '', '', '', '', '']);
       setResendTimer(RESEND_SECONDS);
@@ -345,17 +334,6 @@ const ForgotPasswordPage = () => {
                     )}
                   </button>
 
-                  {/* Development OTP display directly below button */}
-                  {import.meta.env.DEV && devOtp && (
-                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-center shadow-xs">
-                      <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-0.5">
-                        Development OTP
-                      </p>
-                      <p className="text-lg font-mono font-black text-rose-600 tracking-widest">
-                        {devOtp}
-                      </p>
-                    </div>
-                  )}
                 </form>
 
                 {/* Resend */}

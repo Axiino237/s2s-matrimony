@@ -95,7 +95,6 @@ const RegisterPage = () => {
           phone: formattedPhone,
           firstName: data.firstName,
           lastName: data.lastName,
-          devOtp: res.data?.otp || responseData?.otp || '123456',
         } 
       });
     } catch (err: unknown) {

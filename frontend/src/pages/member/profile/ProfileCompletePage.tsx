@@ -1390,7 +1390,12 @@ const ProfileCompletePage = () => {
         <div className="flex items-center gap-5">
           <div className="w-24 h-24 rounded-2xl bg-slate-200 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden flex-shrink-0">
             {photoPreview ? (
-              <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+              <img
+                src={photoPreview}
+                alt="Preview"
+                className="w-full h-full object-cover object-top"
+                style={{ objectPosition: 'top center' }}
+              />
             ) : (
               <Camera className="w-8 h-8 text-slate-400" />
             )}

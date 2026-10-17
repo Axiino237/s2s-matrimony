@@ -213,7 +213,12 @@ const DashboardPage = () => {
               <div key={m.id} className="card p-4 hover:border-primary/45 hover:-translate-y-1 transition-all duration-300 group cursor-pointer bg-slate-50/50">
                 <div className="flex items-center gap-3 mb-3">
                   {avatar ? (
-                    <img src={avatar} alt={name} className="w-12 h-12 rounded-xl object-cover border border-slate-200 flex-shrink-0 group-hover:scale-105 transition-transform" />
+                    <img
+                      src={avatar}
+                      alt={name}
+                      className="w-12 h-12 rounded-xl object-cover object-top border border-slate-200 flex-shrink-0 group-hover:scale-105 transition-transform"
+                      style={{ objectPosition: 'top center' }}
+                    />
                   ) : (
                     <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-xl flex-shrink-0">💑</div>
                   )}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { 
@@ -18,19 +18,22 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
-  const [devOtp, setDevOtp] = useState(import.meta.env.DEV ? '123456' : '');
   const [loading, setLoading] = useState(false);
   const { login, loginWithOtp } = useAuthStore();
   const logoUrl = useSettingsStore((s) => s.logoUrl);
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<{ email: string; password: string }>({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<{ email: string; password: string }>({
     defaultValues: {
       email: '',
       password: '',
     },
   });
+
+  useEffect(() => {
+    reset({ email: '', password: '' });
+  }, [reset]);
 
   const handleSendOtp = async () => {
     if (!phone || phone.length < 10) {
@@ -39,20 +42,11 @@ const LoginPage = () => {
     }
     setLoading(true);
     try {
-      const res = await api.post('/auth/send-otp', { phone: `+91${phone}` });
-      if (res.data?.otp) {
-        setDevOtp(res.data.otp);
-      } else if (import.meta.env.DEV) {
-        setDevOtp('123456');
-      }
+      await api.post('/auth/send-otp', { phone: `+91${phone}` });
       setOtpSent(true);
       toast.success('OTP sent successfully to your phone!');
-    } catch {
-      if (import.meta.env.DEV) {
-        setDevOtp('123456');
-      }
-      setOtpSent(true);
-      toast.success('OTP sent successfully to your phone!');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to send OTP. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -257,33 +251,6 @@ const LoginPage = () => {
                 <p className="text-slate-500 text-xs mt-1">Access your personalized portal securely</p>
               </div>
 
-              {/* 1-Click Quick Demo Credentials Panel */}
-              <div className="mb-6 p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-extrabold text-amber-900 flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5 text-amber-600" /> Demo Admin Accounts (Click to Fill)
-                  </span>
-                </div>
-                <div className="space-y-1.5 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => { setValue('email', 'superadmin@s2smatrimony.com'); setValue('password', 'admin123'); setMode('password'); }}
-                    className="w-full flex items-center justify-between p-2 rounded-xl bg-white border border-amber-200/60 hover:border-amber-400 hover:bg-amber-100/50 transition-all text-left group"
-                  >
-                    <span className="font-semibold text-slate-800 text-[11px] truncate">🌐 <b>Super Admin</b>: superadmin@s2smatrimony.com</span>
-                    <span className="text-amber-700 text-[10px] font-bold group-hover:translate-x-0.5 transition-transform flex-shrink-0">Fill →</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setValue('email', 'admin@s2smatrimony.com'); setValue('password', 'admin123'); setMode('password'); }}
-                    className="w-full flex items-center justify-between p-2 rounded-xl bg-white border border-amber-200/60 hover:border-amber-400 hover:bg-amber-100/50 transition-all text-left group"
-                  >
-                    <span className="font-semibold text-slate-800 text-[11px] truncate">👔 <b>Admin</b>: admin@s2smatrimony.com</span>
-                    <span className="text-amber-700 text-[10px] font-bold group-hover:translate-x-0.5 transition-transform flex-shrink-0">Fill →</span>
-                  </button>
-                </div>
-              </div>
 
               {/* Mode Toggle Tabs */}
               <div className="flex bg-slate-100 p-1 rounded-2xl mb-6">
@@ -309,7 +276,7 @@ const LoginPage = () => {
 
               {/* Password Login Form */}
               {mode === 'password' && (
-                <form onSubmit={handleSubmit(onPasswordLogin)} className="space-y-4">
+                <form onSubmit={handleSubmit(onPasswordLogin)} className="space-y-4" autoComplete="off">
                   <div>
                     <label className="input-label font-bold text-xs text-slate-700 flex items-center justify-between">
                       <span>Email Address</span>
@@ -323,6 +290,7 @@ const LoginPage = () => {
                       </div>
                       <input
                         type="email"
+                        autoComplete="off"
                         placeholder="you@example.com"
                         className={`input text-xs py-3 pl-10 pr-4 ${errors.email ? 'input-error' : ''}`}
                         {...register('email', { required: 'Email address is required' })}
@@ -344,6 +312,7 @@ const LoginPage = () => {
                       </div>
                       <input
                         type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
                         placeholder="••••••••"
                         className={`input text-xs py-3 pl-10 pr-11 w-full ${errors.password ? 'input-error' : ''}`}
                         {...register('password', { required: 'Password is required' })}
@@ -426,17 +395,6 @@ const LoginPage = () => {
                         {loading ? 'Verifying...' : 'Verify OTP & Sign In'} <CheckCircle2 className="w-4 h-4" />
                       </button>
 
-                      {/* Development OTP display directly below button */}
-                      {import.meta.env.DEV && devOtp && (
-                        <div className="mt-3 p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-center shadow-xs">
-                          <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-0.5">
-                            Development OTP
-                          </p>
-                          <p className="text-lg font-mono font-black text-rose-600 tracking-widest">
-                            {devOtp}
-                          </p>
-                        </div>
-                      )}
 
                       <button
                         type="button"

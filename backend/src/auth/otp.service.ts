@@ -50,8 +50,7 @@ export class OtpService {
       this.logger.warn(`[OTP] Twilio is not configured for ${targetPhone}. Using Dev OTP 123456.`);
       return {
         success: true,
-        message: `OTP sent to ${targetPhone} (Dev OTP: 123456)`,
-        ...(this.isProduction ? {} : { otp: '123456' }),
+        message: `OTP sent to ${targetPhone}`,
       };
     }
 
@@ -64,7 +63,6 @@ export class OtpService {
       return {
         success: true,
         message: `OTP sent to ${targetPhone}`,
-        ...(this.isProduction ? {} : { otp: '123456' }),
       };
     } catch (error: any) {
       if (!this.allowDevOtp) {
@@ -74,8 +72,7 @@ export class OtpService {
       this.logger.warn(`[OTP] Twilio Verify failed for ${targetPhone} (${error?.message}). Using Dev OTP 123456.`);
       return {
         success: true,
-        message: `OTP sent to ${targetPhone} (Dev OTP: 123456)`,
-        ...(this.isProduction ? {} : { otp: '123456' }),
+        message: `OTP sent to ${targetPhone}`,
       };
     }
   }

@@ -47,6 +47,15 @@ export const profilesApi = {
     return res.data.data || res.data;
   },
 
+  setMainPhoto: async (photoId: string, profileId?: string) => {
+    if (profileId) {
+      const res = await api.patch(`/profiles/${profileId}/photos/${photoId}/main`);
+      return res.data.data || res.data;
+    }
+    const res = await api.patch(`/profiles/photos/${photoId}/main`);
+    return res.data.data || res.data;
+  },
+
   deletePhoto: async (photoId?: string, photoUrl?: string) => {
     if (photoId && !photoId.includes('/') && !photoId.startsWith('data:')) {
       const res = await api.delete(`/profiles/photos/${photoId}`);

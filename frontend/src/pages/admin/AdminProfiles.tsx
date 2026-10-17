@@ -115,6 +115,8 @@ const getDate = (d: string) =>
 const getPhotoUrl = (p: any) => {
   if (!p) return null;
   if (p.photos && Array.isArray(p.photos) && p.photos.length > 0) {
+    const mainPhoto = p.photos.find((ph: any) => ph && typeof ph === 'object' && ph.isMain);
+    if (mainPhoto?.url) return mainPhoto.url;
     const first = p.photos[0];
     if (typeof first === 'string' && first.trim()) return first;
     if (first && typeof first === 'object' && first.url) return first.url;
@@ -294,7 +296,8 @@ const AdminProfiles = () => {
                     <img
                       src={photo || fallback}
                       alt={getName(p)}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-top"
+                      style={{ objectPosition: 'top center' }}
                       onError={(e) => { (e.target as HTMLImageElement).src = fallback; }}
                     />
                   </div>
@@ -373,7 +376,8 @@ const AdminProfiles = () => {
                   <img
                     src={getPhotoUrl(viewProfile) || getFallbackAvatar(viewProfile.gender)}
                     alt={getName(viewProfile)}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover object-top"
+                    style={{ objectPosition: 'top center' }}
                     onError={(e) => { (e.target as HTMLImageElement).src = getFallbackAvatar(viewProfile.gender); }}
                   />
                 </div>
@@ -444,7 +448,7 @@ const AdminProfiles = () => {
                   <div className="flex gap-3 overflow-x-auto pb-1">
                     {viewProfile.photos.map((ph, idx) => (
                       <div key={ph.id || idx} className="relative w-24 h-28 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 bg-slate-100">
-                        <img src={ph.url} alt="Profile" className="w-full h-full object-cover" />
+                        <img src={ph.url} alt="Profile" className="w-full h-full object-cover object-top" style={{ objectPosition: 'top center' }} />
                         {ph.isMain && (
                           <span className="absolute top-1 left-1 bg-primary text-white text-[9px] px-1.5 py-0.5 rounded font-bold">Main</span>
                         )}

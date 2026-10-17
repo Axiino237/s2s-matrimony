@@ -321,17 +321,24 @@ const SuperAdminUsers = () => {
                       {/* User */}
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          {u.profile?.photos?.[0]?.url || (u.profile as any)?.photoUrl ? (
-                            <img
-                              src={u.profile?.photos?.[0]?.url || (u.profile as any)?.photoUrl}
-                              alt={name}
-                              className="w-10 h-10 rounded-xl object-cover border border-slate-200 flex-shrink-0"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
-                              {name[0]?.toUpperCase() || '?'}
-                            </div>
-                          )}
+                          {(() => {
+                            const avatarUrl =
+                              u.profile?.photos?.find((p: any) => p.isMain)?.url ||
+                              u.profile?.photos?.[0]?.url ||
+                              (u.profile as any)?.photoUrl;
+                            return avatarUrl ? (
+                              <img
+                                src={avatarUrl}
+                                alt={name}
+                                className="w-10 h-10 rounded-xl object-cover object-top border border-slate-200 flex-shrink-0"
+                                style={{ objectPosition: 'top center' }}
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+                                {name[0]?.toUpperCase() || '?'}
+                              </div>
+                            );
+                          })()}
                           <div>
                             <p className="text-slate-900 text-sm font-semibold">{name}</p>
                             <p className="text-slate-400 text-[10px] font-mono">{u.id.slice(0, 8)}…</p>
@@ -499,17 +506,23 @@ const SuperAdminUsers = () => {
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-primary to-secondary p-5 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
-                {viewUser.profile?.photos?.[0]?.url ? (
-                  <img
-                    src={viewUser.profile.photos[0].url}
-                    alt={getUserName(viewUser)}
-                    className="w-12 h-12 rounded-xl object-cover border-2 border-white/30"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-xl bg-white/20 text-white flex items-center justify-center text-lg font-bold border-2 border-white/30">
-                    {getUserName(viewUser)[0]?.toUpperCase() || '?'}
-                  </div>
-                )}
+                {(() => {
+                  const modalAvatar =
+                    viewUser.profile?.photos?.find((p: any) => p.isMain)?.url ||
+                    viewUser.profile?.photos?.[0]?.url;
+                  return modalAvatar ? (
+                    <img
+                      src={modalAvatar}
+                      alt={getUserName(viewUser)}
+                      className="w-12 h-12 rounded-xl object-cover object-top border-2 border-white/30"
+                      style={{ objectPosition: 'top center' }}
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-white/20 text-white flex items-center justify-center text-lg font-bold border-2 border-white/30">
+                      {getUserName(viewUser)[0]?.toUpperCase() || '?'}
+                    </div>
+                  );
+                })()}
                 <div>
                   <p className="text-white font-bold">{getUserName(viewUser)}</p>
                   <p className="text-white/70 text-xs">{viewUser.email}</p>

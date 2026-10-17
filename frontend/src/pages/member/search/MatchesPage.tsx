@@ -159,7 +159,12 @@ export const MatchesPage = () => {
                 <div>
                   <div className="aspect-square bg-slate-50 border border-slate-100 rounded-xl overflow-hidden mb-3 flex items-center justify-center relative group-hover:scale-105 transition-transform">
                     {photo ? (
-                      <img src={photo} alt={name} className="w-full h-full object-cover" />
+                      <img
+                        src={photo}
+                        alt={name}
+                        className="w-full h-full object-cover object-top"
+                        style={{ objectPosition: 'top center' }}
+                      />
                     ) : (
                       <span className="text-4xl select-none">
                         {profile.gender === 'FEMALE' ? '👰' : '🤵'}

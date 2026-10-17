@@ -11,11 +11,9 @@ const OtpVerifyPage = () => {
   const navigate = useNavigate();
   const { loginWithOtp } = useAuthStore();
 
-  const phoneFromState = (location.state as { phone?: string; devOtp?: string })?.phone || '';
-  const devOtpFromState = (location.state as { phone?: string; devOtp?: string })?.devOtp || '';
+  const phoneFromState = (location.state as { phone?: string })?.phone || '';
   const [phone, setPhone] = useState(phoneFromState);
-  const [devOtp, setDevOtp] = useState(devOtpFromState);
-  const [otp, setOtp] = useState(devOtpFromState || '');
+  const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [countdown, setCountdown] = useState(30);
@@ -106,12 +104,7 @@ const OtpVerifyPage = () => {
     setResending(true);
     try {
       const targetPhone = cleanPhone.startsWith('+') ? cleanPhone : `+91${cleanPhone}`;
-      const res = await api.post('/auth/send-otp', { phone: targetPhone });
-      if (res.data?.otp) {
-        setDevOtp(res.data.otp);
-      } else if (import.meta.env.DEV) {
-        setDevOtp('123456');
-      }
+      await api.post('/auth/send-otp', { phone: targetPhone });
       toast.success(`New OTP sent to ${targetPhone}`);
       setCountdown(30);
     } catch (err: unknown) {
@@ -220,17 +213,6 @@ const OtpVerifyPage = () => {
               )}
             </button>
 
-            {/* Development OTP display directly below button */}
-            {devOtp && (
-              <div className="mt-3 p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-center shadow-xs">
-                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-0.5">
-                  Development OTP
-                </p>
-                <p className="text-lg font-mono font-black text-rose-600 tracking-widest">
-                  {devOtp}
-                </p>
-              </div>
-            )}
           </form>
 
           {/* Resend OTP */}

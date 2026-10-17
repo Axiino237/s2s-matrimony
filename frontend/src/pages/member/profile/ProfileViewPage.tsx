@@ -380,7 +380,7 @@ const ProfileViewPage = () => {
       motherTongue: p.motherTongue ?? 'Tamil',
       complexion: p.complexion ?? 'Fair',
       weight: p.weight ? `${p.weight} kg` : 'Not Specified',
-      diet: p.diet ?? 'Vegetarian',
+      diet: p.diet || 'Non-Vegetarian',
       residentStatus: p.residentStatus || 'Not Specified',
       propertyDetails: p.propertyDetails || 'Not Specified',
       assetValue: p.assetValue !== null && p.assetValue !== undefined ? Number(p.assetValue) : null,
@@ -666,7 +666,8 @@ const ProfileViewPage = () => {
                       src={profile.photo} 
                       alt={profile.name} 
                       onError={() => setAvatarError(true)}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform"
+                      style={{ objectPosition: 'top center' }}
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-white p-2">
@@ -1356,7 +1357,8 @@ const ProfileViewPage = () => {
                     <img
                       src={matchPhoto}
                       alt={matchName}
-                      className="w-10 h-10 rounded-xl object-cover border border-slate-200 flex-shrink-0 group-hover:scale-105 transition-transform"
+                      className="w-10 h-10 rounded-xl object-cover object-top border border-slate-200 flex-shrink-0 group-hover:scale-105 transition-transform"
+                      style={{ objectPosition: 'top center' }}
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = m.gender === 'FEMALE' ? '/images/bride.png' : '/images/groom.png';
                       }}

@@ -225,7 +225,13 @@ export class AdminService {
                 city: true,
                 state: true,
                 country: true,
-                photos: true,
+                photos: {
+                  orderBy: [
+                    { isMain: 'desc' },
+                    { order: 'asc' },
+                    { createdAt: 'asc' },
+                  ],
+                },
                 horoscope: true,
                 family: true,
                 education: { include: { educationMaster: true } },

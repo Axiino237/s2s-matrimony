@@ -86,6 +86,19 @@ function isValuePresent(val: any): boolean {
   return false;
 }
 
+export const ABOUT_ME_TEMPLATES = {
+  MALE: 'I am a caring, responsible, and family-oriented person who values relationships, mutual respect, and understanding. I believe in balancing personal and professional life and look forward to building a happy life with a compatible partner.',
+  FEMALE: 'I am a caring, understanding, and family-oriented person who values relationships, mutual respect, and trust. I believe in balancing personal and professional life and look forward to building a happy life with a compatible partner.',
+};
+
+export function getAboutMeTemplate(gender?: string | null): string {
+  if (!gender) return '';
+  const g = String(gender).trim().toUpperCase();
+  if (g === 'MALE' || g === 'GROOM' || g === 'SON' || g === 'BOY') return ABOUT_ME_TEMPLATES.MALE;
+  if (g === 'FEMALE' || g === 'BRIDE' || g === 'DAUGHTER' || g === 'GIRL') return ABOUT_ME_TEMPLATES.FEMALE;
+  return '';
+}
+
 function mergeChartObjects(existingChart: any, incomingChart: any): Record<string, string> {
   const merged: Record<string, string> = { ...(existingChart || {}) };
   if (!incomingChart || typeof incomingChart !== 'object') return merged;
@@ -166,6 +179,21 @@ function mergeBiodataObjects(base: any, incoming: any): any {
       result.amsamChart = result.horoscope.amsamChart;
     } else if (result.horoscope.amsamChart) {
       result.amsamChart = result.horoscope.amsamChart;
+    }
+  }
+
+  // Ensure About Me template corresponds strictly to resolved gender
+  if (result.profile) {
+    const resolvedGender = result.profile.gender ? String(result.profile.gender).trim().toUpperCase() : null;
+    if (resolvedGender === 'MALE' || resolvedGender === 'FEMALE') {
+      result.profile.about = ABOUT_ME_TEMPLATES[resolvedGender];
+    } else {
+      result.profile.about = '';
+    }
+
+    // Default food preference to Non-Vegetarian if not specified
+    if (!result.profile.diet || !String(result.profile.diet).trim()) {
+      result.profile.diet = 'Non-Vegetarian';
     }
   }
 
@@ -614,13 +642,36 @@ const AdminAiBiodata = () => {
       const rasiChart = horo.rasiChart || extractedData.rasiChart || null;
       const amsamChart = horo.amsamChart || extractedData.amsamChart || null;
 
-      const mainPhoto = profilePhotos.find((p) => p.isMain)?.preview || profilePhotos[0]?.preview;
-      const allPhotoPreviews = profilePhotos.map((p) => p.preview);
+      const chosenMain = profilePhotos.find((p) => p.isMain) || profilePhotos[0];
+      const mainPhoto = chosenMain?.preview || profilePhotos[0]?.preview;
+
+      // Guarantee the designated main photo is at index 0, followed by the rest
+      const otherPhotos = profilePhotos.filter((p) => p.id !== chosenMain?.id);
+      const orderedPhotos = chosenMain ? [chosenMain, ...otherPhotos] : [];
+
+      const allPhotoPreviews = orderedPhotos.map((p) => p.preview);
+      const structuredPhotos = orderedPhotos.map((p, idx) => ({
+        url: p.preview,
+        isMain: idx === 0,
+        order: idx,
+      }));
+
       const horoDoc = biodataFiles.find((b) => /horoscope|jathag|kundal|graha|astrolog/i.test(b.name));
       const serializedHoro = horo.horoscopeFile || (horoDoc ? horoDoc.preview : null);
 
+      const prof = extractedData.profile || {};
+      const diet = prof.diet || extractedData.diet || 'Non-Vegetarian';
+      const aboutMe = prof.about || getAboutMeTemplate(prof.gender);
+
       const payload = {
         ...extractedData,
+        diet,
+        about: aboutMe,
+        profile: {
+          ...prof,
+          diet,
+          about: aboutMe,
+        },
         rasiChart,
         amsamChart,
         horoscope: {
@@ -632,7 +683,7 @@ const AdminAiBiodata = () => {
         horoscopeFile: serializedHoro,
         profile_photo: mainPhoto || extractedData.profile_photo || extractedData.profile?.profile_photo,
         photos: allPhotoPreviews.length > 0 ? allPhotoPreviews : undefined,
-        profile_photos: allPhotoPreviews.length > 0 ? allPhotoPreviews : undefined,
+        profile_photos: structuredPhotos.length > 0 ? structuredPhotos : undefined,
       };
 
       const result = await profilesApi.saveParsedProfile(payload);
@@ -819,7 +870,8 @@ const AdminAiBiodata = () => {
                               <img
                                 src={b.preview}
                                 alt={b.name}
-                                className="w-8 h-8 rounded-lg object-cover border border-slate-200 flex-shrink-0"
+                                className="w-8 h-8 rounded-lg object-cover object-top border border-slate-200 flex-shrink-0"
+                                style={{ objectPosition: 'top center' }}
                               />
                             )}
                             <div className="min-w-0">
@@ -949,7 +1001,12 @@ const AdminAiBiodata = () => {
                         key={p.id}
                         className="relative aspect-square rounded-xl overflow-hidden border border-slate-200 bg-slate-100 group shadow-2xs"
                       >
-                        <img src={p.preview} alt={p.name} className="w-full h-full object-cover" />
+                        <img
+                          src={p.preview}
+                          alt={p.name}
+                          className="w-full h-full object-cover object-top"
+                          style={{ objectPosition: 'top center' }}
+                        />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1 text-white">
                           {!p.isMain && (
                             <button
@@ -1123,7 +1180,20 @@ const AdminAiBiodata = () => {
                   <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                     <div>
                       <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Member Name</span>
-                      <span className="font-bold text-slate-900 truncate block">{displayName}</span>
+                      <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                        {(() => {
+                          const mainPhoto = profilePhotos.find((p) => p.isMain)?.preview || profilePhotos[0]?.preview;
+                          return mainPhoto ? (
+                            <img
+                              src={mainPhoto}
+                              alt={displayName}
+                              className="w-6 h-6 rounded-md object-cover object-top border border-slate-200 flex-shrink-0"
+                              style={{ objectPosition: 'top center' }}
+                            />
+                          ) : null;
+                        })()}
+                        <span className="font-bold text-slate-900 truncate block">{displayName}</span>
+                      </div>
                     </div>
                     <div>
                       <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold block">Login Email</span>
@@ -1162,6 +1232,22 @@ const AdminAiBiodata = () => {
                       </span>
                     </div>
                   )}
+
+                  {/* About Me Template Banner */}
+                  <div className="p-3 bg-indigo-50/60 border border-indigo-200 rounded-xl text-xs space-y-1.5 shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                        About Me
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+                        {prof.gender ? `${prof.gender} Template` : 'Empty (No gender detected)'}
+                      </span>
+                    </div>
+                    <p className="text-slate-700 italic text-[11px] leading-relaxed">
+                      {prof.about ? `"${prof.about}"` : '(Left empty - Gender was missing or invalid)'}
+                    </p>
+                  </div>
 
                   {/* JSON Editor / Code Block */}
                   <div className="relative group">
@@ -1225,7 +1311,20 @@ const AdminAiBiodata = () => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 text-xs">Member Name</span>
-                <span className="font-bold text-slate-900">{savedResult.displayName || displayName}</span>
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const avatar = profilePhotos.find((p) => p.isMain)?.preview || profilePhotos[0]?.preview;
+                    return avatar ? (
+                      <img
+                        src={avatar}
+                        alt={savedResult.displayName || displayName}
+                        className="w-6 h-6 rounded-md object-cover object-top border border-slate-200 flex-shrink-0"
+                        style={{ objectPosition: 'top center' }}
+                      />
+                    ) : null;
+                  })()}
+                  <span className="font-bold text-slate-900">{savedResult.displayName || displayName}</span>
+                </div>
               </div>
               {savedResult.credentials.loginEmail && (
                 <div className="flex items-center justify-between">

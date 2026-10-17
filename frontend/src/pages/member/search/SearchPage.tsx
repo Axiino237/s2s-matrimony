@@ -123,7 +123,8 @@ const ProfileCard = ({ profile: rawProfile, showMatchScore = false }: { profile:
           <img 
             src={profile.avatar} 
             alt={profile.name} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+            style={{ objectPosition: 'top center' }}
           />
         ) : (
           <div className="text-4xl text-slate-300 select-none">

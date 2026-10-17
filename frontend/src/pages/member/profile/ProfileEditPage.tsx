@@ -125,6 +125,8 @@ const ProfileEditPage = () => {
       religion: p.religion || prev.religion,
       community: p.caste || prev.community,
       subCaste: p.sub_caste || prev.subCaste,
+      about: p.about || prev.about,
+      diet: formatDiet(p.diet || prev.diet || 'Non-Vegetarian'),
       heightCm: p.height ? (p.height.match(/\d{3}/)?.[0] || prev.heightCm) : prev.heightCm,
       weight: p.weight ? (p.weight.match(/\d{2}/)?.[0] || prev.weight) : prev.weight,
       residentStatus: p.resident_status || prev.residentStatus,
@@ -435,7 +437,7 @@ const ProfileEditPage = () => {
           heightCm: prev.heightCm || '',
           weight: prev.weight || '',
           complexion: prev.complexion || '',
-          diet: prev.diet || 'VEG',
+          diet: prev.diet || 'Non-Vegetarian',
           educationDegree: prev.educationDegree || '',
           college: prev.college || '',
           occupation: prev.occupation || '',
@@ -631,11 +633,17 @@ const ProfileEditPage = () => {
   };
 
   const handleSetMainPhoto = (index: number) => {
+    const targetPhoto = userPhotos[index];
     setUserPhotos((prev) => {
       const updated = [...prev];
       const [selected] = updated.splice(index, 1);
       return [selected, ...updated];
     });
+    if (targetPhoto?.id) {
+      profilesApi.setMainPhoto(targetPhoto.id).catch((err) => {
+        console.warn('Backend setMainPhoto notice:', err);
+      });
+    }
     toast.success('Main profile photo updated!');
   };
 
@@ -2026,7 +2034,8 @@ const ProfileEditPage = () => {
                         <img
                           src={photoUrl}
                           alt={`Uploaded Photo ${i + 1}`}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover object-top"
+                          style={{ objectPosition: 'top center' }}
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2 text-white">
                           {!isMain && (

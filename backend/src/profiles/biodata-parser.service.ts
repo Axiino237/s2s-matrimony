@@ -2,6 +2,19 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { parseDocxBuffer, ExtractedDocxContent } from './docx-parser.util';
 
+export const ABOUT_ME_TEMPLATES = {
+  MALE: 'I am a caring, responsible, and family-oriented person who values relationships, mutual respect, and understanding. I believe in balancing personal and professional life and look forward to building a happy life with a compatible partner.',
+  FEMALE: 'I am a caring, understanding, and family-oriented person who values relationships, mutual respect, and trust. I believe in balancing personal and professional life and look forward to building a happy life with a compatible partner.',
+};
+
+export function getAboutMeTemplate(gender?: string | null): string {
+  if (!gender) return '';
+  const g = String(gender).trim().toUpperCase();
+  if (g === 'MALE' || g === 'GROOM' || g === 'SON' || g === 'BOY') return ABOUT_ME_TEMPLATES.MALE;
+  if (g === 'FEMALE' || g === 'BRIDE' || g === 'DAUGHTER' || g === 'GIRL') return ABOUT_ME_TEMPLATES.FEMALE;
+  return '';
+}
+
 export interface MatrimonyBiodataSchema {
   profile: {
     profileFor: string | null;
@@ -388,9 +401,9 @@ Strictly return a JSON object with this structure:
     "weight": number | null,
     "complexion": "Fair" | "Very Fair" | "Wheatish" | "Dark" | null, // STRICTLY one of: "Fair", "Very Fair", "Wheatish", "Dark", or null. Map "Medium" or "Medium complexion" to "Wheatish". NEVER use "Medium", "Dusky", "Brown".
     "bodyType": string | null,
-    "diet": string | null,
+    "diet": string | null, // Food preference: "Vegetarian", "Non-Vegetarian", "Eggetarian", "Vegan", or verbatim if mentioned. Leave null if not mentioned or unspecified.
     "motherTongue": string | null,
-    "about": string | null,
+    "about": null, // STRICTLY null. Do not generate or extract About Me content.
     "birthOrder": number | null,
     "residentStatus": string | null,
     "propertyDetails": string | null, // Preserve property/asset details verbatim (e.g. "House - 1, Plots - 3")
@@ -500,6 +513,7 @@ Important Rules:
     - Normalize "Fair" -> "Fair", "Very Fair" -> "Very Fair", "Wheatish" -> "Wheatish", "Dark" -> "Dark".
     - Normalize "Medium", "Medium complexion", "Medium/Fair", "Dusky", "Brown", "மாநிறம்" -> "Wheatish".
     - Do NOT introduce "Medium", "Dusky", "Brown", or any unsupported option. If not mentioned, set to null.
+13. About Me: Do NOT generate, infer, or populate 'about' from name, blood group, age, or any biodata fields. ALWAYS return profile.about = null.
 
 CRITICAL HOROSCOPE CHART RULE (STRICT):
 If the uploaded document or image does NOT contain a visual Vedic horoscope chart grid (a 4x4 square grid diagram):
@@ -772,11 +786,40 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
     const birthMonth = parsedDate.birthMonth ?? p.birth_month ?? null;
     const birthYear = parsedDate.birthYear ?? p.birth_year ?? null;
 
-    let gender = p.gender ? String(p.gender).toUpperCase() : null;
-    if (!gender && fallbackText) {
-      if (/bride|female|daughter|girl/i.test(fallbackText)) gender = 'FEMALE';
-      else if (/groom|male|son|boy/i.test(fallbackText)) gender = 'MALE';
+    let gender: 'MALE' | 'FEMALE' | null = null;
+    const rawGender = String(p.gender || p.profile_type || p.profileFor || '').toUpperCase();
+    if (
+      rawGender === 'FEMALE' ||
+      rawGender === 'F' ||
+      rawGender.includes('FEMALE') ||
+      rawGender.includes('BRIDE') ||
+      rawGender.includes('BRIDAL') ||
+      rawGender.includes('GIRL')
+    ) {
+      gender = 'FEMALE';
+    } else if (
+      rawGender === 'MALE' ||
+      rawGender === 'M' ||
+      rawGender.includes('MALE') ||
+      rawGender.includes('GROOM') ||
+      rawGender.includes('BOY')
+    ) {
+      gender = 'MALE';
     }
+
+    if (!gender && fallbackText) {
+      if (/\b(?:bride|female|daughter|girl|பெண்|மணமகள்)\b/i.test(fallbackText)) {
+        gender = 'FEMALE';
+      } else if (/\b(?:groom|male|son|boy|ஆண்|மணமகன்)\b/i.test(fallbackText)) {
+        gender = 'MALE';
+      }
+    }
+
+    const aboutMe = gender === 'MALE'
+      ? ABOUT_ME_TEMPLATES.MALE
+      : gender === 'FEMALE'
+      ? ABOUT_ME_TEMPLATES.FEMALE
+      : '';
 
     const degreeList: string[] = Array.isArray(edu.degree)
       ? edu.degree
@@ -936,9 +979,9 @@ If the uploaded document or image does NOT contain a visual Vedic horoscope char
         weight: weightKg,
         complexion: normalizeComplexion(p.complexion || (data as any).complexion),
         bodyType: p.bodyType || p.body_type || null,
-        diet: p.diet || null,
+        diet: normalizeDiet(p.diet || (data as any).diet, fallbackText),
         motherTongue: p.motherTongue || p.mother_tongue || null,
-        about: p.about || null,
+        about: aboutMe,
         birthOrder: p.birthOrder ? Number(p.birthOrder) : (birthDay ? null : null),
         residentStatus: p.residentStatus || p.resident_status || null,
         propertyDetails,
@@ -1455,6 +1498,46 @@ export function normalizeComplexion(val: any): string | null {
   }
 
   return null;
+}
+
+export function normalizeDiet(val: any, fallbackText?: string): string {
+  if (val !== undefined && val !== null && typeof val === 'string' && val.trim().length > 0) {
+    const raw = val.trim();
+    const clean = raw.toUpperCase().replace(/[\s_\-]/g, '');
+    if (clean === 'VEG' || clean === 'VEGETARIAN' || clean === 'PUREVEG' || clean === 'PUREVEGETARIAN') {
+      return 'Vegetarian';
+    }
+    if (clean === 'NONVEG' || clean === 'NONVEGETARIAN') {
+      return 'Non-Vegetarian';
+    }
+    if (clean === 'EGGETARIAN') {
+      return 'Eggetarian';
+    }
+    if (clean === 'VEGAN') {
+      return 'Vegan';
+    }
+    if (clean === 'JAIN') {
+      return 'Jain';
+    }
+    return raw;
+  }
+
+  if (fallbackText) {
+    if (/\b(?:non[\s\-_]*veg(?:etarian)?|அசைவம்)\b/i.test(fallbackText)) {
+      return 'Non-Vegetarian';
+    }
+    if (/\b(?:pure[\s\-_]*veg(?:etarian)?|vegetarian|சைவம்)\b/i.test(fallbackText)) {
+      return 'Vegetarian';
+    }
+    if (/\beggetarian\b/i.test(fallbackText)) {
+      return 'Eggetarian';
+    }
+    if (/\bvegan\b/i.test(fallbackText)) {
+      return 'Vegan';
+    }
+  }
+
+  return 'Non-Vegetarian';
 }
 
 export function parseAnnualIncome(val: any): { salaryText: string | null; salaryMin: number | null } {
