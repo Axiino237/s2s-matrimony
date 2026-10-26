@@ -437,16 +437,6 @@ export class AuthService {
   }
 
   async verifyOtpAndLogin(dto: VerifyOtpDto) {
-    const isMaintenance = await checkIsMaintenanceModeActive(this.prisma);
-    if (isMaintenance) {
-      throw new ServiceUnavailableException({
-        statusCode: 503,
-        error: 'Service Unavailable',
-        message: 'The platform is currently undergoing scheduled maintenance. Regular member login is temporarily unavailable.',
-        maintenance: true,
-      });
-    }
-
     const phoneDigits = dto.phone ? dto.phone.replace(/\D/g, '') : '';
     const last10 = phoneDigits.slice(-10);
     const formattedPhone = dto.phone.startsWith('+') ? dto.phone : `+91${last10 || dto.phone}`;
@@ -475,6 +465,18 @@ export class AuthService {
         },
       },
     }).catch(() => null);
+
+    const roles = user?.userRoles?.map((ur) => ur.role.name) || [];
+    const isStaff = roles.some((r) => ['SUPER_ADMIN', 'ADMIN'].includes(r));
+    const isMaintenance = await checkIsMaintenanceModeActive(this.prisma);
+    if (isMaintenance && !isStaff) {
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        error: 'Service Unavailable',
+        message: 'The platform is currently undergoing scheduled maintenance. Regular member login is temporarily unavailable.',
+        maintenance: true,
+      });
+    }
 
     const isNewRegistration = !user || !user.isPhoneVerified;
 

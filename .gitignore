@@ -50,3 +50,6 @@ uploads/
 **/uploads/
 
 FUNCTIONAL_TEST_CASES.md
+
+# Local production database copy configuration
+backend/.env.prod_copy

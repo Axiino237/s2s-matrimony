@@ -1233,21 +1233,6 @@ const AdminAiBiodata = () => {
                     </div>
                   )}
 
-                  {/* About Me Template Banner */}
-                  <div className="p-3 bg-indigo-50/60 border border-indigo-200 rounded-xl text-xs space-y-1.5 shadow-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-indigo-600" />
-                        About Me
-                      </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
-                        {prof.gender ? `${prof.gender} Template` : 'Empty (No gender detected)'}
-                      </span>
-                    </div>
-                    <p className="text-slate-700 italic text-[11px] leading-relaxed">
-                      {prof.about ? `"${prof.about}"` : '(Left empty - Gender was missing or invalid)'}
-                    </p>
-                  </div>
 
                   {/* JSON Editor / Code Block */}
                   <div className="relative group">

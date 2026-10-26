@@ -11,10 +11,11 @@ import {
   Share2, MoreVertical, MapPin, Briefcase, GraduationCap, Star, 
   CheckCircle2, Image as ImageIcon, Calendar, BookOpen, Users, 
   UserCheck, Award, ArrowUpRight, Edit, Loader2, User, Camera, Trash2, FileText, MessageSquare,
-  Moon, Download
+  Moon, Download, Crop
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseHoroscopeFiles } from '../../../utils/upload-limits';
+import { PhotoCropModal } from '../../../components/profile/PhotoCropModal';
 
 const TAMIL_NAMES_FEMALE = ['Kavitha Rajan', 'Priya Mudaliar', 'Meera Gounder', 'Divya Iyer', 'Saranya Udayar', 'Nithya Pillai', 'Anjali Iyengar', 'Revathi Chettiar', 'Padma Vellalar', 'Mala Pillai'];
 const TAMIL_NAMES_MALE = ['Arjun Shankar', 'Suresh Pillai', 'Vikram Chettiar', 'Anand Thevar', 'Karthik Konar', 'Babu Devar', 'Senthil Nadar', 'Mani Mudaliar', 'Ganesh Gounder', 'Rajesh Thevar'];
@@ -105,6 +106,8 @@ const ProfileViewPage = () => {
   const [removedPhotos, setRemovedPhotos] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
 
   const handleDeletePhoto = async (photoItem: { id?: string; url: string } | string) => {
     const photoId = typeof photoItem === 'object' ? photoItem.id : (!photoItem.startsWith('data:') && !photoItem.includes('/') ? photoItem : undefined);
@@ -138,7 +141,7 @@ const ProfileViewPage = () => {
     refetchOnMount: 'always',
   });
 
-  const handleDirectPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelectForCrop = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -147,25 +150,39 @@ const ProfileViewPage = () => {
       return;
     }
 
-    setUploadingPhoto(true);
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       if (dataUrl) {
-        try {
-          await profilesApi.uploadPhoto(dataUrl, true);
-          toast.success('Photo uploaded successfully! 🎉');
-          setAvatarError(false);
-          await refetchProfile();
-        } catch {
-          toast.error('Failed to upload photo.');
-        } finally {
-          setUploadingPhoto(false);
-          if (photoInputRef.current) photoInputRef.current.value = '';
-        }
+        setImageToCrop(dataUrl);
+        setCropModalOpen(true);
       }
     };
     reader.readAsDataURL(file);
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
+
+  const handleEditCurrentPhoto = () => {
+    if (profile.photo) {
+      setImageToCrop(profile.photo);
+      setCropModalOpen(true);
+    }
+  };
+
+  const handleSaveCroppedPhoto = async (croppedDataUrl: string) => {
+    setUploadingPhoto(true);
+    try {
+      await profilesApi.uploadPhoto(croppedDataUrl, true);
+      toast.success('Profile photo updated successfully! 🎉');
+      setAvatarError(false);
+      setCropModalOpen(false);
+      setImageToCrop(null);
+      await refetchProfile();
+    } catch {
+      toast.error('Failed to update photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const isLimitReached = !isOwnProfile && Boolean(
@@ -684,20 +701,39 @@ const ProfileViewPage = () => {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={handleDirectPhotoUpload}
+                        onChange={handlePhotoSelectForCrop}
                       />
-                      <div className="absolute inset-0 bg-black/60 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity font-bold text-xs gap-1.5 p-1 z-20">
+                      {/* Top-Right Action Buttons: Edit, Change, Delete */}
+                      <div className="absolute top-1.5 right-1.5 z-20 flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
                         {uploadingPhoto ? (
-                          <Loader2 className="w-6 h-6 animate-spin text-white" />
+                          <div className="w-7 h-7 rounded-lg bg-black/70 backdrop-blur-xs flex items-center justify-center text-white shadow">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          </div>
                         ) : (
                           <>
+                            {profile.photo && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditCurrentPhoto();
+                                }}
+                                className="w-7 h-7 rounded-lg bg-black/65 hover:bg-black/85 text-white backdrop-blur-xs flex items-center justify-center shadow-md transition-all hover:scale-105 cursor-pointer"
+                                title="Crop & Adjust Photo"
+                              >
+                                <Crop className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <button
                               type="button"
-                              onClick={() => photoInputRef.current?.click()}
-                              className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-white/25 hover:bg-white/35 transition-colors cursor-pointer text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                photoInputRef.current?.click();
+                              }}
+                              className="w-7 h-7 rounded-lg bg-black/65 hover:bg-black/85 text-white backdrop-blur-xs flex items-center justify-center shadow-md transition-all hover:scale-105 cursor-pointer"
+                              title={profile.photo ? 'Change Photo' : 'Upload Photo'}
                             >
-                              <Camera className="w-3.5 h-3.5 text-white" />
-                              <span>{profile.photo ? 'Change' : 'Upload'}</span>
+                              <Camera className="w-3.5 h-3.5" />
                             </button>
                             {profile.photo && (
                               <button
@@ -707,11 +743,10 @@ const ProfileViewPage = () => {
                                   const mainPt = profile.photosList.find((pt: any) => pt.url === profile.photo);
                                   handleDeletePhoto(mainPt || profile.photo);
                                 }}
-                                className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-rose-600/80 hover:bg-rose-700 text-white transition-colors cursor-pointer text-xs"
-                                title="Delete Profile Picture"
+                                className="w-7 h-7 rounded-lg bg-rose-600/85 hover:bg-rose-700 text-white backdrop-blur-xs flex items-center justify-center shadow-md transition-all hover:scale-105 cursor-pointer"
+                                title="Delete Photo"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
-                                <span>Delete</span>
                               </button>
                             )}
                           </>
@@ -1376,6 +1411,17 @@ const ProfileViewPage = () => {
 
         </div>
       </div>
+
+      <PhotoCropModal
+        isOpen={cropModalOpen}
+        imageUrl={imageToCrop}
+        onClose={() => {
+          setCropModalOpen(false);
+          setImageToCrop(null);
+        }}
+        onSave={handleSaveCroppedPhoto}
+        isSaving={uploadingPhoto}
+      />
     </div>
   );
 };

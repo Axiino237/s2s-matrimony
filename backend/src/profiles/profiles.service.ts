@@ -27,7 +27,7 @@ export class ProfilesService {
     private readonly eliteQualService: EliteQualificationService,
     private readonly entitlementsService: EntitlementsService,
     @Optional() private readonly horoscopeMatchingService?: HoroscopeMatchingService,
-  ) {}
+  ) { }
 
   async getProfileByUserId(userId: string) {
     try {
@@ -162,7 +162,7 @@ export class ProfilesService {
             try {
               const inner = JSON.parse(parsed.about);
               if (inner.about !== undefined) parsed.about = inner.about;
-            } catch {}
+            } catch { }
           }
           return parsed || {};
         } catch {
@@ -527,7 +527,7 @@ export class ProfilesService {
         if (!canView.allowed) {
           throw new ForbiddenException(
             canView.reason ||
-              'You have reached your daily profile view limit. Upgrade your membership to view more profiles.',
+            'You have reached your daily profile view limit. Upgrade your membership to view more profiles.',
           );
         }
         if (!canView.isAlreadyViewedToday) {
@@ -561,16 +561,16 @@ export class ProfilesService {
       horoscopeFile: profile.horoscope?.horoscopeFile || null,
       horoscope: profile.horoscope
         ? {
-            ...profile.horoscope,
-            horoscopeFile: profile.horoscope?.horoscopeFile || null,
+          ...profile.horoscope,
+          horoscopeFile: profile.horoscope?.horoscopeFile || null,
+          rasiChart,
+          amsamChart,
+          horoscopeData: {
+            ...hData,
             rasiChart,
             amsamChart,
-            horoscopeData: {
-              ...hData,
-              rasiChart,
-              amsamChart,
-            },
-          }
+          },
+        }
         : profile.horoscope,
     };
 
@@ -585,10 +585,10 @@ export class ProfilesService {
             try {
               const inner = JSON.parse(prefObj.about);
               if (inner.about !== undefined) prefObj.about = inner.about;
-            } catch {}
+            } catch { }
           }
         }
-      } catch {}
+      } catch { }
 
       const pComm = prefObj.community || prefObj.caste || '';
       const pRel = prefObj.religion || '';
@@ -1140,7 +1140,7 @@ export class ProfilesService {
               existingAboutObj = typeof existing.partnerPreference.aboutPartner === 'string'
                 ? JSON.parse(existing.partnerPreference.aboutPartner)
                 : existing.partnerPreference.aboutPartner;
-            } catch {}
+            } catch { }
           }
 
           const incomingCommunity = data.prefCommunity !== undefined ? data.prefCommunity : (data.prefCaste !== undefined ? data.prefCaste : undefined);
@@ -1154,7 +1154,7 @@ export class ProfilesService {
             try {
               const parsed = JSON.parse(cleanAbout);
               cleanAbout = parsed.about || '';
-            } catch {}
+            } catch { }
           }
 
           const aboutObj = JSON.stringify({
@@ -1585,7 +1585,7 @@ export class ProfilesService {
       if (!canView.allowed) {
         throw new ForbiddenException(
           canView.reason ||
-            'You have reached your daily profile view limit. Upgrade your membership to view more profiles.',
+          'You have reached your daily profile view limit. Upgrade your membership to view more profiles.',
         );
       }
 

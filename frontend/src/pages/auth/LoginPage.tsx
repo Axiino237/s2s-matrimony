@@ -62,7 +62,17 @@ const LoginPage = () => {
       const user = await loginWithOtp(`+91${phone}`, otp);
       toast.success('Login successful!');
       redirectUser(user);
-    } catch {
+    } catch (err: any) {
+      if (
+        err?.response?.status === 503 ||
+        err?.response?.data?.maintenance ||
+        String(err?.response?.data?.message || '').toLowerCase().includes('maintenance')
+      ) {
+        useSettingsStore.getState().setSettings({ maintenanceMode: true });
+        toast.error(err?.response?.data?.message || 'Platform is under maintenance. Regular member login is temporarily unavailable.');
+        navigate('/maintenance');
+        return;
+      }
       toast.error('Invalid OTP. Try again.');
     } finally {
       setLoading(false);
@@ -75,7 +85,17 @@ const LoginPage = () => {
       const user = await login(data.email, data.password);
       toast.success('Welcome back!');
       redirectUser(user);
-    } catch {
+    } catch (err: any) {
+      if (
+        err?.response?.status === 503 ||
+        err?.response?.data?.maintenance ||
+        String(err?.response?.data?.message || '').toLowerCase().includes('maintenance')
+      ) {
+        useSettingsStore.getState().setSettings({ maintenanceMode: true });
+        toast.error(err?.response?.data?.message || 'Platform is under maintenance. Regular member login is temporarily unavailable.');
+        navigate('/maintenance');
+        return;
+      }
       toast.error('Invalid email or password.');
     } finally {
       setLoading(false);

@@ -42,17 +42,17 @@ export class MaintenanceGuard implements CanActivate {
     }
 
     // 4. Essential Auth endpoints needed for Admin login and active session handling
+    // Login and OTP verification handlers inspect credentials and allow staff while blocking members
     if (
       url.startsWith('/api/v1/auth/admin-login') ||
       url.startsWith('/api/v1/auth/login') ||
-      url.startsWith('/api/v1/auth/refresh') ||
-      url.startsWith('/api/v1/auth/logout') ||
-      url.startsWith('/api/v1/auth/me')
+      url.startsWith('/api/v1/auth/verify-otp') ||
+      url.startsWith('/api/v1/auth/logout')
     ) {
       return true;
     }
 
-    // 5. For any other endpoints, allow if user is an authenticated Admin or Super Admin
+    // 5. For any other endpoints (including /auth/me, /auth/refresh, profiles, etc.), allow if user is an authenticated Admin or Super Admin
     const user = request.user;
     let userRole = (user?.role || user?.roles?.[0] || user?.userRoles?.[0]?.role?.name)?.toString().toUpperCase();
 
@@ -62,6 +62,17 @@ export class MaintenanceGuard implements CanActivate {
         const token = request.headers.authorization.split(' ')[1];
         const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
         userRole = (payload?.role || payload?.roles?.[0])?.toString().toUpperCase();
+      } catch {}
+    }
+
+    // Also check refresh token cookie/body for /auth/refresh
+    if (!userRole && url.startsWith('/api/v1/auth/refresh')) {
+      try {
+        const refreshToken = request.cookies?.s2s_refresh_token || request.body?.refreshToken;
+        if (refreshToken) {
+          const payload = JSON.parse(Buffer.from(refreshToken.split('.')[1], 'base64').toString());
+          userRole = (payload?.role || payload?.roles?.[0])?.toString().toUpperCase();
+        }
       } catch {}
     }
 

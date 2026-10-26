@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Smartphone, ArrowLeft, Loader2, RefreshCw, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/auth.store';
+import { useSettingsStore } from '../../store/settings.store';
 import api from '../../services/api';
 import { getAuthorizedAdminRoute } from '../../components/layout/AdminLayout';
 
@@ -86,7 +87,17 @@ const OtpVerifyPage = () => {
         }
       }
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } };
+      const error = err as { response?: { status?: number; data?: { message?: string; maintenance?: boolean } } };
+      if (
+        error?.response?.status === 503 ||
+        error?.response?.data?.maintenance ||
+        String(error?.response?.data?.message || '').toLowerCase().includes('maintenance')
+      ) {
+        useSettingsStore.getState().setSettings({ maintenanceMode: true });
+        toast.error(error?.response?.data?.message || 'Platform is under maintenance. Regular member login is temporarily unavailable.');
+        navigate('/maintenance');
+        return;
+      }
       const msg = error?.response?.data?.message || 'Invalid or expired OTP code.';
       toast.error(msg);
     } finally {

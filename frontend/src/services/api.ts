@@ -83,6 +83,21 @@ api.interceptors.response.use(
       (error.response?.data?.maintenance || String(error.response?.data?.message || '').toLowerCase().includes('maintenance'))
     ) {
       useSettingsStore.getState().setSettings({ maintenanceMode: true });
+      const currentUser = useAuthStore.getState().user;
+      const roleStr = (
+        currentUser?.role ||
+        (Array.isArray(currentUser?.roles) ? currentUser?.roles[0] : currentUser?.roles) ||
+        (currentUser as any)?.userRoles?.[0]?.role?.name ||
+        ''
+      ).toString().toUpperCase();
+      const allRoles: string[] = Array.isArray(currentUser?.roles)
+        ? currentUser.roles.map((r: any) => (typeof r === 'string' ? r : r?.name || '').toUpperCase())
+        : [roleStr];
+      const isAdminOrSuperAdmin = roleStr === 'ADMIN' || roleStr === 'SUPER_ADMIN' || allRoles.includes('ADMIN') || allRoles.includes('SUPER_ADMIN');
+
+      if (!isAdminOrSuperAdmin && useAuthStore.getState().isAuthenticated) {
+        useAuthStore.getState().logout();
+      }
     }
 
     return Promise.reject(error);

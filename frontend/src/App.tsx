@@ -102,7 +102,7 @@ const queryClient = new QueryClient({
 
 const MaintenanceEnforcer = ({ children }: { children: React.ReactNode }) => {
   const maintenanceMode = useSettingsStore((s) => s.maintenanceMode);
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
   const location = useLocation();
 
   const isAdminOrSuperAdmin =
@@ -111,6 +111,13 @@ const MaintenanceEnforcer = ({ children }: { children: React.ReactNode }) => {
       user?.role === 'SUPER_ADMIN' ||
       (Array.isArray((user as any)?.roles) &&
         ((user as any).roles.includes('ADMIN') || (user as any).roles.includes('SUPER_ADMIN'))));
+
+  // Invalidate ordinary member session immediately when maintenance is active
+  useEffect(() => {
+    if (maintenanceMode && isAuthenticated && !isAdminOrSuperAdmin) {
+      logout();
+    }
+  }, [maintenanceMode, isAuthenticated, isAdminOrSuperAdmin, logout]);
 
   if (!maintenanceMode || isAdminOrSuperAdmin) {
     return (
@@ -151,6 +158,13 @@ function App() {
     if (isAuthenticated || accessToken) {
       fetchMe().catch(() => null);
     }
+
+    // Periodically recheck public settings / maintenance state every 20 seconds
+    const interval = setInterval(() => {
+      useSettingsStore.getState().fetchSettings().catch(() => null);
+    }, 20000);
+
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -177,6 +191,7 @@ function App() {
             <Route path="/sitemap" element={<SitemapPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/maintenance" element={<MaintenancePage />} />
           </Route>
 
           {/* ── Standalone Public Biodata Form (No Website Header/Navbar) ── */}

@@ -916,7 +916,7 @@ async function main() {
     for (const rawSubName of comm.subCommunities) {
       const subName = `${rawSubName} (${casteName})`;
       const subSlug = `${comm.slug}-${rawSubName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-      
+
       const existingComm = await prisma.community.findFirst({ where: { slug: subSlug } });
       if (existingComm) {
         await prisma.community.update({
