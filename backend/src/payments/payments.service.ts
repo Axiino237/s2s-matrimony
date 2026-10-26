@@ -430,8 +430,12 @@ export class PaymentsService {
       where: { OR: [{ id: targetUserId }, { userId: targetUserId }] },
     }).catch(() => null);
 
-    const canonicalProfileId = existingProfile?.id || targetUserId;
-    const canonicalUserId = existingProfile?.userId;
+    if (!existingProfile) {
+      throw new NotFoundException('Target profile not found');
+    }
+
+    const canonicalProfileId = existingProfile.id;
+    const canonicalUserId = existingProfile.userId;
 
     const isAlreadyUnlocked =
       entitlements.contacts.unlockedIds.includes(targetUserId) ||
@@ -459,11 +463,16 @@ export class PaymentsService {
       );
     }
 
-    if (existingProfile) {
-      await this.prisma.contactUnlock.create({
-        data: { unlockedById: userId, profileId: existingProfile.id },
-      });
-    }
+    await this.prisma.contactUnlock.upsert({
+      where: {
+        unlockedById_profileId: {
+          unlockedById: userId,
+          profileId: existingProfile.id,
+        },
+      },
+      create: { unlockedById: userId, profileId: existingProfile.id },
+      update: {},
+    });
 
     return this.getUnlockedContacts(userId);
   }

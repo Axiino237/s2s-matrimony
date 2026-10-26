@@ -497,18 +497,22 @@ const ProfileViewPage = () => {
   }, [unlockedState, profile, apiProfile]);
 
   const handleUnlockContact = async () => {
-    if (!profile) return;
+    if (!profile || unlockingContact) return;
     setUnlockingContact(true);
     try {
       const targetUserId = apiProfile?.userId || (apiProfile as any)?.user?.id || profile.id;
       const res = await paymentsApi.unlockContact(targetUserId);
       setUnlockedState({
         tier: res.tier,
+        planName: res.planName,
         contactLimit: res.contactLimit,
         usedCount: res.usedCount,
         remaining: res.remaining,
         unlockedIds: res.unlockedIds || [],
       });
+      if (res.entitlements) {
+        updateEntitlements(res.entitlements);
+      }
       if (res.alreadyUnlocked) {
         toast.success(`Contact details already unlocked!`);
       } else {

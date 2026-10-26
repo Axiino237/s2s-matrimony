@@ -82,7 +82,7 @@ export class EntitlementsService {
     }
 
     if (isStaff) {
-      const unlockedIds = await this.getUnlockedContactIds(userId);
+      const { unlockedIds } = await this.getUnlockedContactDetails(userId);
       return {
         userId,
         planId: 'staff-plan',
@@ -195,8 +195,7 @@ export class EntitlementsService {
     // 6. Contact view limits & usage calculation
     const maxContacts = Number(resolvedPlan.maxContacts ?? resolvedPlan.contactLimit ?? 0);
     const contactsEnabled = maxContacts !== 0 || hasFeature('contact');
-    const unlockedIds = await this.getUnlockedContactIds(userId);
-    const usedContacts = unlockedIds.length;
+    const { unlockedIds, usedCount: usedContacts } = await this.getUnlockedContactDetails(userId);
     const remainingContacts =
       maxContacts === -1
         ? 999999
@@ -334,15 +333,18 @@ export class EntitlementsService {
 
   /**
    * Helper to retrieve all contact IDs (profile IDs & user IDs) unlocked by this user
+   * and the distinct profile unlock count.
    */
-  private async getUnlockedContactIds(userId: string): Promise<string[]> {
+  private async getUnlockedContactDetails(userId: string): Promise<{ unlockedIds: string[]; usedCount: number }> {
     const idSet = new Set<string>();
+    let usedCount = 0;
 
     try {
       const dbUnlocks = await this.prisma.contactUnlock.findMany({
         where: { unlockedById: userId },
         include: { profile: true },
       });
+      usedCount = dbUnlocks.length;
       for (const u of dbUnlocks) {
         idSet.add(u.profileId);
         if (u.profile?.userId) idSet.add(u.profile.userId);
@@ -351,7 +353,7 @@ export class EntitlementsService {
       // ignore
     }
 
-    return Array.from(idSet);
+    return { unlockedIds: Array.from(idSet), usedCount };
   }
 
   /**

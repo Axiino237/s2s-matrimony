@@ -234,6 +234,7 @@ export class SuperAdminService {
         goldTiersCount,
         eliteTiersCount,
         allProfiles,
+        religionStats,
       ] = await Promise.all([
         this.prisma.user.count().catch(() => 0),
         this.prisma.profile.count().catch(() => 0),
@@ -248,12 +249,39 @@ export class SuperAdminService {
         this.prisma.membership.count({ where: { tier: 'GOLD' } }).catch(() => 0),
         this.prisma.membership.count({ where: { tier: 'ELITE' } }).catch(() => 0),
         this.prisma.profile.findMany({ select: { profileCompletionPercent: true } }).catch(() => [] as { profileCompletionPercent: number | null }[]),
+        this.prisma.religion.findMany({
+          select: {
+            name: true,
+            _count: {
+              select: { profiles: true },
+            },
+          },
+        }).catch(() => []),
       ]);
 
       const c100 = allProfiles.filter(p => (p.profileCompletionPercent ?? 0) >= 100).length;
       const c70 = allProfiles.filter(p => (p.profileCompletionPercent ?? 0) >= 70 && (p.profileCompletionPercent ?? 0) < 100).length;
       const c40 = allProfiles.filter(p => (p.profileCompletionPercent ?? 0) >= 40 && (p.profileCompletionPercent ?? 0) < 70).length;
       const cBelow40 = allProfiles.filter(p => (p.profileCompletionPercent ?? 0) < 40).length;
+
+      let hinduCount = 0;
+      let muslimCount = 0;
+      let christianCount = 0;
+      let othersCount = 0;
+
+      for (const r of religionStats) {
+        const count = r._count?.profiles ?? 0;
+        const name = (r.name || '').trim().toLowerCase();
+        if (name === 'hindu') {
+          hinduCount += count;
+        } else if (name === 'muslim' || name === 'islam') {
+          muslimCount += count;
+        } else if (name === 'christian' || name === 'christianity') {
+          christianCount += count;
+        } else {
+          othersCount += count;
+        }
+      }
 
       const freeTiersCount = Math.max(0, totalProfiles - (silverTiersCount + goldTiersCount + eliteTiersCount));
       const totalRevenue = totalRevenueAgg?._sum?.amount ? Number(totalRevenueAgg._sum.amount) : 0;
@@ -281,6 +309,12 @@ export class SuperAdminService {
           c40,
           cBelow40,
         },
+        religions: {
+          hindu: hinduCount,
+          muslim: muslimCount,
+          christian: christianCount,
+          others: othersCount,
+        },
       };
     } catch {
       return {
@@ -293,6 +327,7 @@ export class SuperAdminService {
         demographics: { male: 0, female: 0 },
         membershipTiers: { free: 0, silver: 0, gold: 0, elite: 0 },
         profileCompletion: { c100: 0, c70: 0, c40: 0, cBelow40: 0 },
+        religions: { hindu: 0, muslim: 0, christian: 0, others: 0 },
       };
     }
   }
@@ -1038,6 +1073,7 @@ export class SuperAdminService {
           where: { createdAt: { gte: startDate } },
           include: {
             user: { include: { profile: true } },
+            plan: true,
           },
           orderBy: { createdAt: 'desc' },
         }).catch(() => []);
@@ -1046,39 +1082,50 @@ export class SuperAdminService {
           payments = await this.prisma.payment.findMany({
             include: {
               user: { include: { profile: true } },
+              plan: true,
             },
             orderBy: { createdAt: 'desc' },
             take: 100,
           }).catch(() => []);
         }
 
-        return payments.map((p) => ({
-          paymentId: p.id,
-          orderId: p.orderId || p.razorpayOrderId || 'N/A',
-          customerName: p.user?.profile?.firstName ? `${p.user.profile.firstName} ${p.user.profile.lastName || ''}`.trim() : (p.user?.email || 'N/A'),
-          customerEmail: p.user?.email || 'N/A',
-          customerPhone: p.user?.phone || 'N/A',
-          planId: p.planId || 'N/A',
-          amount: Number(p.amount),
-          currency: p.currency || 'INR',
-          status: p.status,
-          method: p.paymentMethod || 'Razorpay',
-          gatewayTxnId: p.razorpayPaymentId || p.transactionId || 'N/A',
-          createdAt: p.createdAt,
-        }));
+        return payments.map((p) => {
+          const planName = p.plan?.name || (p.plan?.tier ? `${p.plan.tier} Plan` : 'Membership Plan');
+          return {
+            paymentId: p.id,
+            orderId: p.orderId || p.razorpayOrderId || 'N/A',
+            customerName: p.user?.profile?.firstName ? `${p.user.profile.firstName} ${p.user.profile.lastName || ''}`.trim() : (p.user?.email || 'N/A'),
+            customerEmail: p.user?.email || 'N/A',
+            customerPhone: p.user?.phone || 'N/A',
+            plan: planName,
+            planId: planName,
+            amount: Number(p.amount),
+            currency: p.currency || 'INR',
+            status: p.status,
+            method: p.paymentMethod || 'Razorpay',
+            gatewayTxnId: p.razorpayPaymentId || p.transactionId || 'N/A',
+            createdAt: p.createdAt,
+          };
+        });
       }
 
       case 'revenue': {
         let payments = await this.prisma.payment.findMany({
           where: { createdAt: { gte: startDate }, status: 'SUCCESS' },
-          include: { user: { include: { profile: true } } },
+          include: {
+            user: { include: { profile: true } },
+            plan: true,
+          },
           orderBy: { createdAt: 'desc' },
         }).catch(() => []);
 
         if (payments.length === 0) {
           payments = await this.prisma.payment.findMany({
             where: { status: 'SUCCESS' },
-            include: { user: { include: { profile: true } } },
+            include: {
+              user: { include: { profile: true } },
+              plan: true,
+            },
             orderBy: { createdAt: 'desc' },
             take: 100,
           }).catch(() => []);
@@ -1088,11 +1135,13 @@ export class SuperAdminService {
           const amount = Number(p.amount);
           const fee = Math.round(amount * 0.02);
           const net = amount - fee;
+          const planName = p.plan?.name || (p.plan?.tier ? `${p.plan.tier} Plan` : 'Membership Plan');
           return {
             transactionId: p.id,
             date: p.createdAt,
             customerName: p.user?.profile?.firstName || p.user?.email || 'Customer',
-            plan: p.planId || 'Membership',
+            plan: planName,
+            planId: planName,
             grossRevenue: amount,
             estimatedFee: fee,
             netRevenue: net,

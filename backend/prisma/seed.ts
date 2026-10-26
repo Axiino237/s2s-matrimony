@@ -847,7 +847,12 @@ async function main() {
 
   for (const plan of plans) {
     await prisma.membershipPlan.upsert({
-      where: { name: plan.name },
+      where: {
+        category_name: {
+          category: 'GENERAL',
+          name: plan.name,
+        },
+      },
       update: plan,
       create: plan,
     });

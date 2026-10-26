@@ -170,10 +170,10 @@ const SuperAdminReports = () => {
     { label: 'Elite', value: liveData?.membershipTiers?.elite ?? 0, color: '#06b6d4' },
   ];
   const religionSegments = [
-    { label: 'Hindu', value: 1, color: '#f97316' },
-    { label: 'Muslim', value: 0, color: '#10b981' },
-    { label: 'Christian', value: 0, color: '#6366f1' },
-    { label: 'Others', value: 0, color: '#94a3b8' },
+    { label: 'Hindu', value: liveData?.religions?.hindu ?? 0, color: '#f97316' },
+    { label: 'Muslim', value: liveData?.religions?.muslim ?? 0, color: '#10b981' },
+    { label: 'Christian', value: liveData?.religions?.christian ?? 0, color: '#6366f1' },
+    { label: 'Others', value: liveData?.religions?.others ?? 0, color: '#94a3b8' },
   ];
 
   const kpis = [
@@ -257,12 +257,24 @@ const SuperAdminReports = () => {
       const rawData = await superAdminService.getReportExportData(type, Number(dateRange) || 30);
       toast.dismiss('report-fetch');
 
-      const data = Array.isArray(rawData) ? rawData : [];
+      const rawList = Array.isArray(rawData) ? rawData : [];
 
-      if (data.length === 0) {
+      if (rawList.length === 0) {
         toast.error(`No records found for ${type} in the selected period.`);
         return;
       }
+
+      // Ensure plan name is displayed instead of raw UUID
+      const data = rawList.map((item: any) => {
+        const rawPlan = item.plan || item.planId;
+        const isUuid = typeof rawPlan === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawPlan.trim());
+        const resolvedPlan = isUuid ? 'Membership Plan' : (rawPlan || 'Membership Plan');
+        return {
+          ...item,
+          plan: resolvedPlan,
+          planId: resolvedPlan,
+        };
+      });
 
       if (type === 'registrations') {
         const headers: Record<string, string> = {
