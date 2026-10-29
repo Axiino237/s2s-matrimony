@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { HelpCircle, Search, ChevronDown, ChevronUp, MessageCircle, Phone, Mail, ShieldCheck, Heart, Sparkles, UserCheck, CreditCard } from 'lucide-react';
+import SEO from '../../components/common/SEO';
 
 interface FaqItem {
   id: string;
@@ -117,6 +118,11 @@ export const FaqPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-20">
+      <SEO
+        title="Frequently Asked Questions — S2S Matrimony Help & Safety"
+        description="Find answers to common questions about S2S Matrimony, including registration, profile verification, Vedic 10-Porutham horoscope matching, and contact privacy."
+        canonical="/faq"
+      />
       {/* Header Banner */}
       <div className="bg-gradient-to-br from-slate-900 via-primary-950 to-slate-900 text-white pt-28 sm:pt-32 pb-16 px-4 sm:px-6 lg:px-8 border-b border-primary-900/30 relative">
         <div className="absolute inset-0 bg-mesh opacity-10 pointer-events-none" />

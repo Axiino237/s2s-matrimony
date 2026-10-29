@@ -6,6 +6,7 @@ import api from '../../../services/api';
 import { profilesApi } from '../../../services/profiles.service';
 import { useAuthStore } from '../../../store/auth.store';
 import { useSettingsStore } from '../../../store/settings.store';
+import SEO from '../../../components/common/SEO';
 import { STARS, RASIS, DOSHAMS, CASTE_SUBCASTES, BILINGUAL_STARS, BILINGUAL_RASIS, normalizeStar, normalizeRasi } from '../../../constants/index';
 import {
   getEffectiveUploadLimits,
@@ -540,8 +541,16 @@ export default function BiodataEntryPage() {
     );
   }
 
+  const isPublicStandalone = location.pathname === '/fill-biodata';
+
   return (
     <div className="min-h-screen bg-slate-100 py-6 px-3 sm:px-6">
+      <SEO
+        title={isPublicStandalone ? 'Online Marriage Biodata Registration — S2S Matrimony' : 'Biodata Entry | S2S Matrimony'}
+        description={isPublicStandalone ? 'Register and submit your matrimonial biodata online with educational background, family details, and horoscope matching.' : undefined}
+        canonical={isPublicStandalone ? '/fill-biodata' : undefined}
+        noindex={!isPublicStandalone}
+      />
       {/* ── Print CSS: Continuous natural flow without giant forced gaps ── */}
       <style>{`
         @media print {

@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/auth.store';
 import { useSettingsStore } from '../../store/settings.store';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import SEO from '../../components/common/SEO';
 import { getAuthorizedAdminRoute, ROUTE_PERMISSIONS } from '../../components/layout/AdminLayout';
 
 const LoginPage = () => {
@@ -167,6 +168,11 @@ const LoginPage = () => {
 
   return (
     <div className="relative min-h-screen pt-20 sm:pt-24 pb-12 sm:pb-16 flex items-center overflow-x-hidden bg-slate-950">
+      <SEO
+        title="Member Sign In — S2S Matrimony"
+        description="Sign in to your S2S Matrimony account to manage your biodata, view daily match recommendations, and connect with prospective partners."
+        canonical="/login"
+      />
       {/* High Resolution Marriage Background Image — Bright & Clearly Visible */}
       <div 
         className="absolute inset-0 bg-cover bg-center opacity-85 scale-100 transition-transform duration-1000"

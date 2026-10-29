@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, Eye, EyeOff, CheckCircle2, XCircle, Loader2, ShieldCheck } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import SEO from '../../components/common/SEO';
 
 const strength = (pw: string) => {
   let s = 0;
@@ -64,6 +65,7 @@ const ResetPasswordPage = () => {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-950 pt-20 pb-10">
+      <SEO title="Reset Password | S2S Matrimony" noindex={true} />
       {/* Background */}
       <div
         className="absolute inset-0 bg-cover bg-center opacity-70"

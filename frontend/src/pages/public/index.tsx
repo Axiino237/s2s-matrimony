@@ -8,18 +8,10 @@ import api from '../../services/api';
 import { useAuthStore } from '../../store/auth.store';
 import { useSettingsStore } from '../../store/settings.store';
 import { Crown } from 'lucide-react';
+import SEO from '../../components/common/SEO';
 
 
-// Stub pages for public routes
-export const CommunityPage = () => (
-  <div className="pt-20 min-h-screen">
-    <div className="container mx-auto px-4 md:px-8 py-16 text-center">
-      <h1 className="section-title mb-4">Community Matrimony</h1>
-      <p className="section-subtitle mb-8">Find matches from your specific community</p>
-      <Link to="/search" className="btn btn-primary btn-lg">Search Profiles</Link>
-    </div>
-  </div>
-);
+export { CommunityPage } from './CommunityPage';
 
 export const SuccessStoriesPage = () => {
   const [dbStories, setDbStories] = useState<any[]>([]);
@@ -79,6 +71,11 @@ export const SuccessStoriesPage = () => {
 
   return (
     <div className="pt-24 pb-16 min-h-screen bg-slate-50">
+      <SEO
+        title="Matrimony Success Stories & Reviews — S2S Matrimony"
+        description="Read real success stories and marriage reviews from verified couples who found their life partners on S2S Matrimony across Tamil Nadu and South India."
+        canonical="/success-stories"
+      />
       <div className="container mx-auto px-4 md:px-8">
         <div className="text-center mb-14">
           <div className="inline-flex items-center gap-2 bg-rose-100 border border-rose-200 rounded-full px-4 py-1.5 text-rose-700 text-xs font-bold uppercase tracking-wider mb-3">
@@ -259,6 +256,11 @@ export const MembershipPage = () => {
 
   return (
     <div className="pt-20 min-h-screen flex justify-center w-full">
+      <SEO
+        title="Matrimony Membership Plans & Pricing — S2S Matrimony"
+        description="Explore affordable matrimony membership plans. Compare Free, Silver, Gold, and Platinum contact benefits, direct chat, and 10-Porutham horoscope matching."
+        canonical="/membership"
+      />
       <div className="container mx-auto px-4 md:px-8 py-16 flex flex-col items-center w-full">
         <div className="text-center mb-6 max-w-2xl mx-auto">
           <h1 className="section-title mb-4">Membership <span className="text-gradient">Plans</span></h1>
@@ -514,6 +516,11 @@ export const BlogListPage = () => {
 
   return (
     <div className="pt-24 pb-16 min-h-screen bg-slate-50">
+      <SEO
+        title="Matrimony Blog & Marriage Guides — S2S Matrimony"
+        description="Expert advice on matrimony profile creation, Vedic 10-Porutham horoscope matching, first meeting etiquette, and Tamil wedding customs."
+        canonical="/blog"
+      />
       <div className="container mx-auto px-4 md:px-8">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-primary-dark text-xs font-bold uppercase tracking-wider mb-3">
@@ -713,8 +720,38 @@ export const BlogDetailPage = () => {
     ? new Date(blog.publishedAt || blog.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'Recently Published';
 
+  const articleSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: blog.title,
+    description: blog.excerpt || blog.title,
+    image: blog.coverImage || 'https://s2smatrimony.com/images/ceremony.png',
+    datePublished: blog.publishedAt || blog.createdAt,
+    author: {
+      '@type': 'Organization',
+      name: 'S2S Matrimony Editorial Team',
+      url: 'https://s2smatrimony.com',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'S2S Matrimony',
+      logo: {
+        '@type': 'ImageObject',
+        url: 'https://s2smatrimony.com/images/logo.png',
+      },
+    },
+  };
+
   return (
     <div className="pt-24 pb-16 min-h-screen bg-slate-50">
+      <SEO
+        title={`${blog.title} — Matrimony Guide | S2S Matrimony`}
+        description={blog.excerpt || `Read ${blog.title} on S2S Matrimony guides.`}
+        canonical={`/blog/${blog.slug || blog.id}`}
+        ogType="article"
+        ogImage={blog.coverImage || '/images/ceremony.png'}
+        jsonLd={articleSchema}
+      />
       <div className="container mx-auto px-4 md:px-8 max-w-3xl">
         <Link to="/blog" className="text-primary text-xs font-bold mb-6 inline-flex items-center gap-1 hover:underline">
           ← Back to Blog & Tips
@@ -795,6 +832,11 @@ export const ContactPage = () => {
 
   return (
     <div className="pt-24 pb-16 min-h-screen bg-slate-50">
+      <SEO
+        title="Contact S2S Matrimony — Chennai, Coimbatore & Madurai Offices"
+        description="Contact S2S Matrimony customer care and regional offices in Chennai, Coimbatore, and Madurai. Phone: +91 98765 43210, email: support@s2smatrimony.com."
+        canonical="/contact"
+      />
       <div className="container mx-auto px-4 md:px-8 max-w-5xl">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-primary-dark text-xs font-bold uppercase tracking-wider mb-3">
@@ -989,6 +1031,7 @@ export { AboutPage } from './AboutPage';
 
 export const NotFoundPage = () => (
   <div className="min-h-screen flex items-center justify-center">
+    <SEO title="404 — Page Not Found | S2S Matrimony" noindex={true} />
     <div className="text-center">
       <div className="text-8xl mb-6">404</div>
       <h1 className="font-display text-4xl font-bold text-white mb-4">Page Not Found</h1>
@@ -1008,6 +1051,7 @@ export const UnauthorizedPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+      <SEO title="Access Restricted | S2S Matrimony" noindex={true} />
       <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 shadow-xl text-center">
         <div className="w-20 h-20 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">
           🔒

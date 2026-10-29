@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import SEO from '../../components/common/SEO';
 import { useSettingsStore } from '../../store/settings.store';
 
 type Step = 'email' | 'otp' | 'password' | 'done';
@@ -147,6 +148,7 @@ const ForgotPasswordPage = () => {
   // ─── Render ──────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden py-12 px-4 sm:px-6 lg:px-8">
+      <SEO title="Forgot Password | S2S Matrimony" noindex={true} />
       {/* Background Image with Rich Overlay */}
       <div 
         className="absolute inset-0 bg-cover bg-center opacity-70"

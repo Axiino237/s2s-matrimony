@@ -1,4 +1,5 @@
 ﻿import { useEffect } from 'react';
+import SEO from '../../components/common/SEO';
 
 function ChartGrid({ center }: { center: string }) {
   const B = ({ n }: { n: string }) => (
@@ -43,6 +44,11 @@ export default function BlankBiodataFormPrintPage() {
 
   return (
     <>
+      <SEO
+        title="Printable Matrimonial Biodata Format — Free Blank Marriage Form | S2S Matrimony"
+        description="Download and print free traditional matrimonial biodata form template with Rasi and Navamsa horoscope chart grid. S2S Matrimony."
+        canonical="/print/blank-biodata"
+      />
       <style>{`
         @page { size: A4 portrait; margin: 0; }
         *, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Smartphone, ArrowLeft, Loader2, RefreshCw, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import SEO from '../../components/common/SEO';
 import { useAuthStore } from '../../store/auth.store';
 import { useSettingsStore } from '../../store/settings.store';
 import api from '../../services/api';
@@ -128,6 +129,7 @@ const OtpVerifyPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden py-12 bg-slate-50">
+      <SEO title="Verify Mobile OTP | S2S Matrimony" noindex={true} />
       <div className="absolute inset-0 bg-gradient-hero opacity-60" />
       <div className="absolute inset-0 bg-mesh opacity-40" />
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />

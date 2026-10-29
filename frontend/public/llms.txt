@@ -1,0 +1,31 @@
+# S2S Matrimony — Community Matrimonial Platform
+
+> S2S Matrimony is a trusted South Indian and Tamil community matrimonial platform providing verified bride and groom profiles, Vedic 10-Porutham horoscope compatibility matching, and confidential contact protection across 200+ cultural communities.
+
+## About S2S Matrimony
+- Organization: S2S Community Matrimony
+- Website: https://s2smatrimony.com/
+- Head Office: No. 42, Usman Road, T.Nagar, Chennai - 600017, Tamil Nadu, India
+- Regional Offices: Coimbatore (RS Puram) & Madurai (KK Nagar)
+- Helpline: +91 98765 43210
+- Email: support@s2smatrimony.com
+
+## Supported Matchmaking Capabilities
+- Community Matchmaking: Verified portals for Nadar, Mudaliar, Gounder, Pillai, Chettiar, Vanniyar, Thevar, Naidu, Brahmin (Iyer & Iyengar), Vellalar, Reddiyar, Yadav/Konar, Viswakarma, Sourashtra, Christian, Muslim, and other South Indian communities.
+- Horoscope Matching: Vedic 10-Porutham (Dasa Porutham) calculations based on Rasi, Nakshatram, and Gothram.
+- Contact Privacy: Direct phone numbers and email addresses are masked from public crawlers and unauthenticated visitors.
+- Photo Security: Anti-theft dynamic photo watermarking and view-upon-request controls.
+- Membership Tiers: Transparent pricing with Free, Silver, Gold, and Platinum tiers across General and Elite categories.
+
+## Primary Public URLs
+- Homepage: https://s2smatrimony.com/
+- Membership Plans: https://s2smatrimony.com/membership
+- Real Success Stories: https://s2smatrimony.com/success-stories
+- Matrimonial Blog & Guides: https://s2smatrimony.com/blog
+- About Us & Heritage: https://s2smatrimony.com/about
+- Contact & Office Locations: https://s2smatrimony.com/contact
+- Frequently Asked Questions: https://s2smatrimony.com/faq
+- Free Biodata Entry Form: https://s2smatrimony.com/fill-biodata
+- Printable Blank Biodata Template: https://s2smatrimony.com/print/blank-biodata
+- Sitemap: https://s2smatrimony.com/sitemap
+

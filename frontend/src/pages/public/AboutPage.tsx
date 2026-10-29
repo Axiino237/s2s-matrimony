@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Building, ArrowRight, Mail } from 'lucide-react';
 import api from '../../services/api';
 import { useSettingsStore, DEFAULT_ABOUT_MARKDOWN } from '../../store/settings.store';
+import SEO from '../../components/common/SEO';
 
 // Helper to render bold markdown (**text**)
 function renderFormattedText(text: string) {
@@ -224,6 +225,18 @@ export const AboutPage = () => {
 
   return (
     <div className="min-h-screen bg-white text-slate-800 pb-20">
+      <SEO
+        title="About S2S Matrimony — Trusted Community Matchmaking & Heritage"
+        description="Learn about S2S Matrimony, founded in 2019 to provide safe, community-focused matchmaking for Tamil and South Indian families. 100% verified profiles and privacy."
+        canonical="/about"
+        jsonLd={{
+          '@context': 'https://schema.org',
+          '@type': 'AboutPage',
+          name: 'About S2S Matrimony',
+          url: 'https://s2smatrimony.com/about',
+          description: 'Overview, mission, trust standards, and history of S2S Community Matrimony platform.',
+        }}
+      />
       {/* Header Banner */}
       <div className="bg-gradient-to-br from-slate-900 via-primary-950 to-slate-900 text-white pt-28 sm:pt-32 pb-16 px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 border-b border-primary-900/30 relative">
         <div className="absolute inset-0 bg-mesh opacity-10 pointer-events-none" />

@@ -8,6 +8,7 @@ import {
   ExternalLink, X, CheckCircle2, AlertCircle 
 } from 'lucide-react';
 import api from '../../services/api';
+import SEO from '../../components/common/SEO';
 import { useAuthStore } from '../../store/auth.store';
 import { useSettingsStore } from '../../store/settings.store';
 
@@ -119,6 +120,11 @@ const RegisterPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-x-hidden py-8 sm:py-12 px-3 sm:px-6 lg:px-8 w-full max-w-full">
+      <SEO
+        title="Free Matrimony Registration — Create Marriage Profile | S2S Matrimony"
+        description="Register free on S2S Matrimony. Create your verified biodata in 2 minutes, choose your community, and connect with prospective brides and grooms."
+        canonical="/register"
+      />
       {/* Background Image with Rich Overlay */}
       <div 
         className="absolute inset-0 bg-cover bg-center opacity-70"

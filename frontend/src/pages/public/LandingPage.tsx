@@ -9,6 +9,7 @@ import { communitiesApi, CommunityData } from '../../services/communities.servic
 import { profilesApi, ProfileData } from '../../services/profiles.service';
 import { paymentsApi } from '../../services/payments.service';
 import { sanitizePlanFeatures } from '../../components/plans/PlanFormModal';
+import SEO from '../../components/common/SEO';
 
 
 // ── Hero Section ──────────────────────────────────────────────
@@ -324,7 +325,7 @@ const FeaturesSection = () => {
             <div className="relative border border-slate-200 p-2 bg-white rounded-3xl shadow-2xl transform rotate-1 hover:rotate-0 transition-transform duration-300">
               <img 
                 src="/images/hands.png" 
-                alt="South Indian Matrimony Hands" 
+                alt="South Indian traditional wedding ceremony holding hands ritual" 
                 className="w-full h-80 object-cover rounded-2xl"
               />
               <div className="absolute bottom-6 left-6 right-6 bg-white/95 backdrop-blur border border-slate-200 p-4 rounded-2xl shadow-lg">
@@ -867,6 +868,11 @@ const CTASection = () => (
 // ── Main Landing Page ─────────────────────────────────────────
 const LandingPage = () => (
   <div className="bg-slate-50/50">
+    <SEO
+      title="S2S Matrimony — Trusted Tamil & South Indian Community Matrimony"
+      description="S2S Matrimony is a trusted South Indian and Tamil community matrimony platform. Find verified bride and groom profiles, 10-Porutham horoscope matching, and strict contact privacy across 200+ communities."
+      canonical="/"
+    />
     <HeroSection />
     <HowItWorksSection />
     <FeaturesSection />

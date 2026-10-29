@@ -1,0 +1,46 @@
+# robots.txt for S2S Matrimony
+# https://s2smatrimony.com/
+
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /contact
+Allow: /membership
+Allow: /success-stories
+Allow: /blog
+Allow: /faq
+Allow: /terms
+Allow: /terms-and-conditions
+Allow: /privacy
+Allow: /privacy-policy
+Allow: /sitemap
+Allow: /community/
+Allow: /fill-biodata
+Allow: /print/blank-biodata
+
+# Strictly Protect Member Privacy & Private Application Routes
+Disallow: /admin/
+Disallow: /super-admin/
+Disallow: /super%20admin/
+Disallow: /dashboard
+Disallow: /profile
+Disallow: /profile/
+Disallow: /complete-profile
+Disallow: /search
+Disallow: /matches
+Disallow: /horoscope-matching
+Disallow: /messages
+Disallow: /messages/
+Disallow: /interests
+Disallow: /profile-viewers
+Disallow: /payment-history
+Disallow: /premium
+Disallow: /payment/
+Disallow: /api/
+Disallow: /verify-otp
+Disallow: /forgot-password
+Disallow: /reset-password
+
+# Sitemap
+Sitemap: https://s2smatrimony.com/sitemap.xml
+

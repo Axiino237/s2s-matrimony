@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShieldCheck, ArrowLeft } from 'lucide-react';
 import api from '../../services/api';
 import { useSettingsStore, DEFAULT_PRIVACY_MARKDOWN } from '../../store/settings.store';
+import SEO from '../../components/common/SEO';
 
 interface ParsedPrivacySection {
   badge?: string;
@@ -244,6 +245,11 @@ export const PrivacyPage = () => {
 
   return (
     <div className="min-h-screen bg-white text-slate-800 pb-20">
+      <SEO
+        title="Privacy Policy & Member Protection — S2S Matrimony"
+        description="Read the S2S Matrimony Privacy Policy. Learn how we protect member personal information, mask phone numbers, and enforce strict photo privacy standards."
+        canonical="/privacy"
+      />
       {/* Full Width Header Banner */}
       <div className="w-full bg-gradient-to-br from-slate-900 via-primary-950 to-slate-900 text-white pt-28 sm:pt-32 pb-16 px-6 sm:px-12 md:px-16 lg:px-24 xl:px-32 2xl:px-40 border-b border-primary-900/30 relative">
         <div className="absolute inset-0 bg-mesh opacity-10 pointer-events-none" />

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Map, Search, ArrowRight, ExternalLink, Compass, Shield, Users, Heart, FileText, UserCheck, HelpCircle, Phone, Lock, Sparkles } from 'lucide-react';
+import SEO from '../../components/common/SEO';
 
 interface SitemapSection {
   title: string;
@@ -95,6 +96,11 @@ export const SitemapPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 pb-20">
+      <SEO
+        title="Website Sitemap & Community Directory — S2S Matrimony"
+        description="Complete site navigation directory for S2S Matrimony. Easily explore community matrimonial hubs, membership plans, marriage guides, and support pages."
+        canonical="/sitemap"
+      />
       {/* Header Banner */}
       <div className="bg-gradient-to-br from-slate-900 via-primary-950 to-slate-900 text-white pt-28 sm:pt-32 pb-16 px-4 sm:px-6 lg:px-8 border-b border-primary-900/30 relative">
         <div className="absolute inset-0 bg-mesh opacity-10 pointer-events-none" />
